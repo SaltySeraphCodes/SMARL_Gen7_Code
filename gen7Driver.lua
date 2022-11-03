@@ -4236,10 +4236,10 @@ function Driver.client_onInteract(self,character,state)
                 end
             end
             local metaData = {   
-            ['ID'] = 7, -- actual car id
-            ['Car_Name'] = "Gunnolf",
+            ['ID'] = 13, -- actual car id
+            ['Car_Name'] = "Dirty Drafter",
             ['Car_Type'] = "Stock",
-            ['Body_Style'] = "Agera",
+            ['Body_Style'] = "Bently",
             }
             self.network:sendToServer("sv_add_metaData",metaData) --TODO: MAKE SURE THIS IS On/off appropriately
        else

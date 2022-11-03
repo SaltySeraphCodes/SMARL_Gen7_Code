@@ -244,7 +244,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     local draftTS = 0 -- * global.draftStrengthHow much to increase the top speed by ()
     if self.driver.drafting and self.accelInput >= 0.8 then -- only work while accelerating, can get in the way of brakes
         --print(self.driver.id,"drafting")
-        draftTS = 0.4 -- * draftStrength
+        draftTS = 0.3 -- * draftStrength
         rpmIncrement = rpmIncrement + 0.0001 -- * global.draftStrength
     end
     -- handicap handing

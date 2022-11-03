@@ -600,7 +600,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
         if self.currentLap  == self.targetLaps - 1 then -- last laps
             driver.passAggression = -0.25 -- more agggressive passes?
         end
-
+            --TODO: Investigate why car tied with 10th of second between them theoretically
         self.raceFinished = false
     else
         self.raceFinished = true
@@ -609,6 +609,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             ['position'] = driver.racePosition,
             ['racer_id'] = driver.carData['metaData']["ID"],
             ['racer_name'] = driver.carData['metaData']["Car_Name"],
+            ['best_lap'] = driver.bestLap,
             ['split'] = driver.raceSplit
         }
         table.insert(self.finishResults,finishData)
@@ -617,24 +618,29 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
     
     if driver.raceFinished ~= self.raceFinished then -- send message to driver to slow? variable slow speeds?
         driver.raceFinished = self.raceFinished
-    end
+    
 
-    if #self.finishResults == #ALL_DRIVERS then
+    --if #self.finishResults == #ALL_DRIVERS then -- TODO: deciding on whether to output all at once or one at a time, will need to adjust log parse if one at a time
         print("Final driver finished!",self.finishResults)
+        local outputString = 'finish_data= [ '
         if self.qualfying then --  qualifying round
-            local outputString = 'qualifying_data= [ '
-            for k=1, #self.finishResults do local v=finishResults[k]
-                if v ~= nil then
-                    local qualSplit = string.format("%.3f",v.qualSplit)
-                    local output = '{"id": "'.. v.racer_id..'", "position": "'..v.position..'", "split": "'..v.split..'",  "racer_name": "'..v.racer_name..'"},'
-                    outputString = outputString .. output
-                end
-            end
-            local noCommaEnding = string.sub(outputString,1,-2)
-            local endString = ']'
-            outputString = noCommaEnding .. endString
-            self:sv_output_data(outputString)
+            outputString = 'qualifying_data= [ '
         end
+        
+        for k=1, #self.finishResults do local v=self.finishResults[k]
+            --print("Finished race, outputting")
+            if v ~= nil then
+                local time_split = string.format("%.3f",v.split)
+                local output = '{"id": "'.. v.racer_id ..'", "bestLap": "'..v.best_lap ..'", "place": "'.. v.position..'", "split": "'.. time_split..'"},'
+                outputString = outputString .. output
+            end
+        end
+        local noCommaEnding = string.sub(outputString,1,-2)
+        local endString = ']'
+        outputString = noCommaEnding .. endString
+        --print("Outputting finish",outputString)
+        self:sv_output_data(outputString)
+    --end
     end
 
 end
@@ -717,7 +723,7 @@ function Control.server_onFixedUpdate(self)
 
     -- Check race positions
     if self.raceFinished and not self.raceResultsShown then -- show more stuff after all cars done?
-        print("race done")
+        --print("race done")
         self:sv_sendAlert("Race Finished")
         self.raceResultsShown = true
     end
@@ -904,7 +910,7 @@ function Control.sv_sendAlert(self,msg) -- sends alert message to all clients (i
 end
 
 function Control.cl_showAlert(self,msg) -- client recieves alert
-    print("Displaying",msg)
+    --print("Displaying",msg)
     sm.gui.displayAlertText(msg,3)
 end
 
@@ -918,7 +924,7 @@ function Control.tickClock(self) -- Just tin case
         self.globalTimer = floorCheck
         self.dataOutputTimer:tick()
         --print(self.dataOutputTimer:remaining())
-        if self.dataOutputTimer:done() then
+        if self.dataOutputTimer:done() and not self.raceFinished then
             self:sv_performTimedFuncts()
             self.dataOutputTimer:start(3)
         end
@@ -1119,11 +1125,13 @@ function Control.sv_output_allRaceData(self) -- Outputs race data into a  big li
 		if v ~= nil then
             if v.carData == nil then return end
             if v.carData['metaData'] == nil then return end
+            --print(v.carData['metaData']["ID"],v.carData['metaData']["Car_Name"])
+            local time_split = string.format("%.3f",v.raceSplit)
 			local output = '{"id": "'.. v.carData['metaData']["ID"] ..'", "locX": "'..v.location.x..'", "locY": "'.. v.location.y..
-            '", "lastLap": "'..v.lastLap..'", "bestLap": "'..v.bestLap ..'", "lapNum": "'.. v.currentLap..'", "place": "'.. v.racePosition..'", "timeSplit": "'.. v.raceSplit..'"},'
+            '", "lastLap": "'..v.lastLap..'", "bestLap": "'..v.bestLap ..'", "lapNum": "'.. v.currentLap..'", "place": "'.. v.racePosition..'", "timeSplit": "'.. time_split..'"},'
 			outputString = outputString .. output
-            
 		end
+        
 	end
 	local noCommaEnding = string.sub(outputString,1,-2)
 	local endString = ']'
@@ -1132,9 +1140,9 @@ function Control.sv_output_allRaceData(self) -- Outputs race data into a  big li
 end
 
 
-function Control.sv_output_data(outputString) -- logs data
-	--print("Outputting",outputString)
-    --sm.log.info(outputString)
+function Control.sv_output_data(self,outputString) -- logs data
+    print()
+    sm.log.info(outputString)
 end
 
 function Control.sv_ReadJson(self)

@@ -25,7 +25,7 @@ DEFAULT_GRAVITY = 10 -- Good even number
 DEFAULT_FRICTION = 0.0006046115371 -- Friction coeficient -- could be wrong
 
 -- Conversion Rates
-VELOCITY_ROTATION_RATE = 0.37 -- 1 rotation speed ~= 0.37 velocity length -- How fast wheels should rotate (engine speed) to achieve a certain velocity
+VELOCITY_ROTATION_RATE = 0.37 -- 1 rotation speed ~= 0.37 velocity length -- How fast wheels should rotate (engine  speed) to achieve a certain velocity
 DECELERATION_RATE = -9.112992895 -- Multiply this number by the braking speed to get the aproximate deceleration rate for brake distance calculaitons (decrease for longer breaking distances)
 -- VMAX calculation defaults
 MAX_VELOCITY = 150
