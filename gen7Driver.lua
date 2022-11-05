@@ -3841,6 +3841,7 @@ function Driver.determineRacePos(self) -- constantly? checks car nodes, laps and
 end
 
 function Driver.determineRacePosBySplit(self) -- When Called, checks split from leader
+    print("checking by split")
     local leader = nil
     local leaderNodes = nil
     local racePos = 1  -- default to first
@@ -3854,6 +3855,13 @@ function Driver.determineRacePosBySplit(self) -- When Called, checks split from 
                     racePos = racePos + 1
                 elseif self.raceSplit == racer.raceSplit then
                     print(self.id,"CARS TIED?")
+                    if self.velocity < racer.velocity then
+                        racePos = racePos + 1
+                        print("I'm slower so bleh")
+                    elseif self.velocity == racer.velocity then
+                        print("Wea re the same speed??")
+                        -- check miniscule distance?
+                    end 
                 else -- car behind
                 end
             end

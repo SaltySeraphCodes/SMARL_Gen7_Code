@@ -1126,6 +1126,7 @@ function Control.sv_output_allRaceData(self) -- Outputs race data into a  big li
             if v.carData == nil then return end
             if v.carData['metaData'] == nil then return end
             --print(v.carData['metaData']["ID"],v.carData['metaData']["Car_Name"])
+            v:determineRacePosBySplit()
             local time_split = string.format("%.3f",v.raceSplit)
 			local output = '{"id": "'.. v.carData['metaData']["ID"] ..'", "locX": "'..v.location.x..'", "locY": "'.. v.location.y..
             '", "lastLap": "'..v.lastLap..'", "bestLap": "'..v.bestLap ..'", "lapNum": "'.. v.currentLap..'", "place": "'.. v.racePosition..'", "timeSplit": "'.. time_split..'"},'
