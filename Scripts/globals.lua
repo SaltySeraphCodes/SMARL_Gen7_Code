@@ -141,6 +141,18 @@ function getRaceControl()
     return RACE_CONTROL
 end
 
+
+function cameraCompare(a,b)
+    --print(a.cameraID)
+	return a['cameraID'] < b['cameraID']
+end
+
+function sortCameras()
+    --print("Sorting Cameras")
+    table.sort(ALL_CAMERAS, cameraCompare)
+    --print(ALL_CAMERAS)
+end
+
 function setSmarCam(cam)
     sm.SMARGlobals.SMAR_CAM = cam
     --print("set smar cam",SMAR_CAM)

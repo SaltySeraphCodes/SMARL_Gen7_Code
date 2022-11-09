@@ -53,6 +53,7 @@ function SmarlCamera.client_init( self )
 	self.freeCamLocation = self.location
 	self.freeCamDirection = sm.camera.getDirection()
 	self.freeCamActive = false
+	self.freeCamOffset = sm.vec3.new(0,0,0)
 
 	self.raceCamActive = false
 	self.raceCamDirection = sm.camera.getDirection()
@@ -132,7 +133,7 @@ function SmarlCamera.cl_recieveCommand(self,com) -- takes in string commands and
 		elseif com.value == 1 then
 			self:deactivateFreecam()
 			self:activateRaceCam()
-		end
+		end -- Add drone cam??
 	elseif com.command == "ExitCam" then
 		if self.freeCamActive then
 			self:exitFreecam()
@@ -203,14 +204,17 @@ function SmarlCamera.cl_setMoveDir(self,move) -- normalized vector to indicate m
 end
 
 function SmarlCamera.cl_setPosition(self,position) -- sets race camera to specified -position, resets zoom to 70
-	--sm.camera.setPosition(position)
+	sm.camera.setPosition(position) -- sets position immediately was commented out for some reason (possibly for camera shake reasons)
 	self.raceCamLocation = position
-	--print("setpos",self.raceCamLocation)
+	--print("setPosR",self.raceCamLocation,self.raceCamDirection)
+	--print("setPosA",sm.camera.getPosition(),sm.camera.getDirection())
 end
 
 function SmarlCamera.cl_setDirection(self,direciton) -- sets race camera to specified -position, resets zoom to 70
 	self.raceCamDirection = direciton
-	--print("setDir",self.raceCamDirection)
+	sm.camera.setDirection(direciton)
+	--print("setDirR",self.raceCamLocation,self.raceCamDirection)
+	--print("setDirA",sm.camera.getPosition(),sm.camera.getDirection())
 end
 
 function SmarlCamera.cl_setMoveSpeed(self,speed) -- int that sets movement speed
@@ -350,7 +354,7 @@ end
 
 
 function SmarlCamera.client_onUpdate( self, timeStep )
-	--print("Cinecamera cl Update bEfore")
+	--print("Actual",sm.camera.getPosition(),sm.camera.getDirection())
 	self.location = self.character:getWorldPosition() -- Make this only move according to camera mode
 	self.freeCamDirection = sm.camera.getDirection()
 
@@ -383,8 +387,9 @@ function SmarlCamera.client_onUpdate( self, timeStep )
 	--print(self.freeCamActive,self.raceCamActive)
 	if self.freeCamActive then -- movable free cam
 		local moveDir = self.moveDir--self.tool:getRelativeMoveDirection()
-		moveDir = sm.vec3.lerp(self.moveAccel,moveDir,timeStep*2)
-		seldsmoveAccel = moveDir
+		moveDir = sm.vec3.lerp(self.moveAccel,moveDir,timeStep*4)
+		self.moveAccel = moveDir
+		--*print(self.moveAccel)
 		
 		-- movement shake
 		goalPos = self.freeCamLocation + moveDir * self.moveSpeed--* movespeed
@@ -393,21 +398,31 @@ function SmarlCamera.client_onUpdate( self, timeStep )
 		goalPos.z = goalPos.z + zNoise
 
 		-- rotation noise
-		goalDir = self.character:getDirection()
+		--print(self.freeCamOffset)
+		goalDir = self.character:getDirection()  --  self.freeCamOffset
 		goalDir.x = goalDir.x + xNoiseR
 		goalDir.y = goalDir.y + yNoiseR
 		goalDir.z = goalDir.z + zNoiseR
 
-		self.freeCamLocation = sm.vec3.lerp(self.freeCamLocation,goalPos,timeStep*2)
-		self.freeCamDirection = sm.vec3.lerp(self.freeCamDirection,goalDir,timeStep*2)	
-		sm.camera.setPosition(self.freeCamLocation)
-		sm.camera.setDirection(self.freeCamDirection)--self.freeCamDirection) -- less shaky in dir (tacky)
-		--self.tool:updateFpCamera( self.fovValue , sm.vec3.new( 0.0, 0.0, 0.0 ), 1, 1 )	
-	elseif self.raceCamActive then -- this is controlled by racecontrol I believe
+		if self.freeCamActive then 
+			--print("update1",self.freeCamDirection,sm.localPlayer.getDirection())
+			self.freeCamLocation = sm.vec3.lerp(self.freeCamLocation,goalPos,timeStep*2)
+			self.freeCamDirection = sm.vec3.lerp(self.freeCamDirection,goalDir,timeStep*2)	
+			sm.camera.setPosition(self.freeCamLocation) -- FAULT: Camera shake will not be triggered or be bumpy since camera is being set on immediate callback, both are called onUpdate, this is being called after
+														-- TODO: Fix: bake this into the direct clientCall ( separate this whole thing into separete function and call directly with new pos as param)
+			--print("FREcam",self.freeCamDirection, sm.camera.getDirection())
+			sm.camera.setDirection(self.freeCamDirection)--self.freeCamDirection) -- less shaky in dir (tacky)
+			--print("update2",self.freeCamDirection,sm.localPlayer.getDirection())
+
+		end
+		
+	elseif self.raceCamActive then -- this is controlled by racecontrol I believe -- Problem: Setting race cam position here breaks things?
 		--print("racecam?")
-		sm.camera.setPosition(self.raceCamLocation)
-		sm.camera.setDirection(self.raceCamDirection)
+		--sm.camera.setPosition(self.raceCamLocation)
+		--print("raceCam",self.raceCamDirection, sm.camera.getDirection())
+		--sm.camera.setDirection(self.raceCamDirection)
 	end
+	-- TODO: have specific drone cam mode?
 
 	--zoom
 	local zoomAmmount = 0
@@ -476,10 +491,16 @@ end
 
 
 function SmarlCamera.activateFreecam(self)
-	--print("freecam Activated")
+	print("freecam Activated")
+	--print("activate1",self.freeCamDirection,sm.localPlayer.getDirection())
 	self.debugCounter = 0
-	sm.camera.setPosition(self.freeCamLocation)
-	sm.camera.setDirection(self.freeCamDirection)
+	self.freeCamLocation = sm.camera.getPosition()
+	self.freeCamDirection = sm.camera.getDirection() -- Free cam should activate wherever it is
+	sm.localPlayer.setDirection(self.freeCamDirection)
+	self.freeCamOffset = self.freeCamDirection
+	--print("activate2",self.freeCamDirection,sm.localPlayer.getDirection())
+	--sm.camera.setPosition(self.freeCamLocation) 
+	--sm.camera.setDirection(self.freeCamDirection)
 	sm.camera.setCameraState(2)
 	--self.character:setLockingInteractable(self.interactable)
 	self.freeCamActive = true
@@ -521,7 +542,7 @@ function SmarlCamera.EnterFreecam(self)
 	sm.camera.setPosition(self.location)
 	sm.camera.setDirection(self.freeCamDirection)
 	sm.camera.setCameraState(2)
-	self.character:setLockingInteractable(self.interactable)
+	--self.character:setLockingInteractable(self.interactable)
 	self.freeCamActive = true
 	self.raceCamActive = false
 end

@@ -118,7 +118,7 @@ function Control.client_init( self )
     self.viewIngCamera = false -- whether camera is being viewed
     self.cameraMode = 0 -- camera viewing mode: 0 = free cam, 1 = race cam
 
-    self.currentCameraIndex = 0 -- Which camera index is currently being active, If there are no cameras, then just skip
+    self.currentCameraIndex = 1 -- Which camera index is currently being active, If there are no cameras, then just skip
 	self.currentCamera = nil --Current Camera MetaData
 	self.cameraActive = false -- if any Cameras Are being used ( redundent)
 	self.onBoardActive = false -- If onboard camera is active
@@ -130,7 +130,8 @@ function Control.client_init( self )
 	self.focusRacer = false -- Keep camera focused on Car set by racerID, nomatter the pos
 	
 	self.droneLocation = nil -- virtual location of the drone
-    self.droneOffset = sm.vec3.new(0,0,0) -- virtual offset/movement of drone
+    self.droneOffset = sm.vec3.new(50,25,10) -- virtual offset/movement of drone
+    self.droneDirOffset =  sm.vec3.new(0,0,0) -- offsetting direction of drone (use on mousemove n stuff)
 	self.droneActive = false -- if viewing drone cam
 
 	self.droneFollowRacerID = nil -- Drone following racer
@@ -144,16 +145,21 @@ function Control.client_init( self )
 	self.droneFocusRacer = false -- Keep Drone Focused on focusing by racerID
 	
 	self.focusedRacerData = nil -- All of the specified focused racer data
+    self.followedRacerData = nil -- the racer that is specified for drone follo
 	-- Followed racer data?
 	--self.raceStatus = getRaceStatus()
 	
-
-	self.finishCameraActive = false -- If it is currently focusing on finish camera
+    self.freecamSpeed = 2
+	self.finishCameraActive = false -- If it is currently focusing on finish camera DEPRECIATED
 
 	-- Error states to prevent spam
 	self.errorShown = false
 	self.hasError = false
-	print("Camera Control Init")
+
+    self.dt = 0
+    self.camTransTimer = 1
+    self.frameCountTime = 0
+	--print("Camera Control Init")
 
 end
 
@@ -208,7 +214,7 @@ function Control.server_init(self)
     self.externalControlsEnabled = true
     self.viewIngCamera = false -- whether camera is being viewed
 
-
+    
 end
 
 function Control.client_onRefresh( self )
@@ -384,30 +390,30 @@ end
 function Control.cl_moveCamera(self)
     local moveVec = sm.vec3.new(0,0,0)
     if self.aPressed then 
-        moveVec = moveVec - sm.camera.getRight()
+        moveVec = (moveVec - sm.camera.getRight())
     end
     if self.dPressed then -- rip
-        moveVec = moveVec + sm.camera.getRight()
+        moveVec = (moveVec + sm.camera.getRight())
     end
 
     if self.wPressed then 
-        moveVec = moveVec + sm.camera.getDirection()
+        moveVec = (moveVec + sm.camera.getDirection()) 
     end
 
     if self.sPressed then
-        moveVec = moveVec - sm.camera.getDirection()
+        moveVec = (moveVec - sm.camera.getDirection()) 
     end
 
-    if self.spacePressed and not self.shiftPressed then -- move up
-        moveVec = sm.vec3.new(moveVec["x"], moveVec["y"], moveVec["z"] + 1) -- * self.speed?
+    if self.spacePressed then -- move up -- Why do I care about shiftpressed? [...and not self.shiftPressed]
+        moveVec = sm.vec3.new(moveVec["x"], moveVec["y"], moveVec["z"] + 1) 
     end
 
     if self.ePressed then -- move up
-        moveVec = sm.vec3.new(moveVec["x"], moveVec["y"], moveVec["z"] - 1) -- * self.speed?
-    end
+        moveVec = sm.vec3.new(moveVec["x"], moveVec["y"], moveVec["z"] - 1)
+    end 
 
-    --print("movement",moveVec,self.aPressed,self.dPressed,self.wPressed,self.sPressed,self.spacePressed)
-    return moveVec
+    --print("movement",self.aPressed,self.dPressed,self.wPressed,self.sPressed,self.spacePressed,self.ePressed)
+    return moveVec * self.freecamSpeed
 end
 
 ---
@@ -461,6 +467,20 @@ function Control.sv_setHandicaps(self)
             
         
     end
+end
+
+
+function sv_toggleRaceMode(self,mode) -- starts 
+    if mode == 0 then
+        print("stopping race")
+    elseif mode == 1 then
+        print("starting race")
+    elseif mode == 2 then
+        print("Yellow flag")
+    elseif mode == 3 then 
+        print("formationlap?")
+    end
+
 end
 
 function Control.sv_startRace(self)
@@ -737,14 +757,24 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
     if self.smarCamLoaded then
         if self.viewIngCamera then
             self:cl_setZoom()
-            if self.droneMode then -- if drone mode active, overide
-
+            if self.droneActive or self.onBoardActive then -- if drone mode active, overide
+                
+                local movement = self:cl_moveCamera()
+                --print(movement:length())
+                if movement ~= nil and movement:length() ~= 0 then 
+                    --print("changin moves",movement) 
+                    self.droneOffset = self.droneOffset + (movement/2) -- TODO: Somehow have orientation lock?
+                end
+                if self.droneFollowPos then
+                -- Set new droneLocation?
+                end
             elseif self.cameraMode == 0 then -- and in free cam mode
                 local movement = self:cl_moveCamera()
-                if movement ~= 0 then
+                if movement ~= 0 and movement ~= nil then
+                    --print("Camera mode 0 Setting Pos")
                     self:cl_sendCameraCommand({command = "MoveCamera", value=movement})
                 end
-            elseif self.cameraMode == 1 then -- raceCamMode
+            elseif self.cameraMode == 1 then -- raceCamMode -- TODO: probably just remove all of thie
                 --print("racecam mode",self.currentCamera,#ALL_CAMERAS)
                 if #ALL_CAMERAS > 0 and self.currentCamera == nil then
                     --print("swittchingto camera 1")
@@ -760,10 +790,20 @@ end
 
 function Control.client_onUpdate(self,dt)
     --print("RC cl onUpdate before")
+    if self.viewIngCamera then
+        sm.gui.setInteractionText( "" )
+        sm.gui.setInteractionText( "" )
+    end
+    self.frameCountTime =  self.frameCountTime + 1
     local goalOffset = nil
-    if self.cameraMode == 1 or self.droneActive then
+    self.dt = dt
+    
+    if self.cameraMode == 1 and not (self.droneActive or self.onBoardActive) then -- raceCam
+        --print("on raceCam",self.currentCamera.location)
         if self.currentCamera == nil then return end -- just ccut off
         goalOffset = self:getFutureGoal(self.currentCamera.location)
+        --print("Calculating goalOffset",self.currentCamera.cameraID,goalOffset,sm.camera.getDirection())
+        
         if goalOffset == nil then
             return
         end
@@ -771,6 +811,22 @@ function Control.client_onUpdate(self,dt)
             self:calculateFocus()
         end
         --print("update pos",goalOffset)
+        self:updateCameraPos(goalOffset,dt)
+    elseif self.droneActive then
+        self:droneExecuteFollowRacer()
+        -- used self.droneLocation, what if we used current camera location instead?
+        local camPos = sm.camera.getPosition()
+        if self.camTransTimer == 1 then -- within the frame of goal
+            camPos = self.droneLocation
+        end
+        -- hold off on currentCamDir until after a few frames, use droneLocation at first
+        --print("Getting goal",self.camTransTimer,camPos)
+        goalOffset = self:getFutureGoal(camPos)
+        self:updateCameraPos(goalOffset,dt) -- can just moive duplicates outside of ifelse
+    elseif self.onBoardActive then
+        --TODO: perform checking foer valid car funcion and what not
+        local camPos = sm.camera.getPosition() -- Can move this up outside of function
+        goalOffset = self:getFutureGoal(camPos)
         self:updateCameraPos(goalOffset,dt)
     end
 
@@ -943,10 +999,16 @@ function Control.sv_performTimedFuncts(self)
     self:sv_output_allRaceData()
 end
 
+
 function Control.client_onInteract(self,character,state)
     --sm.camera.setShake(1)
+    -- sm.gui.setInteractionText( "" ) TODO: add this when going in camera mode onUpdate
     
-    --sm.camera.setPosition()
+    if ALL_CAMERAS then
+        --print(" cam sort")
+        sortCameras()
+    end
+    
     if state then
         if character:isCrouching() then -- ghetto way to load into camera mode
             --print(state,self.smarCamLoaded)
@@ -956,6 +1018,8 @@ function Control.client_onInteract(self,character,state)
                 self:cl_sendCameraCommand({command="EnterCam", value = true})
                 sm.localPlayer.getPlayer():getCharacter():setLockingInteractable(self.interactable) -- wokrs??
                 self.viewIngCamera = true
+                self.frameCountTime = 0
+                self.camTransTimer = 1
              end
         else
              --self.network:sendToServer("sv_Test",1)
@@ -983,7 +1047,7 @@ function Control.client_exitCamera(self) -- stops viewing camera
 end
 
 function Control.client_onAction(self, key, state) -- On Keypress. Only used for major functions, the rest will be read by the camera
-	--if not sm.isHost then -- Just avoid anythign that isnt the host for now
+	--if not sm.isHost then -- Just avoid anythign that isnt the host for now TODO: Figure out why its lagging...
 	--	return
 	--end
     --print("got keypress",state,key)
@@ -991,6 +1055,7 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 	 self.shiftPressed = state -- REMOVE THIS! will have keypress reader
 	elseif key == 1 then -- A key
 		if self.spacePressed and self.shiftPressed then
+            self.aPressed = state
 		elseif self.spacePressed then
             self.aPressed = state
 		elseif self.shiftPressed then
@@ -1000,6 +1065,7 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 		end
 	elseif key == 2 then -- D Key
 		if self.spacePressed and self.shiftPressed then
+            self.dPressed = state
 		elseif self.spacePressed then
             self.dPressed = state 
 		elseif self.shiftPressed then
@@ -1009,6 +1075,7 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 		end
 	elseif key == 3 then -- W Key
 		if self.spacePressed and self.shiftPressed then
+            self.wPressed = state
 		elseif self.spacePressed then
             self.wPressed = state
 		elseif self.shiftPressed then
@@ -1018,6 +1085,7 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 		end
 	elseif key == 4 then -- S Key
 		if self.spacePressed and self.shiftPressed then
+            self.sPressed = state
 		elseif self.spacePressed then
             self.sPressed = state
 		elseif self.shiftPressed then
@@ -1031,12 +1099,24 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 		if self.spacePressed and self.shiftPressed then
 		elseif self.spacePressed then 
 		elseif self.shiftPressed then
-		else -- Focus Racer Index
+            local shifter = 0
+            if convertedIndex < 4 then 
+                shifter = 0
+            elseif convertedIndex < 8 then
+                shifter = 3
+            elseif convertedIndex < 10 then
+                shifter = 7
+            end
+            local racePos = convertedIndex + shifter
+            self:focusCameraOnPos(racePos)
+		else -- Direct switch to camera number (up to 10)
+            self.camTransTimer = 1
             self:switchToCamera(convertedIndex)
 		end
 		
 	elseif key == 15 then -- 'E' Pressed
 		if self.spacePressed and self.shiftPressed then -- Finish Cam?
+            self.ePressed = state
 		elseif self.spacePressed then
             self.ePressed = state
 		elseif self.shiftPressed then
@@ -1061,7 +1141,12 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 		end
 		
 	elseif key == 20 then -- Scroll wheel up/ X 
-		if self.spacePressed and self.shiftPressed then
+        if self.freecamSpeed < 0.099 then
+            self.freecamSpeed = self.freecamSpeed + 0.01
+        elseif self.freecamSpeed < 49.99 then
+            self.freecamSpeed = self.freecamSpeed + 0.1
+        end
+		if self.spacePressed and self.shiftPressed then -- optional for more functionality
             --self.zoomIn = state
 		elseif self.spacePressed then
             --self.zoomIn = state
@@ -1069,8 +1154,14 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
            -- self.zoomIn = state
 		else -- None pressed
 		end
-	elseif key == 21 then --scrool wheel down % C Pressed -- Zoom? Drone Height?
-		if self.spacePressed and self.shiftPressed then
+	elseif key == 21 then --scrool wheel down % C Pressed  freecam move speed
+        if self.freecamSpeed > 0.19 then
+            self.freecamSpeed = self.freecamSpeed - 0.1
+        elseif self.freecamSpeed > 0.019 then
+            self.freecamSpeed = self.freecamSpeed - 0.01
+        end
+
+		if self.spacePressed and self.shiftPressed then -- Optional just in case something happens
             --self.zoomOut = state 
 		elseif self.spacePressed then
             --self.zoomOut = state 
@@ -1150,7 +1241,7 @@ function Control.sv_ReadJson(self)
     --print("RC sv readjson before")
     local status, instructions =  pcall(sm.json.open,CAMERA_INSTRUCTIONS) -- Could pcall whole function
     if status == false then -- Error doing json open
-        print("Got error reading instructions JSON")
+        --print("Got error reading instructions JSON")
         return nil
     else
         --print("got instruct",instructions)
@@ -1166,10 +1257,15 @@ function Control.sv_ReadJson(self)
             elseif instruction == "camCycle" then
                 local direction = instructions['value']
                 print("cam cycing",direction)
+                
                 self:sv_cycleCamera(direction)
             elseif instruction == "cMode" then
+                local mode = tonumber(instructions['value'])
                 --print("toggle camera mode")
-                self:sv_toggleCameraMode()
+                self:sv_toggleCameraMode(mode)
+            elseif instruction == "raceMode" then -- 0 is stop, 1 is go, 2 is caution? 3 is formation
+                local raceMode = tonumber(instructions['value'])
+                self:sv_toggleRaceMode(raceMode)
             end
             return
         else
@@ -1188,7 +1284,7 @@ end
 -- camera and car following stuff
 function Control.sv_cycleFocus(self,direciton) -- calls iterate camera
     self.network:sendToClients("cl_cycleFocus",direciton)
-end
+end 
 
 function Control.cl_cycleFocus(self,direction) -- Cycle Which racer to Focus on ( NON Drone Function), Itterates by position
 	if self.focusedRacePos == nil then 
@@ -1235,13 +1331,14 @@ function Control.focusCameraOnPos(self,racePos) -- Grabs Racers from racerData b
 	--print("finding drive rby pos",racePos)
     local racer = getDriverByPos(racePos) -- Racer Index is just populated as they are added in
 	if racer == nil then
-		print("Camera Focus on racer Pos Error")
+		racer = getDriverByPos(0) -- Defaults to 0?
 		return
 	end
 	if racer.racePosition == nil then
 		print("Racer has no RacePos",racer)
 		return
 	end
+    --*print("Settinf focus on pos",racer.id)
 	self.focusedRacerData = racer
 	self.focusedRacePos = racer.racePosition
 	self.focusedRacerID = racer.id
@@ -1321,7 +1418,7 @@ function Control.setDroneFollowFocusedRacer(self) -- Tells the drone to follow w
 		print("Drone Racer has no RacePos",racer.id)
 		return
 	end
-
+    self.droneLocation = racer.location + self.droneOffset -- default offset set on init -- puts initial location a bit off and higher than racer`
 	-- Also sets drone? or have it separate, Both focuses and follows drone
 	self.droneFollowRacerID = racer.id 
 	self.droneFollowRacePos = racer.racePosition
@@ -1330,6 +1427,20 @@ function Control.setDroneFollowFocusedRacer(self) -- Tells the drone to follow w
 	self.droneFollowRacer = true
 end
 
+function Control.droneExecuteFollowRacer(self) -- runs onfixedupdate and focuses on drone
+    local racer = getDriverFromId(self.focusedRacerID) -- OR self. followedRacerID
+	if racer == nil then
+		print("Drone follow Focused racer index Error",self.focusedRacerID)
+		return
+	end
+	if racer.racePosition == nil then
+		print("Drone Racer has no RacePos",racer.id)
+		return
+	end
+    -- If self.droneFollowRacer vs pos?
+    self.droneLocation = racer.location + self.droneOffset -- puts initial location a bit off and higher than racer`
+	
+end
 
 function Control.focusAllCameras(self, racer) --Sets all Cameras to focus on a racer
 	local racerID = racer.id
@@ -1353,43 +1464,45 @@ function Control.switchToFinishCam(self) -- Unsure if to make separate cam for t
     -- send command to switch to camera
 end
 
-function Control.toggleDroneCam(self) -- Sets Camera and posistion for drone cam, 
-	if not self.droneActive then
-		print("switching to drone")
-		if self.droneLocation == nil then
-			print("Initializing Drone")
-            if self.focusedRacerID == nil then -- no focus drone
-                local driver = getAllDrivers()[1] -- just grab first driver out of all -- TDODOERRORCASE if no drivers will break
-                if driver == nil then 
-                    print("drone init error, no focusable drivers")
-                    -- set location to 0 0 0
-                    self.droneLocation = sm.vec3.new(0,0,25)
-                end
-            else
-                self:setDroneFollowFocusedRacer()
-            end 
-	
-		end
-		if self.focusedRacerData == nil then
-			print("Drone Error focus on racer")
-			return
-		end
-		local racerlocation = self.focusedRacerData.location
-		--local droneLocation = self.droneData.location
-		local goalOffset =  self.droneLocation - racerlocation
-		--local camDir = sm.camera.getDirection()
-		
-		--objLoc.z = objLoc.z-1.5
-		sm.camera.setDirection(goalOffset) -- self.sendCamneraCommand
-		sm.camera.setPosition(self.droneLocation + self.droneOffset) -- send cameracommand
-		self.droneActive = true
-		self.onBoardActive = false 
-	else
-		self:cycleCamera(0) -- Go back to drone
-		self.droneActive = false
-		self.onBoardActive = false
-	end
-			--end
+function Control.toggleDroneCam(self) -- Sets Camera and posistion for drone cam, (no longer toggle, only on)     
+    print("switching to drone")
+    --TODO: FAULT, Switching directly from drone mode to Race mode (on sDeck) causes the focus/Goal to be offset. 
+    if self.droneLocation == nil then
+        print("Initializing Drone")
+        if self.focusedRacerID == nil then -- no racer focused
+            local driver = getAllDrivers()[1] -- just grab first driver out of all -- TDODOERRORCASE if no drivers will break
+            if driver == nil then -- could not find drivers
+                print("drone init error, no focusable drivers")
+                -- set location to 0 0 0
+                self.droneLocation = sm.vec3.new(0,0,25) + self.droneOffset -- have it reset to focused somewhere aat all times
+                return -- just return error
+            else 
+                print("Set up new follow drone")
+                self.droneLocation = driver.location
+                print("set up dronelocation",self.droneLocation) -- set up focus Racer()
+            end
+        else -- ound focused racer
+            --print("Settind drone to follow focused racer")
+            self:setDroneFollowFocusedRacer()
+        end 
+
+    end
+    
+    if self.focusedRacerData == nil then
+        print("Drone Error focus on racer")
+        return
+    end
+    --*print("focusing",self.focusedRacerData.location,self.droneLocation)
+    local racerlocation = self.focusedRacerData.location
+    --local droneLocation = self.droneData.location
+    local camPos = sm.camera.getPosition()
+    local goalOffset = self:getFutureGoal(self.droneLocation)
+    
+    local camDir = sm.camera.getDirection()
+    dirMovement1 = sm.vec3.lerp(camDir,goalOffset,1) -- COuld probably just hard code as 1
+    self:cl_sendCameraCommand({command="setPos",value=self.droneLocation}) -- lerp drone location>?
+	self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
+    --print("set dronelocation",self.droneLocation)
 end
 
 function Control.loadDroneData(self) -- Just checks and grabs Drone Data [Unused so far]
@@ -1406,34 +1519,33 @@ function Control.loadDroneData(self) -- Just checks and grabs Drone Data [Unused
 end
 
 function Control.toggleOnBoardCam(self) -- Toggles on board for whichever racer is focused
-	if not self.onBoardActive then
-		if self.focusedRacerData == nil then
-			print("NO camera Focused on")
-			return
-		end
-		self.droneActive = false
-		self.onBoardActive = true
-		local racer = self.focusedRacerData
-		local location = racer.location
-		local goalOffset =  location - sm.camera.getPosition()
-		local camDir = sm.camera.getDirection()
-		local carDir = racer.shape:getAt()
-		location.z = location.z +4-- Offset higher
-		sm.camera.setDirection(carDir)
-		sm.camera.setPosition(location)
-	else
-		self:cycleCamera(0) -- Go back to drone
-		self.droneActive = false
-		self.onBoardActive = false
-	end
+    if self.focusedRacerData == nil then -- no racer focused
+        print("Initializing onBOard")
+        self:focusCameraOnPos(1)
+    else -- ound focused racer
+        -- already init
+    end 
+    local racer = self.focusedRacerData
+    local location = racer.shape:getWorldPosition()
+    local rvel = racer.velocity
+    local carDir = racer.shape:getAt()
+    --print("locZ",newLoc)
+    local newCamPos = location + (carDir / 10) + (rvel * 1) + sm.vec3.new(0,0,1.4)
+    --locMovement = sm.vec3.lerp(camLoc,newCamPos,dt)
+    --dirMovement = sm.vec3.lerp(camDir,carDir,1)
+    --print(dirMovement)
+    self:cl_sendCameraCommand({command="setPos",value=newCamPos})
+    self:cl_sendCameraCommand({command="setDir",value=carDir})
+   
 end
 
 function Control.switchToCamera(self, cameraIndex) -- switches to certain cameras based on  inddex (up to 10) 0-9
 	--cameraIndex = cameraIndex + 1 -- Accounts for stupid non zero indexed arrays
-	local totalCams = #ALL_CAMERAS
+	print("Doing camIndex",cameraIndex)
+    local totalCams = #ALL_CAMERAS
 	if cameraIndex > #ALL_CAMERAS or cameraIndex <= 0 then
 		print("Camera Switch Indexing Error",cameraIndex)
-		return
+		cameraIndex = 1
 	end
 	local camera = ALL_CAMERAS[cameraIndex]
 	if camera == nil then 
@@ -1449,7 +1561,7 @@ function Control.switchToCamera(self, cameraIndex) -- switches to certain camera
 	self.onBoardActive = false
 	self.droneActive = false
 	self.currentCameraIndex = cameraIndex - 1
-	--print("switching to camera:",cameraIndex,self.currentCameraIndex)
+	print("switching to camera:",cameraIndex,self.currentCameraIndex)
 	self:setNewCamera(cameraIndex - 1)
 end
 
@@ -1458,6 +1570,7 @@ function Control.sv_cycleCamera(self,direciton) -- calls iterate camera
 end
 
 function Control.cl_cycleCamera(self, direction)
+    self.camTransTimer = 1
 	if self.droneActive then
 		print("exit Cycle Drone")
 		self.droneActive = false
@@ -1481,6 +1594,7 @@ end
 
 function Control.setNewCamera(self, cameraIndex) -- Switches to roadside camera based off of its index
     --print(self.currentCameraIndex,cameraIndex)
+    --print("\n\n'")
     local avg_dt = 0.016666
     self.currentCameraIndex = cameraIndex
 	if ALL_CAMERAS == nil or #ALL_CAMERAS == 0 then
@@ -1488,7 +1602,7 @@ function Control.setNewCamera(self, cameraIndex) -- Switches to roadside camera 
 		return
 	end
 	local cameraToView = ALL_CAMERAS[self.currentCameraIndex + 1]
-	--print("viewing cam", self.currentCameraIndex + 1,cameraToView.location)
+	--print("viewing cam", self.currentCameraIndex + 1) -- use cam dir?
 	if cameraToView == nil then
 		print("Error connecting to road Cam",self.currentCameraIndex)
 		return
@@ -1498,35 +1612,56 @@ function Control.setNewCamera(self, cameraIndex) -- Switches to roadside camera 
 	--camLoc.z = camLoc.z + 2.1 -- Offsets it to be above cam
     goalOffset = self:getFutureGoal(camLoc)
     goalSet1 = self:getGoal()
-    --print("set Goals:",goalOffset,goalSet1)
 
     local camDir = sm.camera.getDirection()
-    dirMovement1 = sm.vec3.lerp(camDir,goalOffset,1)
-    --print("goal:",dirMovement1)
+    dirMovement1 = sm.vec3.lerp(camDir,goalOffset,self.camTransTimer) -- COuld probably just hard code as 1
     self:cl_sendCameraCommand({command="setPos",value=camLoc})
-    --print("set cam send dir",goalOffset)
-	--self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
+	self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
 end
 
 
 -- CameraMovement functions
-function Control.sv_toggleCameraMode(self) -- toggles between race and free cam - Drone cam will be separate toggle
-    self.network:sendToClients("cl_toggleCameraMode")
+function Control.sv_toggleCameraMode(self,mode) -- toggles between race and free cam - Drone cam will be separate toggle
+    self.network:sendToClients("cl_toggleCameraMode",mode)
 end
 
-function Control.cl_toggleCameraMode(self) -- client side toggles it
-    if self.droneActive == true then self.droneActive = false end -- force toggles off drone mode if on
-
-    if self.cameraMode == 0 then-- If in free cam mode
-        self.cameraMode = 1 -- set to race cam mode
-    elseif self.cameraMode == 1 then -- if in raceCam mode
-        self.cameraMode = 0 -- set to free cam mode
-    end
-    print("Mode:",self.cameraMode)
+function Control.cl_toggleCameraMode(self,mode) -- client side toggles it
     if not self.focusedRacerData then
         --print("finding racer")
         self:focusCameraOnPos(1)
     end
+    if mode == 0 then --race cam
+        self.droneActive = false
+        self.onBoardActive = false 
+        self.cameraMode = 1
+        self.camTransTimer = 1 -- Change this to be on toggle anyways?
+        self.frameCountTime = 0
+        --print("setting to race cam",self.currentCameraIndex)
+        self:switchToCamera((self.currentCameraIndex or 1))
+    elseif mode == 1 then -- Drone cam
+        self.droneActive = true
+        self.onBoardActive = false 
+        self.cameraMode = 1
+        self.camTransTimer = 1 -- Change this to be on toggle anyways?
+        self.frameCountTime = 0
+        self:toggleDroneCam()
+    elseif mode == 2 then -- Freee cam
+        self.droneActive = false
+        self.onBoardActive = false 
+        self.cameraMode = 0
+        self.camTransTimer = 1 -- Change this to be on toggle anyways?
+        self.frameCountTime = 0
+    elseif mode == 3 then -- Onboard cam
+        print("Activate dash cam")
+        self.onBoardActive = true
+        self.droneActive = false
+        self.cameraMode = 1
+        self.camTransTimer = 1 -- Change this to be on toggle anyways?
+        self.frameCountTime = 0
+        self:toggleOnBoardCam()
+    end
+
+    
     self:cl_sendCameraCommand({command="setMode", value=self.cameraMode})
 end
 
@@ -1571,10 +1706,13 @@ function Control.getFutureGoal(self,camLocation) -- gets goal based on new locat
 		self.hasError = false
 	end
 	--print(carID)
-	local location = racer.location
+	local location = racer.shape:getWorldPosition()
 	local goalOffset =  location - camLocation
+    local dir = sm.camera.getDirection()
+    --print("GoalSend:",goalOffset,camLocation,dir)
 	return goalOffset
 end
+
 function Control.getGoal( self) -- Finds focused car and takes location based on that
 	local racer = self.focusedRacerData
 	-- If droneactive get droneFocusData
@@ -1610,70 +1748,86 @@ function Control.getGoal( self) -- Finds focused car and takes location based on
 	return goalOffset
 end
 
-
-
 function Control.updateCameraPos(self,goal,dt)
-	--print(goal,dt,self.currentCamera,self.cameraActive)
-	if self.currentCamera ~= nil then
-		local cameraToView = self.currentCamera
+	--print(self.droneActive,dt,self.currentCamera,self.cameraActive)
+    local camDir = sm.camera.getDirection()
+    local camLoc = sm.camera.getPosition()
+    local dirDT = dt *0.3
+    local dirMovement = nil
+	local locMovement = nil
+	
 		
-		local camDir = sm.camera.getDirection()
-        local goalDir = goal
-		local camLoc = sm.camera.getPosition()
-		--print(camLoc)
-		local objLoc = cameraToView.shape:getWorldPosition()
-		local dirMovement = nil
-		local locMovement = nil
-		
-		local dirDT = dt * 0.2
-		if self.droneActive then
-			if self.droneData == nil then
-				print("Error connecting to drone")
-			end
-			objLoc = self.droneData.location
-			if objLoc == nil then
-				return
-			end
-			--print(camLoc)
-			--camDir = self.droneData.shape:getUp()
-			camLoc.z = camLoc.z-0.15
-			locMovement = sm.vec3.lerp(camLoc,objLoc,dt*6)
-			-- TEmporary scenic cam	
-			--local newGoal = sm.vec3.new(0,0,0)
-			--dirMovement = sm.vec3.lerp(camDir,newGoal,dirDT)
-			dirMovement = sm.vec3.lerp(camDir,goal,dirDT)
-			--dirMovement = sm.vec3.new(0,0,-0.1)
-			sm.camera.setDirection(dirMovement)
-			sm.camera.setPosition(locMovement)
-			--print(locMovement)
-		elseif self.onBoardActive then
-			local racer = self.focusedRacerData
-			local location = racer.location
-			--print(location.z)
-			local goalOffset =  location - sm.camera.getPosition()
-			local camDir = sm.camera.getDirection()
-			local carDir = racer.shape:getAt()
-			--location.z = location.z + 1.4 -- Offset higher
-			--print(location.z)
-			locMovement = sm.vec3.lerp(camLoc,location,dt*2)	
-			dirMovement = sm.vec3.lerp(camDir,carDir,dt*2)
-			--print(dirMovement)
-			sm.camera.setDirection(dirMovement)
-			locMovement.z = location.z +4
-			sm.camera.setPosition(locMovement)
-		else
-			--print(dt)
-			--locMovement = sm.vec3.lerp(camLoc,objLoc,dt)	
-			dirMovement = sm.vec3.lerp(camDir,goalDir,dt*0.2) -- Need to play with this and figure it out=-------------------
-			--print(dirMovement,locMovement)
-			
-            --self:cl_sendCameraCommand({command="setPos",value=locMovement})
-            --print("sendind dir",dt,dirMovement)
-	        self:cl_sendCameraCommand({command="setDir",value=dirMovement})
-		end
-			
-		
-	end
+    if self.droneActive then
+        --print("dact")
+        local goalLocation = self.droneLocation
+        if goalLocation == nil then
+            print("drone has no loc onupdate")
+            return
+        end
+        local smooth = 1
+        local mSmooth = 1
+        if self.frameCountTime > 5 then
+            smooth =dt *0.2
+            mSmooth = dt
+        end
+
+        
+
+        dirMovement = sm.vec3.lerp(camDir,goal,smooth)--self.camTransTimer
+        --camLoc.z = camLoc.z-0.15 -- not sure what this is for
+        locMovement = sm.vec3.lerp(camLoc,goalLocation,mSmooth)
+        --print(dirMovement,goal)
+        --camLoc -- 
+        --print("DroneSendB",sm.camera.getPosition(),sm.camera.getDirection()) -- grab locMovement`
+        self:cl_sendCameraCommand({command="setPos",value=locMovement})
+        self:cl_sendCameraCommand({command="setDir",value=dirMovement})
+        --`print("DroneSendA",sm.camera.getPosition(),sm.camera.getDirection())
+    
+    elseif self.onBoardActive then
+        if self.focusedRacerData == nil then 
+            print("No focus racer")
+            return 
+        end
+        local racer = self.focusedRacerData
+        local location = racer.shape:getWorldPosition()-- gets front location
+        local frontLength = (racer.carDimensions or 1)
+        if racer.carDimensions ~= nil then 
+            local rotation  =  racer.carDimensions['center']['rotation']
+            local newRot =  rotation * racer.shape:getAt()
+            location = racer.shape:getWorldPosition() + (newRot * racer.carDimensions['center']['length'])
+            frontLength = racer.carDimensions['front']:length()/3 -- Division reduces length
+        end
+        local frontLoc = location - (racer.shape:getAt()*self.freecamSpeed)
+
+        local rvel = racer.velocity
+        local carDir = racer.shape:getAt()
+        local dvel = carDir - camDir --racer.angularVelocity
+        --print("locZ",dvel:length())
+        local newCamPos = frontLoc + (rvel * 1) + sm.vec3.new(0,0,1.3)
+        local newCamDir = camDir + (dvel *9)
+        local smooth = 1
+        local mSmooth = 1
+        if self.frameCountTime > 1 then
+            smooth =dt * 1.5
+            mSmooth = dt*1.1
+        end
+
+        locMovement = sm.vec3.lerp(camLoc,newCamPos,mSmooth)
+        --locMovement.z = location.z + 1.4
+        --print(location.z,locMovement.z)
+        dirMovement = sm.vec3.lerp(camDir,newCamDir,smooth)
+        --print(dirMovement)
+        self:cl_sendCameraCommand({command="setPos",value=locMovement})
+        self:cl_sendCameraCommand({command="setDir",value=dirMovement})
+    else
+        -- location is alreadyh set
+        dirMovement = sm.vec3.lerp(camDir,goal,self.camTransTimer)
+        --print("not drone active Setting Dir")
+        self:cl_sendCameraCommand({command="setDir",value=dirMovement})
+    end
+        
+    self.camTransTimer = dirDT -- works only with 1 frame yasss!
+
 end
 -- UI
 
