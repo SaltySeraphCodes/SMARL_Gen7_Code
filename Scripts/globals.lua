@@ -437,7 +437,7 @@ function getDriversInDistance(driver,distance) -- returns table of all drivers w
             if v.goalNode ~= nil and driver.goalNode ~= nil then
                 if v.carDimensions ~= nil then
                     if getDistance(driver.location,v.location) <= distance then -- Possibly just use trackDist/ID dist instead because we may get unececsary noise
-                        if math.abs(v.goalNode.segID - driver.goalNode.segID) < 4 then -- within 4 segments
+                        if math.abs(v.goalNode.segID - driver.goalNode.segID) < 4 then -- within 4 segments could adjust if necessary
                             table.insert(drivers,v)
                         else
                             --print("too far")
@@ -519,7 +519,22 @@ function getRelativeSpeed(driverA,driverB)
 	return relSpeed
 end
 
+function getCarCenter(racer)
+    local rotation  =  racer.carDimensions['center']['rotation']
+    local newRot =  rotation * racer.shape:getAt()
+    return location = racer.shape:getWorldPosition() + (newRot * racer.carDimensions['center']['length'])
+end 
 
+function getPointRelativeLoc(center,checkPos,checkDir) -- similar to driver vh distances but the old school way
+    center.location.z = checkPos.location.z --- THis setting of z mutates driver and may loead to unwanted consequences
+    local goalVec = (checkPos.location - center.location) -- multiply at * velocity? use velocity instead?
+    
+    local vDist = checkDir:dot(goalVec)
+    local hDist = sm.vec3.cross(goalVec,checkDir).z
+    
+    local vhDifs = {horizontal = hDist, vertical = vDist}
+    return vhDifs
+end
 
 function offsetAlongVector(location,target,dir) -- grabs offset from a vector
     local goalVec = (target.location - location) -- maybe use mid
@@ -542,7 +557,7 @@ end
 
 function getDriverHVDistances(driver,target) -- returns horizontal and vertical distances from driver to target driver
     -- vector angle dif -- Problems: something wierd going on when facing -+x axis with horizontal dist, mismatch distances
-    driver.location.z = target.location.z
+    driver.location.z = target.location.z --- THis setting of z mutates driver and may loead to unwanted consequences
     local goalVec = (target.shape.worldPosition - driver.shape.worldPosition) -- multiply at * velocity? use velocity instead?
     
     local vDist = driver.shape.at:dot(goalVec)
@@ -610,6 +625,27 @@ function withinBound(location,bound) -- determines if location is within boundar
 	return false
 end
 
+-- format{ front, left, right, back,location,directionF,direction}
+function generateBounds(location,dimensions,frontDir,rightDir,padding) -- Generates a 4 node box for front left right and back corners of position
+    local bounds = {
+    name = 'fl', position = location + (frontDir *  (dimenstions['front']:length()*padding) ) + (-rightDir *  dimensions.['left']:length()*buffer),
+    name = 'fr', position = location + (frontDir *  (dimenstions['front']:length()*padding) ) + (rightDir *  dimensions.['left']:length()*buffer),
+    name = 'bl', position = location + (-frontDir *  (dimenstions['front']:length()*padding) ) + (-rightDir *  dimensions.['left']:length()*buffer),
+    name = 'br', position = location + (-frontDir *  (dimenstions['front']:length()*padding) ) + (rightDir *  dimensions.['left']:length()*buffer)
+    }
+    return bounds
+end
+
+function getCollisionPotential(selfBox,opBox) -- Determines if bounding box1 colides with box 2
+    local minX = math.min(box1[1].x,box1[2].x,box2[1].x,box2[2].x) -- todo: also store this instead of calculating every time too
+	local minY = math.min(box1[1].y,box1[2].y,box2[1].y,box2[2].y)
+	local maxX = math.max(box1[1].x,box1[2].x,box2[1].x,box2[2].x) 
+	local maxY = math.max(box1[1].y,box1[2].y,box2[1].y,box2[2].y) 
+
+
+    -- Bounding box format {fl, fr, rl, rr}
+
+end
 
 -- More node stuff
 function getSegment(nodeChain,first,last) -- Shoves first node and last node into a list Possibly Rename to CollectSegment

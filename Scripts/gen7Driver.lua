@@ -1851,6 +1851,51 @@ function Driver.updateGearing(self) -- try to calculate the best gear to choose 
 
 end 
 
+
+function Driver.newUpdateCollisionLayer(self): -- New updated collision layer
+    if self.carData == nil then return end -- not scanned
+    --print(self.carData.carDimensions)
+    if self.carData.carDimensions == nil then return end -- not scanned
+    if self.engine == nil then return end
+    if self.engine.engineStats == nil then return end -- Do validattion instead?
+
+    local colThrottle = self.strategicThrottle
+    local colSteer = self.strategicSteering
+    local passSteer = 0 -- add on to colSteer
+    local oppInRange = {}--self.opponentFlags -- possibly attatch to self so no regeneration necessary?
+    local selfWidth = self.leftColDist + self.rightColDist
+    local hasDraft = false
+    local carsInRange = getDriversInDistance(self,60) -- also accounts for draft may be too 
+    
+    local timeScaleMultiplier = 40 -- ~1 second lookahead (adjustable) (40 iterations per second)
+    local collisionPadding = 1.2 -- additional space  multiplier given to radar/collision > 1 for grow, < 1 for shrink
+    local futurePosition = self.location * (self.velocity * timeScaleMultiplier) -- get future location
+    local selfCollisionBox = generateBounds(futurePosition,self.carDimensions,self.shape:getAt(),self.shape:getRight(),collisionPadding)
+    local centerLocation = getCarCenter(self) -- returns center of car
+
+    if carsInRange == nil then -- No cars go home
+        if self.passing.isPassing then
+            self:cancelPass()
+        end
+        if self.drafting then
+            self.drafting = false
+        end
+        return 
+    end
+    
+    for k=1, #carsInRange do local opponent=carsInRange[k] -- May need to have deep copy of carsInrange or create new class
+        if opponent.carDimensions == nil then
+            --self:sv_sendAlert("Car ".. self.id .. " Not Scanned; Place on Lift")
+            break
+        end
+        local opFuturePos = opponent.location * (opponent.velocity * timeScaleMultiplier)
+        local opCollisionBox = generateBounds(opFuturePos,opponent.carDimensions,opponent.shape:getAt(),opponent.shape:getRight(),collisionPadding)
+        local centerLocation = getCarCenter(self) -- returns center of car
+        local collisionPotential = getCollisionPotential(selfCollisionBox,opCollisionBox)
+
+    end
+end
+
 -- Updating methods (layers and awhat not)
 function Driver.updateCollisionLayer(self)
     if self.carData == nil then return end -- not scanned
@@ -2119,7 +2164,7 @@ function Driver.updateCollisionLayer(self)
             if (leftCol or 0) >= 0.7 or  (rightCol or 0) <= -0.7 then
                 --print(self.tagText,"Collision with Opp",frontCol,rearCol,leftCol,rightCol)
                 -- check if speed < 4
-                if self.speed < 5 then -- double cdisparity between speed and desired speed
+                if self.speed < 5 then -- double check disparity between speed and desired speed
                     --print(self.tagText,"Bad collision likely",self.shape.worldPosition.z,self.currentNode.mid.z,self.stuck,self.stuckTimeout)
                     -- check if z index is high
                     if self.shape.worldPosition.z > self.currentNode.mid.z + 2 or (self.stuck and self.stuckTimeout >= 5) then
