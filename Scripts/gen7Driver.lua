@@ -367,9 +367,34 @@ function Driver.client_init(self)
     self.calcCenterEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
     self.calcCenterEffect.effect:setScale(sm.vec3.new(0,0,0))
     self.calcCenterEffect.effect:setParameter( "Color", colors.center )
-    
-    self.effectsList = {self.goalNodeEffect,self.currentNodeEffect,self.frontEffect,self.leftEffect,self.rightEffect,self.rearEffect,self.calcCenterEffect}
 
+    
+    self.fflEffect = {pos = self.location, effect =sm.effect.createEffect("Loot - GlowItem")}
+    self.fflEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    self.fflEffect.effect:setScale(sm.vec3.new(0,0,0))
+    self.fflEffect.effect:setParameter( "Color", colors.front )
+
+    self.ffrEffect = {pos =  self.location, effect =sm.effect.createEffect("Loot - GlowItem")}
+    self.ffrEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    self.ffrEffect.effect:setScale(sm.vec3.new(0,0,0))
+    self.ffrEffect.effect:setParameter( "Color", colors.left )
+    
+    self.fblEffect = {pos =  self.location, effect =sm.effect.createEffect("Loot - GlowItem")}
+    self.fblEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    self.fblEffect.effect:setScale(sm.vec3.new(0,0,0))
+    self.fblEffect.effect:setParameter( "Color", colors.right )
+    
+    self.fbrEffect = {pos =  self.location, effect =sm.effect.createEffect("Loot - GlowItem")}
+    self.fbrEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    self.fbrEffect.effect:setScale(sm.vec3.new(0,0,0))
+    self.fbrEffect.effect:setParameter( "Color", colors.rear )
+
+    
+    self.effectsList = {self.goalNodeEffect,self.currentNodeEffect,self.frontEffect,self.leftEffect,
+                        self.rightEffect,self.rearEffect,self.calcCenterEffect,
+                        self.fflEffect, self.ffrEffect, self.fblEffect, self.fbrEffect
+                    }
+                    --print(self.effectsList)
     self.idTag = sm.gui.createNameTagGui()
     self.idTag:setHost(self.shape)
 	self.idTag:setRequireLineOfSight( false )
@@ -674,7 +699,34 @@ function Driver.cl_hard_reset(self) -- resets client side objects
     self.calcCenterEffect.effect:setScale(sm.vec3.new(0,0,0))
     self.calcCenterEffect.effect:setParameter( "Color", colors.center )
     
-    self.effectsList = {self.goalNodeEffect,self.currentNodeEffect,self.frontEffect,self.leftEffect,self.rightEffect,self.rearEffect,self.calcCenterEffect}
+
+    self.fflEffect = {pos = nil, effect =sm.effect.createEffect("Loot - GlowItem")}
+    self.fflEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    self.fflEffect.effect:setScale(sm.vec3.new(0,0,0))
+    self.fflEffect.effect:setParameter( "Color", colors.front )
+
+    self.ffrEffect = {pos = nil, effect =sm.effect.createEffect("Loot - GlowItem")}
+    self.ffrEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    self.ffrEffect.effect:setScale(sm.vec3.new(0,0,0))
+    self.ffrEffect.effect:setParameter( "Color", colors.left )
+    
+    self.fblEffect = {pos = nil, effect =sm.effect.createEffect("Loot - GlowItem")}
+    self.fblEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    self.fblEffect.effect:setScale(sm.vec3.new(0,0,0))
+    self.fblEffect.effect:setParameter( "Color", colors.right )
+    
+    self.fbrEffect = {pos = nil, effect =sm.effect.createEffect("Loot - GlowItem")}
+    self.fbrEffect.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    self.fbrEffect.effect:setScale(sm.vec3.new(0,0,0))
+    self.fbrEffect.effect:setParameter( "Color", colors.rear )
+    -- center?
+
+
+
+    self.effectsList = {self.goalNodeEffect,self.currentNodeEffect,self.frontEffect,self.leftEffect,
+                        self.rightEffect,self.rearEffect,self.calcCenterEffect,
+                        self.fflEffect, self.ffrEffect, self.fblEffect, self.fbrEffect
+                    }
 
     self.idTag = sm.gui.createNameTagGui()
     self.idTag:setHost(self.shape)
@@ -1851,8 +1903,59 @@ function Driver.updateGearing(self) -- try to calculate the best gear to choose 
 
 end 
 
+function getCollisionAvoidanceSteer(vhDif)
+    local newSteer = 0
+    if vhDif['vertical'] < 0 and vhDif['vertical'] > -10 then -- if intersection is behind midpoint of car
+        if vhDif['horizontal'] > 0 then -- car is on right
+            newSteer = ratioConversion(-6,2,-0.22,0,vhDif['horizontal'])--/(self.followStrength/1.5)   --TODO: figure out if getting passed/attack/defend?
+        else -- brake
+            --newSteer = ratioConversion(6,-2,0.22,0,vhDif['horizontal'])
+        end
+    else -- if intersection is in front possibly make it turn less hard?
+        if vhDif['horizontal'] > 0 then -- car is on right
+            newSteer = ratioConversion(-6,2,-0.12,0,vhDif['horizontal'])--/(self.followStrength/1.5)   --TODO: figure out if getting passed/attack/defend?
+        else -- slowdown
+            --newSteer = ratioConversion(6,-2,0.12,0,vhDif['horizontal'])
+        end
+    end
+    return newSteer
+end
 
-function Driver.newUpdateCollisionLayer(self): -- New updated collision layer
+
+function calculateCollisionMove(pointName,vhDif,opponent) -- move to global?
+    local accel = 0
+    local steer = 0
+    -- if corner is frontleft 
+    if pointName == "fl" then
+        --print("fl",vhDif)
+        if vhDif['vertical'] < 0 and vhDif['vertical'] > -10 then -- if point behind midpoint of car
+            if vhDif['horizontal'] > 0 then -- car is on right side of midpoint
+                newSteer = ratioConversion(0,5,0.2,0,vhDif['horizontal']) -- should turn sharper the closer to 0
+                print("Steer avoidance right",vhDif['horizontal'],newSteer)
+                --steer  = getCollisionAvoidanceSteer(vhDif)
+            end
+        end
+        --print("Got steer FL",vhDif,steer)
+    elseif pointName == "fr" then
+        --print("fr",vhDif)
+        if vhDif['vertical'] < 0 and vhDif['vertical'] > -10 then -- if point behind midpoint of car
+            if vhDif['horizontal'] < 0 then -- car is on right side of midpoint
+                newSteer = ratioConversion(-5,0,0,0.2,vhDif['horizontal']) -- should turn sharper the closer to 0
+                print("Steer avoidance left",vhDif['horizontal'],newSteer)
+                --steer  = getCollisionAvoidanceSteer(vhDif)
+            end
+        end
+
+    elseif pointName == "bl" then -- dont need to do much
+    elseif pointName == "br" then -- also not important
+    end
+
+
+    return accel,steer
+end
+
+
+function Driver.newUpdateCollisionLayer(self)-- -- New updated collision layer
     if self.carData == nil then return end -- not scanned
     --print(self.carData.carDimensions)
     if self.carData.carDimensions == nil then return end -- not scanned
@@ -1867,10 +1970,19 @@ function Driver.newUpdateCollisionLayer(self): -- New updated collision layer
     local hasDraft = false
     local carsInRange = getDriversInDistance(self,60) -- also accounts for draft may be too 
     
-    local timeScaleMultiplier = 40 -- ~1 second lookahead (adjustable) (40 iterations per second)
-    local collisionPadding = 1.2 -- additional space  multiplier given to radar/collision > 1 for grow, < 1 for shrink
-    local futurePosition = self.location * (self.velocity * timeScaleMultiplier) -- get future location
+    local timeScaleMultiplier = 0.5 -- ~1 second lookahead (adjustable) (40 iterations per second)
+    local collisionPadding = 2 -- additional space  multiplier given to radar/collision > 1 for grow, < 1 for shrink
+    local futurePosition = self.location + (self.velocity * timeScaleMultiplier) -- get future location
+    self.futureLocation = futurePosition
+    --print("future",self.location,self.velocity,futurePosition)
     local selfCollisionBox = generateBounds(futurePosition,self.carDimensions,self.shape:getAt(),self.shape:getRight(),collisionPadding)
+    -- make effect for debug
+    --print(self.fflEffect)
+    self.fflEffect.pos = selfCollisionBox[1].position
+    self.ffrEffect.pos = selfCollisionBox[2].position
+    self.fblEffect.pos = selfCollisionBox[3].position
+    self.fbrEffect.pos = selfCollisionBox[4].position
+
     local centerLocation = getCarCenter(self) -- returns center of car
 
     if carsInRange == nil then -- No cars go home
@@ -1888,12 +2000,24 @@ function Driver.newUpdateCollisionLayer(self): -- New updated collision layer
             --self:sv_sendAlert("Car ".. self.id .. " Not Scanned; Place on Lift")
             break
         end
-        local opFuturePos = opponent.location * (opponent.velocity * timeScaleMultiplier)
-        local opCollisionBox = generateBounds(opFuturePos,opponent.carDimensions,opponent.shape:getAt(),opponent.shape:getRight(),collisionPadding)
+        local opDir = opponent.shape:getAt()
+        local opFuturePos = opponent.location + (opponent.velocity * timeScaleMultiplier)
+        local opCollisionBox = generateBounds(opFuturePos,opponent.carDimensions,opDir,opponent.shape:getRight(),collisionPadding)
         local centerLocation = getCarCenter(self) -- returns center of car
         local collisionPotential = getCollisionPotential(selfCollisionBox,opCollisionBox)
+        if collisionPotential == false then 
+            break -- no collision potential
+        else
+            local intersectPoint = selfCollisionBox[collisionPotential]
+            local intersectVH = getPointRelativeLoc(centerLocation,intersectPoint['position'],opDir)
+            --print(self.id,collisionPotential,intersectPoint['name'],intersectVH)
+            local accel,steer = calculateCollisionMove(intersectPoint['name'],intersectVH,opponent) -- dont need opponent
+            --print("Got",accel,steer, "to avoid car")
+        end
 
     end
+    --self.strategicThrottle = colThrottle
+    --self.strategicSteering = self.strategicSteering + colSteer + passSteer
 end
 
 -- Updating methods (layers and awhat not)
@@ -2079,7 +2203,7 @@ function Driver.updateCollisionLayer(self)
             oppFlags.frontWarning = false
         end
         
-        if frontCol and frontCol < 1.5 then -- if real close use 0?
+        if frontCol and frontCol < 2.7 then -- if real close use 0?
             if (rightCol and rightCol <0) or (leftCol and leftCol > 0) then -- If overlapping
                 oppFlags.frontEmergency = true
             else
@@ -2093,13 +2217,13 @@ function Driver.updateCollisionLayer(self)
         if rearCol and rearCol < -2 then
             --print("car behind",rearCol)
             if oppFlags.pass then
-                print("Pass complete")
+                --print("Pass complete")
                 if self.passing.isPassing then
-                    print("stoppass")
+                    --print("stoppass")
                     oppFlags.pass = false
                     self:cancelPass()
                 else
-                    print("unmatched pass???")
+                    --print("unmatched pass???")
                 end
                 oppFlags.pass = false
             end
@@ -2127,25 +2251,25 @@ function Driver.updateCollisionLayer(self)
                 oppFlags.alongSide = false
             end
 
-            if (leftCol and leftCol >= -6) then
+            if (leftCol and leftCol >= -7) then
                 oppFlags.leftWarning = true
             else
                 oppFlags.leftWarning = false
             end
 
-            if (rightCol and rightCol <= 6) then
+            if (rightCol and rightCol <= 7) then
                 oppFlags.rightWarning = true
             else
                 oppFlags.rightWarning = false
             end
     
-            if (leftCol and leftCol >=-0.5) then
+            if (leftCol and leftCol >=-0.7) then
                 oppFlags.leftEmergency = true
              else
                 oppFlags.leftEmergency = false
             end
 
-            if (rightCol and rightCol <= 0.5) then
+            if (rightCol and rightCol <= 0.7) then
                 oppFlags.rightEmergency = true
              else
                 oppFlags.rightEmergency = false
@@ -2238,7 +2362,7 @@ function Driver.updateCollisionLayer(self)
 
         if oppFlags.frontWarning and not self.passing.isPassing then
             if self.speed - opponent.speed > 0.2 and frontCol < 20 then
-                local vMax =opponent.speed - 0.1
+                local vMax =opponent.speed - 0.3
                 --print("could pass?")
             end
         end
@@ -2246,7 +2370,7 @@ function Driver.updateCollisionLayer(self)
             --print("ftooo close",frontCol,oppFlags.alongSide,self.passing.isPassing,oppFlags.pass)
         end
         if oppFlags.frontEmergency and not oppFlags.alongSide then--and not passing? oppFlags.pass
-            local vMax =opponent.speed-3
+            local vMax =opponent.speed-4
             local eThrot = colThrottle
             if frontCol > 0 and frontCol <= 8 then
                 if self.speed - vMax > 0.2 and not oppFlags.pass then -- make smooth ratio instead? -- maybe have closer range? and not self.passing.isPassing?
@@ -2269,7 +2393,7 @@ function Driver.updateCollisionLayer(self)
                     end
                 end
             else -- way too close
-                eThrot = 0.72- math.abs(vMax/self.speed)
+                eThrot = 0.65- math.abs(vMax/self.speed)
                 --print("ebrake3")
                 if oppFlags.pass then
                     oppFlags.pass = false
@@ -2290,7 +2414,7 @@ function Driver.updateCollisionLayer(self)
 
         if oppFlags.leftWarning and leftCol ~= nil then -- multiply by opposite if car is behind
             --colSteer = colSteer + 1/(leftCol*10) negative-- Divide by speed?
-            colSteer = colSteer + ratioConversion(-6,2,-0.12,0,leftCol)--/(self.followStrength/1.5)   --TODO: figure out if getting passed/attack/defend?
+            colSteer = colSteer + ratioConversion(-6,2,-0.13,0,leftCol)--/(self.followStrength/1.5)   --TODO: figure out if getting passed/attack/defend?
             if self.carAlongSide.right ~= 0 then
                 colSteer = colSteer/3
             end
@@ -2298,7 +2422,7 @@ function Driver.updateCollisionLayer(self)
         end
         if oppFlags.rightWarning and rightCol ~= nil then
             --colSteer = colSteer +  1/(rightCol*10) positive
-            colSteer = colSteer + ratioConversion(6,-2,0.12,0,rightCol)--/(self.followStrength/1.5)  -- Convert x to a ratio from a,b to  c,d
+            colSteer = colSteer + ratioConversion(6,-2,0.13,0,rightCol)--/(self.followStrength/1.5)  -- Convert x to a ratio from a,b to  c,d
             if self.carAlongSide.left ~= 0 then
                 colSteer = colSteer/3
             end
@@ -2427,7 +2551,7 @@ function Driver.updateCollisionLayer(self)
                         oppFlags.pass = false
                     end
                     --print("ebrake1")
-                    eThrot = 0.80- math.abs(vMax/self.speed)
+                    eThrot = 0.75 - math.abs(vMax/self.speed)
                 end
             end
         end
@@ -4200,6 +4324,7 @@ function Driver.server_onFixedUpdate( self, timeStep )
             else
                 --- Check racemode?
                 self:updateCollisionLayer()
+                --self:newUpdateCollisionLayer() TODO: plan out and finish this, needs better location prediction 
                 if not self.noEngineError and (self.racing or self.userControl) and not self.shape:getBody():isStatic() then
                     self:checkOversteer()
                     self:checkUndersteer() -- TODO: Combine??
@@ -4388,6 +4513,7 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
     for j=0, #self.effectsList do local effectD = self.effectsList[j] -- separate out to movable/unmovable fx
         if effectD ~= nil then
             if effectD.effect:isPlaying() then
+                --print(effectD)
                 effectD.effect:setPosition(effectD.pos)
             end
         end

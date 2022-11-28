@@ -90,7 +90,7 @@ def on_press(key):
         if key.char == "'":
             output =  "{\"command\": \"camCycle\", \"value\": \"1\"}"
             print("Writing  "+" - " +output)
-            with open('cameraInput.json', 'w') as outfile:
+            with open('cameraInput.json', 'w') as outfile: # TODO: Can techincally have all this just be called to one output/writing command to save space
                 outfile.write(output)
 
     except:
@@ -99,6 +99,30 @@ def on_press(key):
             print("Exiting")
             _Running = False
             return False
+        if key == Key.f5:
+            output =  "{\"command\": \"raceMode\", \"value\": \"0\"}"
+            print("Writing  "+" - " +output)
+            with open('cameraInput.json', 'w') as outfile: #TODO: rename cmaerainput to just control input to unify terms
+                outfile.write(output)
+
+        if key == Key.f6:
+            output =  "{\"command\": \"raceMode\", \"value\": \"1\"}"
+            print("Writing  "+" - " +output)
+            with open('cameraInput.json', 'w') as outfile: #TODO: rename cmaerainput to just control input to unify terms
+                outfile.write(output)
+
+        if key == Key.f7:
+            output =  "{\"command\": \"raceMode\", \"value\": \"2\"}"
+            print("Writing  "+" - " +output)
+            with open('cameraInput.json', 'w') as outfile: #TODO: rename cmaerainput to just control input to unify terms
+                outfile.write(output)
+
+        if key == Key.f8:
+            output =  "{\"command\": \"raceMode\", \"value\": \"3\"}"
+            print("Writing  "+" - " +output)
+            with open('cameraInput.json', 'w') as outfile: #TODO: rename cmaerainput to just control input to unify terms
+                outfile.write(output)
+
         pass
    
 def on_release(key):

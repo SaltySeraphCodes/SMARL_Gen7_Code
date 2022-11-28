@@ -522,16 +522,16 @@ end
 function getCarCenter(racer)
     local rotation  =  racer.carDimensions['center']['rotation']
     local newRot =  rotation * racer.shape:getAt()
-    return location = racer.shape:getWorldPosition() + (newRot * racer.carDimensions['center']['length'])
+    return racer.shape:getWorldPosition() + (newRot * racer.carDimensions['center']['length'])
 end 
 
 function getPointRelativeLoc(center,checkPos,checkDir) -- similar to driver vh distances but the old school way
-    center.location.z = checkPos.location.z --- THis setting of z mutates driver and may loead to unwanted consequences
-    local goalVec = (checkPos.location - center.location) -- multiply at * velocity? use velocity instead?
+    center.z = checkPos.z --- THis setting of z mutates driver and may loead to unwanted consequences
+    local goalVec = (center - checkPos) -- multiply at * velocity? use velocity instead?
     
     local vDist = checkDir:dot(goalVec)
     local hDist = sm.vec3.cross(goalVec,checkDir).z
-    
+    --print("v",vDist)
     local vhDifs = {horizontal = hDist, vertical = vDist}
     return vhDifs
 end
@@ -625,26 +625,43 @@ function withinBound(location,bound) -- determines if location is within boundar
 	return false
 end
 
+function squareIntersect(location,square) -- determines if location is within boundaries of carBound square
+    local minX = math.min(square[1].position.x,square[2].position.x,square[3].position.x,square[4].position.x) -- todo: also store this instead of calculating every time too
+	local minY = math.min(square[1].position.y,square[2].position.y,square[3].position.y,square[4].position.y)
+	local maxX = math.max(square[1].position.x,square[2].position.x,square[3].position.x,square[4].position.x) 
+	local maxY = math.max(square[1].position.y,square[2].position.y,square[3].position.y,square[4].position.y)
+	if location.x > minX and location.x < maxX then
+		if location.y > minY and location.y < maxY then
+			return true
+		end
+	end
+	return false
+end
+
+
+
 -- format{ front, left, right, back,location,directionF,direction}
 function generateBounds(location,dimensions,frontDir,rightDir,padding) -- Generates a 4 node box for front left right and back corners of position
+    --print("gen bounds",location,dimensions,frontDir,rightDir,padding,dimensions['front']:length(),dimensions['left']:length())
     local bounds = {
-    name = 'fl', position = location + (frontDir *  (dimenstions['front']:length()*padding) ) + (-rightDir *  dimensions.['left']:length()*buffer),
-    name = 'fr', position = location + (frontDir *  (dimenstions['front']:length()*padding) ) + (rightDir *  dimensions.['left']:length()*buffer),
-    name = 'bl', position = location + (-frontDir *  (dimenstions['front']:length()*padding) ) + (-rightDir *  dimensions.['left']:length()*buffer),
-    name = 'br', position = location + (-frontDir *  (dimenstions['front']:length()*padding) ) + (rightDir *  dimensions.['left']:length()*buffer)
+    {['name'] = 'fl', ['position'] = location + (frontDir *  (dimensions['front']:length()*padding) ) + (-rightDir *  dimensions['left']:length()*padding)},
+    {['name'] = 'fr', ['position'] = location + (frontDir *  (dimensions['front']:length()*padding) ) + (rightDir *  dimensions['left']:length()*padding)},
+    {['name'] = 'bl', ['position'] = location + (-frontDir *  (dimensions['front']:length()*padding) ) + (-rightDir *  dimensions['left']:length()*padding)},
+    {['name'] = 'br', ['position'] = location + (-frontDir *  (dimensions['front']:length()*padding) ) + (rightDir *  dimensions['left']:length()*padding)}
     }
     return bounds
 end
 
 function getCollisionPotential(selfBox,opBox) -- Determines if bounding box1 colides with box 2
-    local minX = math.min(box1[1].x,box1[2].x,box2[1].x,box2[2].x) -- todo: also store this instead of calculating every time too
-	local minY = math.min(box1[1].y,box1[2].y,box2[1].y,box2[2].y)
-	local maxX = math.max(box1[1].x,box1[2].x,box2[1].x,box2[2].x) 
-	local maxY = math.max(box1[1].y,box1[2].y,box2[1].y,box2[2].y) 
-
-
-    -- Bounding box format {fl, fr, rl, rr}
-
+    --print("gettinc colPot",selfBox)
+    for k=1, #selfBox do local corner=selfBox[k]
+        --print(corner['name'])
+        local pos = corner['position']
+        if squareIntersect(pos,opBox) then
+            return k -- index in selfBox (corner)
+        end
+    end
+    return false
 end
 
 -- More node stuff

@@ -74,7 +74,7 @@ function Control.client_init( self )
     -- Chat command Binding?...
     RACE_CONTROL = self -- move to function?
     -- Bind race stuff to chat commands --TODO: cannot do without game script edding -_-
-	--sm.game.bindChatCommand( "/start", {}, "cl_onChatCommand", "Starts SMAR Cars" )
+	--sm.game.bindChatCommand( "/start", {}, "cl_onChatCommand", "Starts SMAR Cars" ) -- has to be called on game star in stuff
     --sm.game.bindChatCommand( "/stop", {}, "cl_onChatCommand", "Stop SMAR Cars" )
     --sm.game.bindChatCommand( "/chatcontrol", { { "bool", "enable", true } }, "cl_onChatCommand", "Toggles the usage of a power interactable vs chat commands to start/stop races" )
     -- UI Things:
@@ -177,7 +177,7 @@ function Control.server_init(self)
     self.finishTime = 0 -- point at which leader finishes
     self.raceFinished = false -- Whether race is finished or not
 
-
+    self.controllerSwitch = nil -- interactable that is connected to swtcgh
 
     self.qualifying = true -- whether we are qualifying or not
     self.flight = 1 -- which flight
@@ -470,11 +470,14 @@ function Control.sv_setHandicaps(self)
 end
 
 
-function sv_toggleRaceMode(self,mode) -- starts 
-    if mode == 0 then
+function Control.sv_toggleRaceMode(self,mode) -- starts 
+    print("toggling race mode")
+    if mode == 0 then --
         print("stopping race")
+        self:sv_stopRace()
     elseif mode == 1 then
         print("starting race")
+        self:sv_startRace()
     elseif mode == 2 then
         print("Yellow flag")
     elseif mode == 3 then 
@@ -488,7 +491,9 @@ function Control.sv_startRace(self)
     self:sv_sendAlert("Race Started")
     self.powered = true
     self.raceStatus = 1
+    -- check if active or not first
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 1 })
+    --self.controllerSwitch:setActive(true) TODO: find proper workaround otherwise just remove the switch
 end
 
 
@@ -498,11 +503,26 @@ function Control.sv_stopRace(self)
     self.raceStatus = 0
     self.powered = false
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 0 })
+    -- check if active or not
+    --self.controllerSwitch:setActive(false)
     if self.raceFinished then
         print("Stopping finished race: auto reset")
         self:sv_resetRace()
     end
 end
+
+function Control.sv_startFormation(self)
+    print("Beggining formation lap")
+
+end
+
+
+function Control.sv_cautionFormation(self)
+    print("FCY formation")
+
+end
+
+
 
 function Control.cl_resetRace(self) -- sends commands to all cars and then resets self
     self.network:sendToServer("sv_resetRace")
@@ -708,10 +728,13 @@ function Control.server_onFixedUpdate(self)
     local switch = self:findLogicCon() -- Check if switch on
     if switch == nil then
         if self.powered or self.raceStatus ~= 0 then
-            
+            --print("switch destroyed while things on i think")
         end 
     else
-        local power = switch:isActive()
+        if self.controllerSwitch == nil then
+            self.controllerSwitch = switch
+        end
+        local power = switch:isActive() -- Lets have switch control but also not cont
         if power == nil then -- assume off
             if self.powered or self.raceStatus ~= 0 then
                 self:sv_stopRace()
@@ -1245,7 +1268,7 @@ function Control.sv_ReadJson(self)
         return nil
     else
         --print("got instruct",instructions)
-        sm.json.save("[]", CAMERA_INSTRUCTIONS)
+        sm.json.save("[]", CAMERA_INSTRUCTIONS) -- technically not just camera instructions
         if instructions ~= nil then --0 Possibly only trigger when not alredy there (will need to read client zoomState)
             local instruction = instructions['command']
             if instruction == "exit" then
@@ -1265,6 +1288,7 @@ function Control.sv_ReadJson(self)
                 self:sv_toggleCameraMode(mode)
             elseif instruction == "raceMode" then -- 0 is stop, 1 is go, 2 is caution? 3 is formation
                 local raceMode = tonumber(instructions['value'])
+                --print("changing mraceMode",raceMode,sv_toggleRaceMode)
                 self:sv_toggleRaceMode(raceMode)
             end
             return
@@ -1593,7 +1617,7 @@ function Control.cl_cycleCamera(self, direction)
 end
 
 function Control.setNewCamera(self, cameraIndex) -- Switches to roadside camera based off of its index
-    --print(self.currentCameraIndex,cameraIndex)
+    --print(self.currentCameraIndex,cameraIndex)D
     --print("\n\n'")
     local avg_dt = 0.016666
     self.currentCameraIndex = cameraIndex
