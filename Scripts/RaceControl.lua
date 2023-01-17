@@ -320,7 +320,7 @@ function Control.sv_sendCommand(self,command) -- sends a command to Driver Comma
         for k=1, #allDrivers do local v=allDrivers[k]
             v:sv_recieveCommand(command)
         end
-    else
+    else -- send to just one
         local drivers = getDriversFromIdList(command.car)
         for k=1, #drivers do local v=drivers[k]
             v:sv_recieveCommand(command)
@@ -480,6 +480,7 @@ function Control.sv_toggleRaceMode(self,mode) -- starts
         self:sv_startRace()
     elseif mode == 2 then
         print("Yellow flag")
+        self:sv_cautionFormation()
     elseif mode == 3 then 
         print("formationlap?")
     end
@@ -511,14 +512,17 @@ function Control.sv_stopRace(self)
     end
 end
 
-function Control.sv_startFormation(self)
+function Control.sv_startFormation(self) -- race status 2
     print("Beggining formation lap")
 
 end
 
 
-function Control.sv_cautionFormation(self)
-    print("FCY formation")
+function Control.sv_cautionFormation(self) -- race status 3
+    self:sv_sendAlert("Yellow Flag")
+    self.raceStatus = 0
+    self:sv_sendCommand({car = {-1},type = "raceStatus", value = 3 })
+    -- store position
 
 end
 

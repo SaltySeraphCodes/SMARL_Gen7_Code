@@ -1451,8 +1451,10 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     local goalNodePos = self.goalNode.location -- TODO: Replace with [racetype]
     local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
     local goalPerp = self.goalNode.perp
-    
-    if pathType ~= "race" then
+    if self.caution then pathType = "mid" end
+    --print(pathType)
+
+    if pathType ~= "race" then -- TODO? should be 'mid'
         --print("pulled")
         goalNodePos = self.goalNode[pathType] --+ goalOffset
     end
@@ -1472,20 +1474,37 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
             --print("heading offtrack correction",self.strategicThrottle)
         end
     end
+   
+    local biasMult = 2
+   --- FCY steering logic
+    if self.caution == true then
+        self.speedControl = 12
+        self.trackPosBias = 10
+        self.followStrength = 95 -- 1 is strong, 10 is weak
+        biasMult = 1.1
+        
+        if #ALL_DRIVERS > 1 then
+            if self.racePosition > 1 then -- all cars that arent in first
+                local frontCar = getDriverByPos(self.racePosition - 1) -- finds car in front 
+            end
+        end
+
+
+
+
+        -- does logic here
+    end
+
     local biasDif = 0
     local followStren = self.followStrength
     local directionOffset = self.goalDirectionOffset
 
     if self.trackPosBias ~= nil and self.trackPosBias ~= 0 then
-        biasDif = (self.trackPosition - self.trackPosBias)/-5
-        if biasDif < 0 and self.trackPosBias > 0 then
-            biasDif = -biasDif/2
-        elseif biasDif > 0 and self.trackPosBias < 0 then
-            biasDif = -biasDif/2
-        end
-        --print("tbias",self.trackPosition, biasDif,self.goalDirectionOffset)
+        biasDif = (self.trackPosBias -self.trackPosition)
+        --print(self.trackPosBias,self.trackPosition,biasDif)
+        biasDif = biasDif* biasMult  
     end
-    if biasDif ~= 0 and math.abs(self.offTrack) == 0 then
+    if biasDif ~= 0 and math.abs(self.offTrack) == 0 then -- makes a slower recovery?
         --followStren = 5
         directionOffset = directionOffset * 1.5
     end
@@ -1498,8 +1517,8 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     if self.curGear <=0  then
         directionOffset = 0
     end
-    SteerAngle = posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren + biasDif + directionOffset
-
+    SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset
+    print("ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle)
     self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
 end
 
@@ -3595,6 +3614,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
     --print(self.followStrength)
     if self.goalNode == nil then return 1 end
     if self.currentNode == nil then return 1 end 
+    if self.caution then return 10 end -- TODO: figure out why
     --local segBegin = self:getSegmentBegin(self.goalNode.segID) -- Could be Either goal or current...
     local segLen = self:getSegmentLength(self.goalNode.segID)
     if math.abs(self.velocity.z) > 0.25 then -- short cut jumping
@@ -3819,8 +3839,20 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
         if command.value == 1 then -- Race is go
             self.safeMargin = true -- just starting out race
             self.racing = true
+            self.caution = false
+            self.formation = false
         elseif command.value == 0 then -- no race
             self.racing = false
+            self.caution = false
+            self.formation = false
+        elseif command.value == 2 then -- formation lap
+            self.racing = true -- ??
+            self.formation = true 
+            self.caution = false --??
+        elseif command.value == 3 then -- no race
+            self.racing = true -- ??
+            self.formation = false 
+            self.caution = true --??
         end
     elseif command.type == "handicap" then -- set car handicap (idk why i'm not setting directly...)
         self.handicap = command.value
@@ -4189,8 +4221,11 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
             end
         end
     end
-    if self.raceFinished then -- or caution flag
-        self.speedControl = 14.3
+    if self.raceFinished then -- or caution flag?
+        self.speedControl = 10 -- Make it vary
+    elseif self.racing and self.caution or self.formation then
+        --self.speedControl = 0
+        -- Passing off speedcontrol to strategic steering FCY and formation module
     else
         self.speedControl = 0
     end
