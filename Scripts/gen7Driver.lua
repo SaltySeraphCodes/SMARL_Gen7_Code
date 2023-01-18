@@ -203,7 +203,9 @@ function Driver.server_init( self )
     self.racing = false -- TODO: Add More race statuses
     self.pitting = false
     self.caution = false
+    self.cautionPos = 1 -- Position for caution
     self.formation = false
+    self.formationPos = 1 -- position for formation
     self.safeMargin = false
 
     self.upShiftThreshold = 0.1 -- Save per car? load from json?
@@ -285,7 +287,7 @@ function Driver.server_init( self )
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
 
-    self.debug = false
+    self.debug = true
 
 
     -- errorTimeouts
@@ -478,6 +480,10 @@ function Driver.sv_softReset(self)
     -- Situational/goalstate
     self.pathGoal = "location"
     -- Track Data (copied?)
+   
+    self.cautionPos = 1 -- Position for caution
+    
+    self.formationPos = 1 -- position for formation
 
     --self.goalNode = nil
     --self.goalOffset = nil
@@ -571,9 +577,11 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     self.racing = false -- TODO: Add More race statuses
     self.pitting = false
     self.caution = false
+    self.cautionPos = 1 -- Position for caution
     self.formation = false
+    self.formationPos = 1 -- position for formation
     self.safeMargin = false
-
+ 
     -- Movement attributes
     self.velocity = sm.shape.getVelocity(self.shape)
     self.angularVelocity = self.body.angularVelocity
@@ -1343,6 +1351,23 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     self.goalNode = goalNode
 end
 
+
+function Driver.updateGoalNodeMid(self) -- Updates self.goalNode to mid node (overtyped duplicate of goalNode
+    if self.lost then return end
+    if self.currentNode == nil then return end
+    local lookAheadConst = 5 -- play around until perfect -- SHould be dynamic depending on downforce?
+    local lookAheadHeur = 0.5 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    if self.rotationCorrect or self.offTrack ~= 0 then 
+        lookAheadConst = 8
+        lookAheadHeur = 1
+    end
+    
+    local lookaheadDist = lookAheadConst + self.speed*lookAheadHeur
+    local goalNode = self:getMidNodeInDistance(lookaheadDist)
+    --print(self.tagText,goalNode.id,lookaheadDist,self.speed)
+    self.goalNode = goalNode
+end
+
 function Driver.setCurrentNode(self,node)
     -- TODO: If stuck , run raycast between self and curnode, search until no wall in the way
     if node == nil then 
@@ -1390,7 +1415,7 @@ function Driver.setCurrentNode(self,node)
     end
 end
 
-function Driver.getNodeInDistance(self,distance) -- Searches for node in distance of car (following path) that is [distance] away from car (forward or backwards)
+function Driver.getNodeInDistance(self,distance) -- Searches for race node in distance of car (following path) that is [distance] away from car (forward or backwards)
     if self.currentNode == nil then return end
     local checkIndex = 1 * getSign(distance)
     local nodeDist = getDistance(self.currentNode.location,getNextItem(self.nodeChain,self.currentNode.id,checkIndex).location)
@@ -1400,6 +1425,30 @@ function Driver.getNodeInDistance(self,distance) -- Searches for node in distanc
     while nodeDist < math.abs(distance) do
         checkIndex = checkIndex + getSign(distance)
         nodeDist = getDistance(self.currentNode.location,getNextItem(self.nodeChain,self.currentNode.id,checkIndex).location)
+        nodeDitsTimeout = nodeDitsTimeout + 1
+        if nodeDitsTimeout > timeoutLimit then
+            print("Get node in distance timeout")
+            break
+        end
+    end
+    local distNode = getNextItem(self.nodeChain,self.currentNode.id,checkIndex) -- Could possibly just update it in place (unnecessary GetNextItem)
+    if self.stuck then 
+        --print("found node right at",distNode,nodeDist,distance)
+    end
+    return distNode
+end
+
+
+function Driver.getMidNodeInDistance(self,distance) -- Searches for Middle node in distance of car (following path) that is [distance] away from car (forward or backwards)
+    if self.currentNode == nil then return end
+    local checkIndex = 1 * getSign(distance)
+    local nodeDist = getDistance(self.currentNode.mid,getNextItem(self.nodeChain,self.currentNode.id,checkIndex).mid)
+    --print()
+    local nodeDitsTimeout = 0
+    local timeoutLimit = 300
+    while nodeDist < math.abs(distance) do
+        checkIndex = checkIndex + getSign(distance)
+        nodeDist = getDistance(self.currentNode.mid,getNextItem(self.nodeChain,self.currentNode.id,checkIndex).mid)
         nodeDitsTimeout = nodeDitsTimeout + 1
         if nodeDitsTimeout > timeoutLimit then
             print("Get node in distance timeout")
@@ -1474,26 +1523,142 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
             --print("heading offtrack correction",self.strategicThrottle)
         end
     end
-   
     local biasMult = 2
-   --- FCY steering logic
-    if self.caution == true then
-        self.speedControl = 12
-        self.trackPosBias = 10
-        self.followStrength = 95 -- 1 is strong, 10 is weak
-        biasMult = 1.1
-        
-        if #ALL_DRIVERS > 1 then
-            if self.racePosition > 1 then -- all cars that arent in first
-                local frontCar = getDriverByPos(self.racePosition - 1) -- finds car in front 
+    local biasDif = 0
+    local followStren = self.followStrength
+    local directionOffset = self.goalDirectionOffset
+
+    if self.trackPosBias ~= nil and self.trackPosBias ~= 0 then
+        biasDif = (self.trackPosBias -self.trackPosition)
+        --print(self.trackPosBias,self.trackPosition,biasDif)
+        biasDif = biasDif* biasMult  
+    end
+    if biasDif ~= 0 and math.abs(self.offTrack) == 0 then -- makes a slower recovery?
+        --followStren = 5
+        directionOffset = directionOffset * 1.5
+    end
+    if self.speed < 2 then 
+        directionOffset = 0
+    end
+    if math.abs(self.offTrack) > 1 then
+        followStren = followStren * 0.2
+    end
+    if self.curGear <=0  then
+        directionOffset = 0
+    end
+    SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset
+    --print("ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle)
+    self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
+end
+
+function Driver.updateCautionSteering(self,pathType) -- updates broad steering goals based on path parameter [race,mid,pit]
+    local SteerAngle
+    if self.goalNode == nil then return end
+    
+    local goalNodePos = self.goalNode.mid -- TODO: Replace with [racetype]
+    local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
+    local goalPerp = self.goalNode.perp
+    goalNodePos = self.goalNode.mid + goalOffset-- place goalnode offset here...
+    -- check if goalNode pos is offTrack
+    local onTrack = self:checkLocationOnTrack(self.goalNode,goalNodePos)
+    if not onTrack then
+        print("caution mid node not on track")
+        if self.passing.isPassing then
+            --print("offtrackStuff?")
+            --self:cancelPass()
+            self.strategicThrottle = self.strategicThrottle - 0.05
+        end
+        goalNodePos = self.goalNode.mid
+        if self.strategicThrottle > -1 then -- COrrect this foo by using offset too?
+            self.strategicThrottle = self.strategicThrottle - 0.05
+            --print("heading offtrack correction",self.strategicThrottle)
+        end
+    end
+    self.speedControl = 12 -- use this to speed up or slow down
+    self.trackPosBias = 0 -- can use this to let car pick side + = right - = left
+    self.followStrength = 1 -- 1 is strong, 10 is weak ( use this when passing on certain sides along with trackPosBias)
+    local biasMult = 1.1
+   
+    if #ALL_DRIVERS > 1 then -- check self position in relation to cautionPos
+        if self.racePosition == self.cautionPos then -- if car is aligned in position
+            -- Double check if car's rear is behind by 5?
+            local dist = 0
+            if self.cautionPos < #ALL_DRIVERS then -- if not in last
+                local rearCar = getDriverByPos(self.cautionPos + 1)
+                dist = getDriverDistance(self,rearCar,#self.nodeChain)
+                --print(dist)
+            else --if in last
+                local frontCar = getDriverByPos(self.cautionPos - 1)
+                dist = getDriverDistance(frontCar,self,#self.nodeChain)
+                --print(dist)
+            end
+            if dist < - 10 then -- if furhter away than 5 nodes
+                if self.racePosition == 1 then -- if in first then set pace
+                    self.speedControl = 12
+                    self.trackPosBias = 0
+                    self.followStrength = 2
+                else -- find distance from car in front and stay 5? away
+                    local frontCar = getDriverByPos(self.cautionPos - 1)
+                    local frontDist = self.carRadar.front
+                    local carDist = frontDist
+                    if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                        --print("invalid frontCar",self.racePosition,self.cautionPos,frontCar)
+                    else
+                        carDist = getDistance(self.location, frontCar.location)
+                    end
+                    
+                    --print("Aligned Cardist",carDist)
+                    if  carDist < 10 then -- if car too close, slow down
+                        self.speedControl = 10
+                    elseif carDist > 16 then -- if car too far, speed up
+                        self.speedControl = 15
+                    else -- if car right in the money
+                        self.speedControl = 12 -- or whatever speed we decide
+                    end
+                end
+            else
+                -- continue on path
+                
+                self.speedControl = 14 -- slow down a little
+                self.followStrength = 6
+            end
+
+        elseif self.racePosition > self.cautionPos then --  if car is behind desired caution pos 
+            self.trackPosBias = -14 -- put car on left side of track
+            self.speedControl = 15 -- speed up drastically? maybe based on distance from desired position
+            self.followStrength = 7 -- loosely follow left side ish
+            -- will continue this until racePosition == caution Pos
+            --print("")
+
+        elseif self.racePosition < self.cautionPos then -- if car is ahead of desired cautionpos 
+            if self.cautionPos <= 1 then --This shouldnt happen
+               --print(" invalid cautionPos",self.racePosition,self.cautionPos)
+            else -- Keep distance away from head car (makes room for car inbetween)
+                local frontCar = getDriverByPos(self.cautionPos - 1) -- car you want to follow
+                local frontDist = self.carRadar.front
+                local carDist = frontDist
+                if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                   -- print("invalid frontCar",self.racePosition,self.cautionPos,frontCar)
+                   --print("fail frontCar",carDist)
+                else
+                    carDist = getDistance(self.location, frontCar.location)
+                    --print(" got frontCar",carDist)
+                end
+
+
+                --print("carDist",carDist)
+                if carDist <  16 then -- make big gap
+                    self.speedControl = 8 
+                elseif carDist > 20 then -- if car too far, speed up
+                    self.speedControl = 11
+                else -- if car right in the money
+                    self.speedControl = 12 -- or whatever speed we decide
+                end
             end
         end
-
-
-
-
-        -- does logic here
     end
+
+    
 
     local biasDif = 0
     local followStren = self.followStrength
@@ -1518,7 +1683,7 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
         directionOffset = 0
     end
     SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset
-    print("ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle)
+    --print("ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle)
     self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
 end
 
@@ -1825,6 +1990,29 @@ function Driver.updateStrategicThrottle(self)
     --end
     --print(vMax)
 end
+
+function Driver.updateCautionThrottle(self) -- not necessary I believe
+    if self.stuck then return end
+    local braking = self:getBraking() -- self:getCollissionBraking
+    local accel = 0
+    if braking == 0 then
+        accel = self:getAccel()
+    else
+        accel = 0
+    end
+    --print(accel,braking)
+    self.strategicThrottle = accel - braking
+    --print(accel,braking,self.strategicThrottle)
+    --local segID = self.currentNode.segID
+   -- local vMax = calculateMaximumVelocity(self.currentNode,self.mass)
+   -- if self.speed > vMax then 
+   --self.strategicThrottle = -1
+    --else
+    --    self.strategicThrottle = 1
+    --end
+    --print(vMax)
+end
+ 
  
 -- Gearing
 function Driver.updateGearing(self) -- try to calculate the best gear to choose at the time and shift as well
@@ -2601,8 +2789,11 @@ function Driver.updateCollisionLayer(self)
     if not self.raceControlError then
         if getRaceControl().draftingEnabled then
             if hasDraft then
-               -- print(self.id,"HS",self.id,hasDraft)
-                self.drafting = true
+                if (self.caution or self.formation) then -- deny draft due to caution and what not
+                else
+                -- print(self.id,"HS",self.id,hasDraft)
+                    self.drafting = true
+                end
             else
                 self.drafting = false
             end
@@ -2655,6 +2846,7 @@ function Driver.cancelPass(self) -- cancels passing
 end
 
 function Driver.checkPassingSpace(self,opponent) -- calculates the best direction to pass -1 = left, 1 = right, 0 = nope.. bigger numbers will represent confidence level
+    if  (self.caution or self.formation) then return 0 end
     if not self.currentNode then return 0 end
     if not opponent then return 0 end
     if not opponent.currentNode then return 0 end -- Consolidate to validation function?
@@ -2790,6 +2982,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
 end
 
 function Driver.calculateClosestPassPoint(self,opponent) -- oppLoc = diver vh dist
+    if  (self.caution or self.formation) then return 0 end
     if not self.currentNode then return 0 end
     if not opponent then return 0 end
     if not opponent.currentNode then return 0 end    local oppTPos = opponent.trackPosition -- OOOR Just take the opponents distance from left/right wall
@@ -2912,6 +3105,7 @@ function Driver.calculateClosestPassPoint(self,opponent) -- oppLoc = diver vh di
 end
 
 function Driver.confirmPassingSpace(self,opponent,dir) -- checks if the previus committed space is still availible
+    if  (self.caution or self.formation) then return 0 end
     if not self.currentNode then return 0 end
     if not opponent then return 0 end
     if not opponent.currentNode then return 0 end -- Consolidate to validation function?
@@ -3515,7 +3709,11 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
             self.trackPosBias = 0
         end
     end
-    
+    -- cautijon check
+    if self.caution then
+        self:checkCautionPos()
+    end
+
 
 end
 
@@ -3835,24 +4033,30 @@ end
 function Driver.sv_recieveCommand(self,command) -- recieves various commands from race control
     if command == nil then return end
     --print(self.id,"revieved command",command)
-    if command.type == "raceStatus" then 
-        if command.value == 1 then -- Race is go
+    if command.type == "raceStatus" then --TODO: make these send out individual commands instead of toggle here
+        if command.value == 1 then -- start race
             self.safeMargin = true -- just starting out race
             self.racing = true
             self.caution = false
             self.formation = false
-        elseif command.value == 0 then -- no race
+        elseif command.value == 0 then -- Stop race
             self.racing = false
             self.caution = false
             self.formation = false
         elseif command.value == 2 then -- formation lap
+            self:determineRacePos()
             self.racing = true -- ??
             self.formation = true 
             self.caution = false --??
-        elseif command.value == 3 then -- no race
+        elseif command.value == 3 then -- Caution flag
+            self:determineRacePos()
             self.racing = true -- ??
             self.formation = false 
             self.caution = true --??
+            -- Confirm caution pos
+            print("Checking pos",self.racePosition)
+            self.cautionPos = self.racePosition -- might need thing to tiebreak
+
         end
     elseif command.type == "handicap" then -- set car handicap (idk why i'm not setting directly...)
         self.handicap = command.value
@@ -4081,6 +4285,20 @@ function Driver.determineRacePosBySplit(self) -- When Called, checks split from 
     end
 end
 
+function Driver.checkCautionPos(self) -- goes through and makes sure theres no duplicates
+    for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
+        local curPos = self.cautionPos
+        if v.id ~= self.id then -- not same
+            if v.cautionPos == curPos then
+                print("caution collision")
+                self:sv_sendCommand({car = {self.id}, type = "set_caution_pos", value = 1})
+            end
+        end
+    end
+    --print("Set caution Positions")
+end
+
+
 --[[ Caution flag strategy
 validate self (return end)
 local lane = self.currentNode.width/4? or 3
@@ -4232,14 +4450,27 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
 
     if not self.lost then
         self:updateNearestNode()
-        if self.lost then return end --TODO: Add searching algo to figure out bet way to get on track, possibly fly?
-        self:updateGoalNode()
         if self.lost then return end
-        self:updateStrategicSteering(self.pathGoal) -- Get goal from character layer (pit,mid,race)
+       
+
+        if self.caution then -- caution stuf
+            self:updateGoalNodeMid()
+            if self.lost then return end
+            self:updateCautionSteering(self.pathGoal)
+        
+        elseif self.formation then-- formation logic
+            self:updateFormationSteering(self.pathGoal) -- Get goal from character layer (pit,mid,race)
+
+        else -- Regular racing hopefully
+            self:updateGoalNode()
+            if self.lost then return end
+            self:updateStrategicSteering(self.pathGoal) -- Get goal from character layer (pit,mid,race)
+            
+        end
+
         if not self.noEngineError and self.currentNode ~= nil then
             self:updateStrategicThrottle()
         end
-        
     else
         self:updateNearestNode() -- TODO: Fix this...
         self.speedControl = 0
@@ -4357,6 +4588,7 @@ function Driver.server_onFixedUpdate( self, timeStep )
                 --print("heh")
                 self:updateControlLayer()
             else
+                if self.caution == true then end -- template just in case we need to change things here
                 --- Check racemode?
                 self:updateCollisionLayer()
                 --self:newUpdateCollisionLayer() TODO: plan out and finish this, needs better location prediction 
@@ -4542,7 +4774,9 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
     local splitFormat = string.format("%.3f",self.raceSplit)
     local rpmFormat = string.format("%.2f",self.engine.curRPM)
     local speedFormat = string.format("%.2f",self.speed)
-    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat) -- TODO: Have overlays that show race position and time splits and speeds
+    local rpos = string.format("%d",self.racePosition)
+    local cpos = string.format("%d",self.cautionPos)
+    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..cpos) -- TODO: Have overlays that show race position and time splits and speeds
     --print(self.shape.worldPosition.z-self.location.z)
     --print(self.shape.right,)
     for j=0, #self.effectsList do local effectD = self.effectsList[j] -- separate out to movable/unmovable fx

@@ -275,7 +275,7 @@ function Control.updateRacers(self)
 end
 
 
--- Saving and loading?
+-- Saving and loading? --- TODO: THe Racecontrol will be only one that loads nodechain (might reduce lag?)
 function Control.saveRacingLine(self) -- Saves nodeChain, may freeze game
 end
 
@@ -301,12 +301,57 @@ function Control.loadData(self,channel) -- Loads any data?
     return data
 end
 
-function Control.sv_loadData(self,channel)
-    print("Loading data")
-    local data = sm.storage.load(channel)
-    print("finished Loading",data)
-    return data
+
+function Control.loadTrackData(self) -- loads in any track data from the world
+    --print('loadTrackData network send')
+    local data = self.network:sendToServer("sv_loadData",TRACK_DATA) -- Will be good
 end
+
+function Control.sv_loadData(self,channel)
+    --print("svb_loadData")
+    local data = sm.storage.load(channel)
+    if data == nil then
+        --print("Server did not find track data") 
+        if self.trackLoadError then
+        else
+            print("Track Data not found")
+            self.trackLoadError = true
+        end
+    else
+        --print("Server found track data") 
+        if self.trackLoadError then
+            print("Track Loaded")
+            self.trackLoadError = false
+        else
+            --print("Track Loaded, initial")
+        end
+    end
+    self:on_trackLoaded(data) -- callback to confirm load
+end
+
+function Control.on_trackLoaded(self,data) -- Callback for when track data is actually loaded
+    --print('on_trackLoaded')
+    if data == nil then
+        self.trackLoaded = false
+    else
+        self.trackLoaded = true
+        self.nodeChain = data
+        --print(self.nodeChain[1])
+        if self.nodeMap == nil then
+            --print("generating NodeMap")
+            self.nodeMap = generateNodeMap(self.nodeChain)
+        end
+        local lastNode = getNextItem(self.nodeChain,1,-1)
+        self.totalSegments = lastNode.segID
+        if self.totalSegments <= 5 then
+            print("Oval Track??",self.totalSegments)
+            self.ovalTrack = true
+        end
+        --print("total segments",self.totalSegments)
+    end
+end
+
+
 
 function Control.sv_setDraft(self,mode) -- enables or disables drafte
     self.draftingEnabled = mode
@@ -430,6 +475,10 @@ function  Control.sv_recieveCommand( self,command ) -- recieves command/data fro
         self:processLapCross(command.car,command.value)
     end
 
+    if command.type == "set_caution_pos" then -- racer has crossed lap
+        self:setCautionPositions(command.car,command.value)
+    end
+
 end
 
 function Control.sv_checkReset(self) -- checks if the car can reset
@@ -456,7 +505,7 @@ function Control.sv_setHandicaps(self)
         local nodeDif = firstNode - driver.totalNodes
         local handicap = nodeDif
         --print(driver.id,nodeDif,driver.handicap)
-        if nodeDif < self.handiCapThreshold then 
+        if nodeDif < self.handiCapThreshold or self.raceStatus > 1 then -- caution or formation
             handicap = 0
         elseif nodeDif > self.handiCapStrength then
             handicap = self.handiCapStrength
@@ -514,19 +563,28 @@ end
 
 function Control.sv_startFormation(self) -- race status 2
     print("Beggining formation lap")
-
+    self.raceStatus = 2
+    self:sv_sendAlert("Formation Lap")
+    self:sv_sendCommand({car = {-1},type = "raceStatus", value = 2 })
 end
 
 
 function Control.sv_cautionFormation(self) -- race status 3
     self:sv_sendAlert("Yellow Flag")
-    self.raceStatus = 0
+    self.raceStatus = 3
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 3 })
     -- store position
 
 end
 
-
+function Control.setCautionPositions(self) -- sv sets all driver caution positions to their current positions
+    for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
+        local curPos = self.cautionPos
+        v.cautionPos = v.racePosition
+        
+    end
+end
+    --print("Set caution Positions")
 
 function Control.cl_resetRace(self) -- sends commands to all cars and then resets self
     self.network:sendToServer("sv_resetRace")

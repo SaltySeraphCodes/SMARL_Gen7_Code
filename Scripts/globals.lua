@@ -451,6 +451,7 @@ function getDriversInDistance(driver,distance) -- returns table of all drivers w
 end
 
 function getDriverDistance(driver,target,totalNodes) -- GEts the distance between two drivers ONLY use for general dist tracking, not precise
+    if driver == nil or target == nil then return 0 end 
     if driver.currentNode == nil then return 0 end -- bad
     if target.currentNode == nil then return 0 end -- error
     local sign = 1
