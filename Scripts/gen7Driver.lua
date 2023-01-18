@@ -207,6 +207,7 @@ function Driver.server_init( self )
     self.formation = false
     self.formationPos = 1 -- position for formation
     self.safeMargin = false
+    self.raceRestart = false
 
     self.upShiftThreshold = 0.1 -- Save per car? load from json?
     self.downShiftThreshold = 0.1
@@ -286,7 +287,6 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-
     self.debug = true
 
 
@@ -1574,11 +1574,15 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
             --print("heading offtrack correction",self.strategicThrottle)
         end
     end
+    local baseSpeed = 12 -- Base speed for caution
+    local slowSpeed = 10 -- slow speed for caution
+    local fastSpeed = 16 -- fast speed for caution
     self.speedControl = 12 -- use this to speed up or slow down
     self.trackPosBias = 0 -- can use this to let car pick side + = right - = left
     self.followStrength = 1 -- 1 is strong, 10 is weak ( use this when passing on certain sides along with trackPosBias)
     local biasMult = 1.1
    
+    
     if #ALL_DRIVERS > 1 then -- check self position in relation to cautionPos
         if self.racePosition == self.cautionPos then -- if car is aligned in position
             -- Double check if car's rear is behind by 5?
@@ -1592,9 +1596,9 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                 dist = getDriverDistance(frontCar,self,#self.nodeChain)
                 --print(dist)
             end
-            if dist < - 10 then -- if furhter away than 5 nodes
+            if dist < - 10 then -- if furhter away than 10 nodes
                 if self.racePosition == 1 then -- if in first then set pace
-                    self.speedControl = 12
+                    self.speedControl = baseSpeed
                     self.trackPosBias = 0
                     self.followStrength = 2
                 else -- find distance from car in front and stay 5? away
@@ -1609,27 +1613,37 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                     
                     --print("Aligned Cardist",carDist)
                     if  carDist < 10 then -- if car too close, slow down
-                        self.speedControl = 10
+                        self.speedControl = slowSpeed
                     elseif carDist > 16 then -- if car too far, speed up
-                        self.speedControl = 15
+                        if self.raceRestart then -- if the race is restarting
+                            self.speedControl = 0
+                            self.caution = false
+                            self.formation = false
+                        else
+                            self.speedControl = fastSpeed
+                        end
                     else -- if car right in the money
-                        self.speedControl = 12 -- or whatever speed we decide
+                        self.speedControl = baseSpeed-- or whatever speed we decide
                     end
                 end
-            else
+            else -- if closer than10 nodes
                 -- continue on path
-                
-                self.speedControl = 14 -- slow down a little
+                self.speedControl = fastSpeed - 1 -- slow down a little
                 self.followStrength = 6
             end
 
         elseif self.racePosition > self.cautionPos then --  if car is behind desired caution pos 
             self.trackPosBias = -14 -- put car on left side of track
-            self.speedControl = 15 -- speed up drastically? maybe based on distance from desired position
             self.followStrength = 7 -- loosely follow left side ish
             -- will continue this until racePosition == caution Pos
             --print("")
-
+            if self.raceRestart then -- if the race is restarting
+                self.speedControl = 0
+                self.caution = false
+                self.formation = false
+            else
+                self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
+            end
         elseif self.racePosition < self.cautionPos then -- if car is ahead of desired cautionpos 
             if self.cautionPos <= 1 then --This shouldnt happen
                --print(" invalid cautionPos",self.racePosition,self.cautionPos)
@@ -1647,12 +1661,18 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
 
 
                 --print("carDist",carDist)
-                if carDist <  16 then -- make big gap
-                    self.speedControl = 8 
-                elseif carDist > 20 then -- if car too far, speed up
-                    self.speedControl = 11
+                if carDist <  17 then -- make big gap
+                    self.speedControl = slowSpeed - 1
+                elseif carDist > 23 then -- if car too far, speed up
+                    if self.raceRestart then -- if the race is restarting
+                        self.speedControl = 0
+                        self.caution = false
+                        self.formation = false
+                    else
+                        self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
+                    end
                 else -- if car right in the money
-                    self.speedControl = 12 -- or whatever speed we decide
+                    self.speedControl = baseSpeed -- or whatever speed we decide
                 end
             end
         end
@@ -4037,9 +4057,14 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
         if command.value == 1 then -- start race
             self.safeMargin = true -- just starting out race
             self.racing = true
-            self.caution = false
-            self.formation = false
+            if self.caution or self.formation then -- if previously in caution or formation then
+                self.raceRestart = true
+            else
+                self.caution = false
+                self.formation = false
+            end
         elseif command.value == 0 then -- Stop race
+            self.raceRestart = false
             self.racing = false
             self.caution = false
             self.formation = false
@@ -4048,11 +4073,13 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
             self.racing = true -- ??
             self.formation = true 
             self.caution = false --??
+            self.raceRestart = false
         elseif command.value == 3 then -- Caution flag
             self:determineRacePos()
             self.racing = true -- ??
             self.formation = false 
             self.caution = true --??
+            self.raceRestart = false
             -- Confirm caution pos
             print("Checking pos",self.racePosition)
             self.cautionPos = self.racePosition -- might need thing to tiebreak
