@@ -31,7 +31,7 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
             self.racing = false
         end
         -- New sguff here
-    elseif command.type = "setFormation" then
+    elseif command.type == "setFormation" then
         self:setFormation()
         ---
     elseif command.type == "handicap" then -- set car handicap (idk why i'm not setting directly...)
@@ -43,4 +43,5 @@ end
 
 
 function Driver.setFormation(self) -- sv
-    self.formationDesire = 
+    self.formationDesire = 1
+end

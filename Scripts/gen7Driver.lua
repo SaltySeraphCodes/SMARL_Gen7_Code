@@ -287,7 +287,7 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = true
+    self.debug = false
 
 
     -- errorTimeouts
@@ -1574,9 +1574,9 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
             --print("heading offtrack correction",self.strategicThrottle)
         end
     end
-    local baseSpeed = 12 -- Base speed for caution
-    local slowSpeed = 10 -- slow speed for caution
-    local fastSpeed = 16 -- fast speed for caution
+    local baseSpeed = 11 -- Base speed for caution
+    local slowSpeed = 9 -- slow speed for caution
+    local fastSpeed = 17 -- fast speed for caution
     self.speedControl = 12 -- use this to speed up or slow down
     self.trackPosBias = 0 -- can use this to let car pick side + = right - = left
     self.followStrength = 1 -- 1 is strong, 10 is weak ( use this when passing on certain sides along with trackPosBias)
@@ -1588,19 +1588,28 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
             -- Double check if car's rear is behind by 5?
             local dist = 0
             if self.cautionPos < #ALL_DRIVERS then -- if not in last
-                local rearCar = getDriverByPos(self.cautionPos + 1)
+                local rearCar = getDriverByPos(self.racePosition + 1)
                 dist = getDriverDistance(self,rearCar,#self.nodeChain)
                 --print(dist)
             else --if in last
-                local frontCar = getDriverByPos(self.cautionPos - 1)
-                dist = getDriverDistance(frontCar,self,#self.nodeChain)
+                local frontCar = getDriverByPos(self.racePosition - 1)
+                dist = getDriverDistance(frontCar,self,#self.nodeChain) -- should be a negative distance, but seems to not always be the case
                 --print(dist)
             end
-            if dist < - 10 then -- if furhter away than 10 nodes
+            --local name = (self.carData['metaData'].Car_Name or 'Unnamed')
+            --print(name,dist,self.cautionPos,self.racePosition)
+            if dist < - 15 then -- if car behind is decent distance, do stuff
                 if self.racePosition == 1 then -- if in first then set pace
-                    self.speedControl = baseSpeed
-                    self.trackPosBias = 0
-                    self.followStrength = 2
+                    if self.raceRestart then -- if the race is restarting
+                        self.speedControl = 0
+                        self.caution = false
+                        self.formation = false
+                        self.raceRestart = false
+                    else
+                        self.speedControl = baseSpeed
+                        self.trackPosBias = 0
+                        self.followStrength = 3
+                    end
                 else -- find distance from car in front and stay 5? away
                     local frontCar = getDriverByPos(self.cautionPos - 1)
                     local frontDist = self.carRadar.front
@@ -1611,14 +1620,15 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                         carDist = getDistance(self.location, frontCar.location)
                     end
                     
-                    --print("Aligned Cardist",carDist)
-                    if  carDist < 10 then -- if car too close, slow down
+                    --print("2",name, carDist,self.speedControl)
+                    if  carDist < 12 then -- if car too close, slow down
                         self.speedControl = slowSpeed
-                    elseif carDist > 16 then -- if car too far, speed up
+                    elseif carDist > 13 then -- if car too far, speed up
                         if self.raceRestart then -- if the race is restarting
                             self.speedControl = 0
                             self.caution = false
                             self.formation = false
+                            self.raceRestart = false
                         else
                             self.speedControl = fastSpeed
                         end
@@ -1626,10 +1636,45 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                         self.speedControl = baseSpeed-- or whatever speed we decide
                     end
                 end
-            else -- if closer than10 nodes
-                -- continue on path
-                self.speedControl = fastSpeed - 1 -- slow down a little
-                self.followStrength = 6
+            else -- if car behind is too close, speed up/ continue normal speed
+                -- continue on path TODO: make these into separate function, lots of repetition
+                if self.racePosition == 1 then -- if in first then set pace
+                    if self.raceRestart then -- if the race is restarting
+                        self.speedControl = 0
+                        self.caution = false
+                        self.formation = false
+                        self.raceRestart = false
+                    else
+                        self.speedControl = baseSpeed
+                        self.trackPosBias = 0
+                        self.followStrength = 3
+                    end
+                else -- find distance from car in front and stay 5? away
+                    local frontCar = getDriverByPos(self.cautionPos - 1)
+                    local frontDist = self.carRadar.front
+                    local carDist = frontDist
+                    if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                        --print("invalid frontCar",self.racePosition,self.cautionPos,frontCar)
+                    else
+                        carDist = getDistance(self.location, frontCar.location)
+                    end
+                    
+                    if  carDist < 12 then -- if car too close, slow down
+                        self.speedControl = slowSpeed
+                    
+                    elseif carDist > 13 then -- if car too far, speed up
+                        if self.raceRestart then -- if the race is restarting
+                            self.speedControl = 0
+                            self.caution = false
+                            self.formation = false
+                            self.raceRestart = false
+                        else
+                            self.speedControl = fastSpeed
+                        end
+                    else -- if car right in the money
+                        self.speedControl = baseSpeed-- or whatever speed we decide
+                    end
+                end
             end
 
         elseif self.racePosition > self.cautionPos then --  if car is behind desired caution pos 
@@ -1641,6 +1686,7 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                 self.speedControl = 0
                 self.caution = false
                 self.formation = false
+                self.raceRestart = false
             else
                 self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
             end
@@ -1661,13 +1707,14 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
 
 
                 --print("carDist",carDist)
-                if carDist <  17 then -- make big gap
+                if carDist <  16 then -- make big gap
                     self.speedControl = slowSpeed - 1
-                elseif carDist > 23 then -- if car too far, speed up
+                elseif carDist > 20 then -- if car too far, speed up
                     if self.raceRestart then -- if the race is restarting
                         self.speedControl = 0
                         self.caution = false
                         self.formation = false
+                        self.raceRestart = false
                     else
                         self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
                     end
@@ -1837,7 +1884,8 @@ function Driver.getAccel(self) -- GEts acceleration flag
         vMax = self.speedControl
         --print("SC",self.speed,vMax)
         if self.speed > vMax then
-            return -0.1
+            --print((vMax - self.speed)/10)
+            return (vMax - self.speed)/10
         else 
             return 1
         end
@@ -4468,7 +4516,7 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
     end
     if self.raceFinished then -- or caution flag?
         self.speedControl = 10 -- Make it vary
-    elseif self.racing and self.caution or self.formation then
+    elseif self.racing and (self.caution or self.formation) then
         --self.speedControl = 0
         -- Passing off speedcontrol to strategic steering FCY and formation module
     else

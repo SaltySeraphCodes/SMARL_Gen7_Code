@@ -570,7 +570,7 @@ end
 
 
 function Control.sv_cautionFormation(self) -- race status 3
-    self:sv_sendAlert("Yellow Flag")
+    self:sv_sendAlert("#FFFF00Caution Flag")
     self.raceStatus = 3
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 3 })
     -- store position
