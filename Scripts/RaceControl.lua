@@ -11,7 +11,7 @@ dofile "Timer.lua"
 
 ZOOM_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/zoomControls.json"
 CAMERA_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/cameraInput.json"
-
+QUALIFYING_DATA = MOD_FOLDER .. "/JsonData/qualifyingData.json" -- Data structure with id, place, and split, formed by python
 
 Control = class( nil )
 Control.maxChildCount = -1
@@ -179,7 +179,7 @@ function Control.server_init(self)
 
     self.controllerSwitch = nil -- interactable that is connected to swtcgh
 
-    self.qualifying = true -- whether we are qualifying or not
+    self.qualifying = false -- whether we are qualifying or not -- dynamic
     self.flight = 1 -- which flight
     self.finishResults = {}
     self.qualifyingResults = {} -- list of results per flight
@@ -213,7 +213,7 @@ function Control.server_init(self)
     self.smarCamLoaded = false
     self.externalControlsEnabled = true
     self.viewIngCamera = false -- whether camera is being viewed
-
+    
     
 end
 
@@ -532,6 +532,7 @@ function Control.sv_toggleRaceMode(self,mode) -- starts
         self:sv_cautionFormation()
     elseif mode == 3 then 
         print("formationlap?")
+        self:sv_startFormation()
     end
 
 end
@@ -563,9 +564,12 @@ end
 
 function Control.sv_startFormation(self) -- race status 2
     print("Beggining formation lap")
+    -- Grab qualifying information
+    qualData = self:sv_ReadQualJson()
     self.raceStatus = 2
     self:sv_sendAlert("Formation Lap")
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 2 })
+    
 end
 
 
@@ -714,7 +718,12 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             ['best_lap'] = driver.bestLap,
             ['split'] = driver.raceSplit
         }
-        table.insert(self.finishResults,finishData)
+        if self.qualifying then
+            print("got qualifyin and now nomore")
+            table.insert(self.qualifyingResults,finishData)
+        else
+            table.insert(self.finishResults,finishData)
+        end
         --print("Finished:",#self.finishResults, #ALL_DRIVERS)
     end
     
@@ -727,6 +736,8 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
         local outputString = 'finish_data= [ '
         if self.qualfying then --  qualifying round
             outputString = 'qualifying_data= [ '
+            -- might need to convert to json string??
+            sm.json.save(self.qualifyingResults, QUALIFYING_DATA)
         end
         
         for k=1, #self.finishResults do local v=self.finishResults[k]
@@ -1321,6 +1332,21 @@ function Control.sv_output_data(self,outputString) -- logs data
     print()
     sm.log.info(outputString)
 end
+
+
+function Control.sv_ReadQualJson(self)
+    --print("RC sv readjson before")
+    local status, data =  pcall(sm.json.open,QUALIFYING_DATA) -- Could pcall whole function
+    if status == false then -- Error doing json open
+        print("Got error reading qualifying JSON") -- try again?
+        return nil
+    else
+        print("Got Qual data",data)
+        -- send data to cars
+        return data
+    end
+end
+
 
 function Control.sv_ReadJson(self)
     --print("RC sv readjson before")

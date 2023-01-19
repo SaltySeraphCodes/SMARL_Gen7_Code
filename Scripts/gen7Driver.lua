@@ -4118,6 +4118,7 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
             self.formation = false
         elseif command.value == 2 then -- formation lap
             self:determineRacePos()
+            
             self.racing = true -- ??
             self.formation = true 
             self.caution = false --??
@@ -4129,7 +4130,7 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
             self.caution = true --??
             self.raceRestart = false
             -- Confirm caution pos
-            print("Checking pos",self.racePosition)
+            --print("Checking pos",self.racePosition)
             self.cautionPos = self.racePosition -- might need thing to tiebreak
 
         end
