@@ -288,7 +288,7 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = false
+    self.debug = true
 
 
     -- errorTimeouts
@@ -1736,6 +1736,15 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                 end
             end
         end
+    else -- if only driver then just check for race restart
+        if self.raceRestart then -- if the race is restarting
+            self.speedControl = 0
+            self.caution = false
+            self.formation = false
+            self.raceRestart = false
+            self.followStrength = 4
+            self.trackPosBias = 0
+        end
     end
 
     
@@ -1800,9 +1809,9 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
         end
     end
     local baseSpeed = 11 -- Base speed for formation
-    local slowSpeed = 9 -- slow speed for formation
+    local slowSpeed = 8 -- slow speed for formation
     local fastSpeed = 17 -- fast speed for formation
-    self.speedControl = 12 -- use this to speed up or slow down
+    self.speedControl = baseSpeed -- use this to speed up or slow down
     
     self.trackPosBias = 0 -- can use this to let car pick side + = right - = left
     self.followStrength = 3 -- 1 is strong, 10 is weak ( use this when passing on certain sides along with trackPosBias)
@@ -1811,7 +1820,7 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
     
     -- if cars are less than 80%? of track, continue in caution
     local trackDistance = #self.nodeChain
-    local formationPoint = (trackDistance * 0.70) -- 80?% of track distance
+    local formationPoint = (trackDistance * 0.75) -- 75?% of track distance
     --print(self.formationPos,formationLane,self.currentNode.id,formationPoint,trackDistance)
     --print(self.currentNode.id,formationPoint)
     --print(self.tagText,self.formationPos,self.currentNode.id,formationPoint)
@@ -1935,18 +1944,18 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
                     self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
                 end
             elseif self.racePosition < self.formationPos then -- if car is ahead of desired formationPos 
-                if self.formationPos <= 1 then --This shouldnt happen
-                --print(" invalid formationPos",self.racePosition,self.formationPos)
+                if self.formationPos == 1 then -- yae this shouldnt happe
+                --print(self.tagText," invalid formationPos",self.racePosition,self.formationPos)
                 else -- Keep distance away from head car (makes room for car inbetween)
                     local frontCar = getDriverByPos(self.formationPos - 1) -- car you want to follow
                     local frontDist = self.carRadar.front
                     local carDist = frontDist
                     if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
-                    -- print("invalid frontCar",self.racePosition,self.formationPos,frontCar)
+                    --print(self.tagText,"invalid frontCar",self.racePosition,self.formationPos,frontCar)
                     --print("fail frontCar",carDist)
                     else
-                        carDist = getDistance(self.location, frontCar.location)
-                        --print(" got frontCar",carDist)
+                        carDist = getDriverHVDistances(self, frontCar).vertical
+                        --print(self.tagText," got frontCar",carDist)
                     end
 
 
@@ -1968,6 +1977,15 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
                         self.speedControl = baseSpeed -- or whatever speed we decide
                     end
                 end
+            end
+        else
+            if self.raceRestart then -- if the race is restarting
+                self.speedControl = 0
+                self.caution = false
+                self.formation = false
+                self.raceRestart = false
+                self.followStrength = 4
+                self.trackPosBias = 0
             end
         end
     else -- Perform new formation logic when after formation point TODO: pack these into separate functions and just call them here lots of redundancy
@@ -2162,6 +2180,15 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
                         self.speedControl = baseSpeed - 2-- or whatever speed we decide
                     end
                 end
+            end
+        else
+            if self.raceRestart then -- if the race is restarting
+                self.speedControl = 0
+                self.caution = false
+                self.formation = false
+                self.raceRestart = false
+                self.followStrength = 4
+                self.trackPosBias = 0
             end
         end
 
@@ -5312,7 +5339,7 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
     local rpmFormat = string.format("%.2f",self.engine.curRPM)
     local speedFormat = string.format("%.2f",self.speed)
     local rpos = string.format("%d",self.racePosition)
-    local cpos = string.format("%d",self.cautionPos)
+    local cpos = string.format("%d",self.formationPos)
     self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..cpos) -- TODO: Have overlays that show race position and time splits and speeds
     --print(self.shape.worldPosition.z-self.location.z)
     --print(self.shape.right,)

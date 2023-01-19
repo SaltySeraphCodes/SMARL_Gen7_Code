@@ -575,6 +575,8 @@ function Control.sv_startFormation(self) -- race status 2
         local driver = getDriverFromMetaId(id)
         if driver ~= nil then
             driver.formationPos = v.position
+        else
+            print("missing",v.racer_name)
         end
     end 
     self:sv_sendAlert("Starting Formation Lap")
@@ -1931,6 +1933,7 @@ function Control.updateCameraPos(self,goal,dt)
             return 
         end
         local racer = self.focusedRacerData
+        if racer == nil then return end
         local location = racer.shape:getWorldPosition()-- gets front location
         local frontLength = (racer.carDimensions or 1)
         if racer.carDimensions ~= nil then 

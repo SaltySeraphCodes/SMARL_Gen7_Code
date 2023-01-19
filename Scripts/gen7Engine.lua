@@ -33,12 +33,12 @@ function Engine.server_onCreate( self )
 end
 
 function Engine.client_onCreate( self ) 
-    --print("Creating gen7 Engine")
+    print("Creating gen7 Engine")
 	self:client_init()
 end
 
 function Engine.client_onDestroy(self)
-    --print("Client destroy")
+    print("Client destroy")
     if self.effect then
         self.effect = nil
     end
@@ -52,7 +52,7 @@ function Engine.server_onDestroy(self)
 end
 
 function Engine.client_onRefresh( self )
-    --print("engine client refresh")
+    print("engine client refresh")
 	self:client_onDestroy()
     self:client_init()
 end
@@ -83,12 +83,13 @@ function Engine.server_init( self )
     self:updateType()
     self.driver = nil
    
-    self.engineNoiseEnabled = false
+    self.engineNoiseEnabled = true
     --print("Gen7 Engine Initialized")
 end
 
 function Engine.client_init(self)
     if self.engineNoiseEnabled then 
+        print("loading effect")
         self.effect = sm.effect.createEffect("GasEngine - Level 3", self.interactable )
         self.effect:setParameter("gas", 1 )
         if self.effect then
@@ -102,13 +103,13 @@ end
 function Engine.cl_resetEngine(self) -- resets the engine (noise effect primarily)
     
     if self.engineNoiseEnabled then
+        self.effect = sm.effect.createEffect("GasEngine - Level 3", self.interactable )
         if self.effect then
             if self.effect:isPlaying() then 
                 self.effect:stop()
             end
             self.effect = nil
         end
-        self.effect = sm.effect.createEffect("GasEngine - Level 3", self.interactable )
         self.effect:setParameter("gas", 1 )
     end
     -- self:server_init()?
@@ -186,6 +187,7 @@ function Engine.calculateVRPM(self,gear,rpm) -- calculates virtual rpm based on 
         vrpm = rpm % self.engineStats.REV_LIMIT -- possibly have rpm be slightly higher for each gear higher?
         --print("ElseVRP",vrpm)
     end
+    --print("return",vrpm)
     return vrpm
 end
 
@@ -198,6 +200,8 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
         if self.driver.userControl then
             -- noop
         else
+            --print("stop car")
+            self.curVRPM = 0
             return 0 -- stop car?
         end
     end
@@ -257,6 +261,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     local nextRPM = self.curRPM + rpmIncrement
     local nextVRPM = self:calculateVRPM(self.curGear,nextRPM)
     self.curVRPM = self:calculateVRPM(self.curGear,nextRPM)
+    --print("setVrpm",self.curVRPM,nextVRPM)
     local nextVRPM = self.curVRPM
     if nextVRPM > self:getGearRPMMax(self.curGear) then -- Rev Limit Bounce
         nextRPM = self.curRPM - 5 -- TODO: Decide which bounce dist is best
@@ -294,50 +299,66 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
         --print("Engine Limit Reached",nextRPM)
         nextRPM = (self.engineStats.MAX_SPEED or nextRPM - 5) -- may cause issues
     end
+    --print("returnnextrpm",nextRPM)
     return nextRPM
 end
 
 function Engine.updateEffect(self) -- TODO: Un comment this when ready
-	--print(self.effect,self.noDriverError)
+	
     if self.effect == nil then
         print("reset effect")
         self:cl_resetEngine()
     end
     if self.driver == nil or self.noDriverError == true then
+       
         if self.effect then
+            print("no driver stop",self.effect)
             if self.effect:isPlaying() then
                 self.effect:setParameter( "load", 0 )
                 self.effect:setParameter( "rpm", 0 )
                 self.effect:stop()
                 return
+            else
+                return
             end
+        else
+            print("no return",self.effect)
+            return
         end
     end
     
-    if self.effect:isPlaying() == false then -- ~= 0
+    if not self.effect:isPlaying() and not self.driver.racing then
+        print("start effect",self.driver.racing,self.effect:isPlaying())
 		self.effect:start()
 	elseif self.effect:isPlaying() and self.driver.racing == false then
+        --print("idle")
 		self.effect:setParameter( "load", 0 )
 		self.effect:setParameter( "rpm", 0 )
-		self.effect:stop()
+		--self.effect:stop()
     elseif not self.effect:isPlaying() and self.driver.racing then
-        self:cl_resetEngine()
+        --print("not playing but racing so reset")
+        --print("Reset effect")
+       -- self:cl_resetEngine()
+       print("race on and not playing? start")
+       self.effect:start()
     end
  
-	local engineConversion = ratioConversion(0,self.engineStats.REV_LIMIT,1,0.5,self.curVRPM)
+	local engineConversion = ratioConversion(0,self.engineStats.REV_LIMIT,1,0.2,self.curVRPM)
     local loadConvert = 5 - self.curGear
-    local loadConversion = ratioConversion(5,0,0.2,0.8,loadConvert)
+    local loadConversion = ratioConversion(0,5,0.4,0.7,loadConvert)
     --print(self.curVRPM,engineConversion,self.curGear,loadConversion)
 
 	--local brakingConversion = ratioConversion(0,1600,0,1,self.brakePower) --2000 means more breaking coolown sound
-	if self.racerID == 1 then
-		--print(self.speed,engineConversion,self.brakePower,brakingConversion)
-	end
+	
+	--print(self.curVRPM,engineConversion,loadConversion,self.curGear)
+	
 	if self.effect:isPlaying() then
 		self.effect:setParameter( "rpm", engineConversion )
 		self.effect:setParameter( "load", loadConversion ) --?
 	end
 end
+
+
 
 function Engine.updateType(self) -- Ran to constantly check if engine is updated -- can be changed to onPainted
     --print(self.noStatsError,self.noDriverError)
@@ -406,9 +427,9 @@ function Engine.server_onFixedUpdate( self, timeStep )
     self:parseParents()
     self:updateType()
     if not self.noDriverError and not self.noStatsError then
+        
         self.curRPM = self:calculateRPM()
         self.VRPM = self:calculateVRPM() -- calculate virtual rpm depending on gearing (mostly for sounds?)
-        
     end
     if self.curRPM >= ENGINE_SPEED_LIMIT then -- Engine explosion noise efect smoke
         print("WARNING: OVER SPEED ENGINE",self.curRPM)

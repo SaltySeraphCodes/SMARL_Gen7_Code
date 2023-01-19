@@ -2,98 +2,98 @@
 [
 	
 	{
-		"best_lap" : 68.90000000000146,
+		"best_lap" : 70.54799999999886,
 		"position" : 1.0,
-		"racer_id" : 7.0,
-		"racer_name" : "Gunnolf",
+		"racer_id" : 11.0,
+		"racer_name" : "A comically long car name",
 		"split" : 0.0
 	},
 	
 	{
-		"best_lap" : 68.62299999999959,
+		"best_lap" : 68.44399999999951,
 		"position" : 2.0,
-		"racer_id" : 6.0,
-		"racer_name" : "Oswald",
-		"split" : 0.1329999999998108
-	},
-	
-	{
-		"best_lap" : 70.33100000000013,
-		"position" : 3.0,
-		"racer_id" : 11.0,
-		"racer_name" : "A comically long car name",
-		"split" : 0.1839999999992870
-	},
-	
-	{
-		"best_lap" : 69.74700000000121,
-		"position" : 4.0,
-		"racer_id" : 10.0,
-		"racer_name" : "Mateo SMARL GT3 M",
-		"split" : 0.2319999999999709
-	},
-	
-	{
-		"best_lap" : 68.48799999999937,
-		"position" : 5.0,
-		"racer_id" : 13.0,
-		"racer_name" : "Dirty Drafter",
-		"split" : 0.4509999999991123
-	},
-	
-	{
-		"best_lap" : 68.89799999999923,
-		"position" : 6.0,
-		"racer_id" : 5.0,
-		"racer_name" : "Coffey-Mobile",
-		"split" : 3.296999999998661
-	},
-	
-	{
-		"best_lap" : 69.28000000000065,
-		"position" : 7.0,
-		"racer_id" : 2.0,
-		"racer_name" : "Prototype 01- propulsion",
-		"split" : 3.330999999998312
-	},
-	
-	{
-		"best_lap" : 67.32300000000032,
-		"position" : 8.0,
-		"racer_id" : 3.0,
-		"racer_name" : "LAMB-O",
-		"split" : 3.932999999999083
-	},
-	
-	{
-		"best_lap" : 69.19499999999971,
-		"position" : 9.0,
-		"racer_id" : 1.0,
-		"racer_name" : "Torque Master",
-		"split" : 4.349999999998545
-	},
-	
-	{
-		"best_lap" : 69.38299999999981,
-		"position" : 10.0,
 		"racer_id" : 12.0,
 		"racer_name" : "FieryDragon",
-		"split" : 11.38299999999981
+		"split" : 0.03399999999965075
 	},
 	
 	{
-		"best_lap" : 68.85599999999977,
+		"best_lap" : 70.12800000000061,
+		"position" : 3.0,
+		"racer_id" : 8.0,
+		"racer_name" : "LaZyKnight",
+		"split" : 0.3000000000010914
+	},
+	
+	{
+		"best_lap" : 69.48199999999997,
+		"position" : 4.0,
+		"racer_id" : 13.0,
+		"racer_name" : "Dirty Drafter",
+		"split" : 0.4009999999998399
+	},
+	
+	{
+		"best_lap" : 69.54800000000068,
+		"position" : 5.0,
+		"racer_id" : 3.0,
+		"racer_name" : "LAMB-O",
+		"split" : 0.7530000000006112
+	},
+	
+	{
+		"best_lap" : 67.94400000000132,
+		"position" : 6.0,
+		"racer_id" : 1.0,
+		"racer_name" : "Torque Master",
+		"split" : 2.156000000000859
+	},
+	
+	{
+		"best_lap" : 67.06099999999969,
+		"position" : 7.0,
+		"racer_id" : 5.0,
+		"racer_name" : "Coffey-Mobile",
+		"split" : 3.921000000000276
+	},
+	
+	{
+		"best_lap" : 68.79299999999967,
+		"position" : 8.0,
+		"racer_id" : 10.0,
+		"racer_name" : "Mateo SMARL GT3 M",
+		"split" : 8.121999999999389
+	},
+	
+	{
+		"best_lap" : 67.54199999999946,
+		"position" : 9.0,
+		"racer_id" : 6.0,
+		"racer_name" : "Oswald",
+		"split" : 8.224000000000160
+	},
+	
+	{
+		"best_lap" : 67.54099999999926,
+		"position" : 10.0,
+		"racer_id" : 7.0,
+		"racer_name" : "Gunnolf",
+		"split" : 8.622999999999593
+	},
+	
+	{
+		"best_lap" : 69.20999999999913,
 		"position" : 11.0,
 		"racer_id" : 9.0,
 		"racer_name" : "NetherRacing",
-		"split" : 11.50299999999879
+		"split" : 15.43499999999949
 	},
 	
 	{
-		"best_lap" : 68.27299999999923,
+		"best_lap" : 67.05100000000130,
 		"position" : 12.0,
-		"racer_id" : 8.0,
-		"racer_name" : "LaZyKnight",
-		"split" : 22.52700000000004
+		"racer_id" : 2.0,
+		"racer_name" : "Prototype 01- propulsion",
+		"split" : 15.78399999999965
 	}
 ]

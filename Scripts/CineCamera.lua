@@ -70,15 +70,15 @@ function SmarlCamera.client_init( self )
 		xBump = 0.01, -- baked lerp
 		yStrength = 0.01,
 		yBump = 0.01,
-		zStrength = 0,
-		zBump = 0,
+		zStrength = 0.01,
+		zBump = 0.01,
 
-		rStrengthX = 0.01,
-		rBumpX = 0.01,
-		rStrengthY = 0,
-		rBumpY = 0,
-		rStrengthZ = 0,
-		rBumpZ = 0,
+		rStrengthX = 0.02,
+		rBumpX = 0.05,
+		rStrengthY = 0.01,
+		rBumpY = 0.05,
+		rStrengthZ = 0.01,
+		rBumpZ = 0.05,
 
 	}
 
