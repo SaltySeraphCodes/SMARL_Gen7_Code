@@ -8,7 +8,8 @@
 
 function OnSetFormation() -- when input from streamdeck comes in 
     self.network:sendToServer("sv_setFormation") -- probably already there
-    
+end
+
 function Control.sv_setFormation(self) -- sends commands to all cars and then resets self
         self:sv_sendCommand({car = {-1}, type = "setFormation", value = 4}) -- whichever formation thing is
         self:sv_sendAlert("Formation Lap")

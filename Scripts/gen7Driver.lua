@@ -206,6 +206,7 @@ function Driver.server_init( self )
     self.cautionPos = 1 -- Position for caution
     self.formation = false
     self.formationPos = 1 -- position for formation
+    self.formationAligned = false -- whether car is in proper formation or not
     self.safeMargin = false
     self.raceRestart = false
 
@@ -1500,11 +1501,12 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     local goalNodePos = self.goalNode.location -- TODO: Replace with [racetype]
     local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
     local goalPerp = self.goalNode.perp
-    if self.caution then pathType = "mid" end
+   
     --print(pathType)
-
-    if pathType ~= "race" then -- TODO? should be 'mid'
+    --print(self.tagText,pathType)
+    if pathType ~= "location" then -- TODO? should be 'mid'
         --print("pulled")
+        --print(self.tagText,"dif path goal",pathType)
         goalNodePos = self.goalNode[pathType] --+ goalOffset
     end
     --print("goaloffset",self.goalOffset,goalOffset)
@@ -1547,7 +1549,7 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
         directionOffset = 0
     end
     SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset
-    --print("ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle)
+    --print(self.tagText,"ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle,followStren)
     self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
 end
 
@@ -1557,7 +1559,6 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
     
     local goalNodePos = self.goalNode.mid -- TODO: Replace with [racetype]
     local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
-    local goalPerp = self.goalNode.perp
     goalNodePos = self.goalNode.mid + goalOffset-- place goalnode offset here...
     -- check if goalNode pos is offTrack
     local onTrack = self:checkLocationOnTrack(self.goalNode,goalNodePos)
@@ -1605,6 +1606,8 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                         self.caution = false
                         self.formation = false
                         self.raceRestart = false
+                        self.followStrength = 4
+                        self.trackPosBias = 0
                     else
                         self.speedControl = baseSpeed
                         self.trackPosBias = 0
@@ -1629,6 +1632,8 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                             self.caution = false
                             self.formation = false
                             self.raceRestart = false
+                            self.followStrength = 4
+                            self.trackPosBias = 0
                         else
                             self.speedControl = fastSpeed
                         end
@@ -1644,6 +1649,8 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                         self.caution = false
                         self.formation = false
                         self.raceRestart = false
+                        self.followStrength = 4
+                        self.trackPosBias = 0
                     else
                         self.speedControl = baseSpeed
                         self.trackPosBias = 0
@@ -1668,6 +1675,8 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                             self.caution = false
                             self.formation = false
                             self.raceRestart = false
+                            self.followStrength = 4
+                            self.trackPosBias = 0
                         else
                             self.speedControl = fastSpeed
                         end
@@ -1678,7 +1687,7 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
             end
 
         elseif self.racePosition > self.cautionPos then --  if car is behind desired caution pos 
-            self.trackPosBias = -14 -- put car on left side of track
+            self.trackPosBias = -13 -- put car on left side of track
             self.followStrength = 7 -- loosely follow left side ish
             -- will continue this until racePosition == caution Pos
             --print("")
@@ -1687,6 +1696,8 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                 self.caution = false
                 self.formation = false
                 self.raceRestart = false
+                self.trackPosBias = 0
+                self.followStrength = 4
             else
                 self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
             end
@@ -1715,6 +1726,8 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
                         self.caution = false
                         self.formation = false
                         self.raceRestart = false
+                        self.followStrength = 4
+                        self.trackPosBias = 0
                     else
                         self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
                     end
@@ -1725,6 +1738,434 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
         end
     end
 
+    
+
+    local biasDif = 0
+    local followStren = self.followStrength
+    local directionOffset = self.goalDirectionOffset
+
+    if self.trackPosBias ~= nil and self.trackPosBias ~= 0 then
+        biasDif = (self.trackPosBias -self.trackPosition)
+        --print(self.trackPosBias,self.trackPosition,biasDif)
+        biasDif = biasDif* biasMult  
+    end
+    if biasDif ~= 0 and math.abs(self.offTrack) == 0 then -- makes a slower recovery?
+        --followStren = 5
+        directionOffset = directionOffset * 1.5
+    end
+    if self.speed < 2 then 
+        directionOffset = 0
+    end
+    if math.abs(self.offTrack) > 1 then
+        followStren = followStren * 0.2
+    end
+    if self.curGear <=0  then
+        directionOffset = 0
+    end
+    SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset
+    --print("ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle)
+    self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
+end
+
+function posFromLane(lane)
+    if lane == 0 then 
+        return -9
+    else 
+        return 9
+    end
+end
+
+function Driver.updateFormationSteering(self,pathType) -- updates broad steering goals based on path parameter [race,mid,pit]
+    --print(self.tagText,"form",self.trackPosBias)
+
+    local SteerAngle
+    if self.goalNode == nil then return end
+    local formationLane = self.formationPos %2
+    local goalNodePos = self.goalNode.mid
+    local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
+    goalNodePos = self.goalNode.mid + goalOffset-- place goalnode offset here...
+    -- check if goalNode pos is offTrack
+    local onTrack = self:checkLocationOnTrack(self.goalNode,goalNodePos)
+    if not onTrack then
+        print("formation node not on track")
+        if self.passing.isPassing then
+            --print("offtrackStuff?")
+            --self:cancelPass()
+            self.strategicThrottle = self.strategicThrottle - 0.05
+        end
+        goalNodePos = self.goalNode.mid
+        if self.strategicThrottle > -1 then -- COrrect this foo by using offset too?
+            self.strategicThrottle = self.strategicThrottle - 0.05
+            --print("heading offtrack correction",self.strategicThrottle)
+        end
+    end
+    local baseSpeed = 11 -- Base speed for formation
+    local slowSpeed = 9 -- slow speed for formation
+    local fastSpeed = 17 -- fast speed for formation
+    self.speedControl = 12 -- use this to speed up or slow down
+    
+    self.trackPosBias = 0 -- can use this to let car pick side + = right - = left
+    self.followStrength = 3 -- 1 is strong, 10 is weak ( use this when passing on certain sides along with trackPosBias)
+    local biasMult = 1.1
+   
+    
+    -- if cars are less than 80%? of track, continue in caution
+    local trackDistance = #self.nodeChain
+    local formationPoint = (trackDistance * 0.70) -- 80?% of track distance
+    --print(self.formationPos,formationLane,self.currentNode.id,formationPoint,trackDistance)
+    --print(self.currentNode.id,formationPoint)
+    --print(self.tagText,self.formationPos,self.currentNode.id,formationPoint)
+    if self.currentNode.id < formationPoint then -- Perform normal caution logic when before formation point
+        self.trackPosBias = 0 
+        if #ALL_DRIVERS > 1 then -- check self position in relation to formationPos
+            if self.racePosition == self.formationPos then -- if car is aligned in position
+                -- Double check if car's rear is behind by 5?
+                local dist = 0
+                if self.formationPos < #ALL_DRIVERS then -- if not in last
+                    local rearCar = getDriverByPos(self.racePosition + 1)
+                    dist = getDriverDistance(self,rearCar,#self.nodeChain)
+                    --print(dist)
+                else --if in last
+                    local frontCar = getDriverByPos(self.racePosition - 1)
+                    dist = getDriverDistance(frontCar,self,#self.nodeChain) -- should be a negative distance, but seems to not always be the case
+                    --print(dist)
+                end
+                --local name = (self.carData['metaData'].Car_Name or 'Unnamed')
+                --print(name,dist,self.formationPos,self.racePosition)
+                if dist < - 15 then -- if car behind is decent distance, do stuff
+                    if self.racePosition == 1 then -- if in first then set pace
+                        if self.raceRestart then -- if the race is restarting
+                            self.speedControl = 0
+                            self.caution = false
+                            self.formation = false
+                            self.raceRestart = false
+                            self.followStrength = 4
+                            self.trackPosBias = 0
+                        else
+                            self.speedControl = baseSpeed
+                            self.trackPosBias = 0
+                            self.followStrength = 3
+                        end
+                    else -- find distance from car in front and stay 5? away
+                        local frontCar = getDriverByPos(self.formationPos - 1)
+                        local frontDist = self.carRadar.front
+                        local carDist = frontDist
+                        if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                            --print("invalid frontCar",self.racePosition,self.formationPos,frontCar)
+                        else
+                            carDist = getDistance(self.location, frontCar.location)
+                        end
+                        
+                        --print("2",name, carDist,self.speedControl)
+                        if  carDist < 12 then -- if car too close, slow down
+                            self.speedControl = slowSpeed
+                        elseif carDist > 13 then -- if car too far, speed up
+                            if self.raceRestart then -- if the race is restarting
+                                self.speedControl = 0
+                                self.caution = false
+                                self.formation = false
+                                self.raceRestart = false
+                                self.followStrength = 4
+                                self.trackPosBias = 0
+                            else
+                                self.speedControl = fastSpeed
+                            end
+                        else -- if car right in the money
+                            self.speedControl = baseSpeed-- or whatever speed we decide
+                        end
+                    end
+                else -- if car behind is too close, speed up/ continue normal speed
+                    -- continue on path TODO: make these into separate function, lots of repetition
+                    if self.racePosition == 1 then -- if in first then set pace
+                        if self.raceRestart then -- if the race is restarting
+                            self.speedControl = 0
+                            self.caution = false
+                            self.formation = false
+                            self.raceRestart = false
+                            self.followStrength = 4
+                            self.trackPosBias = 0
+                        else
+                            self.speedControl = baseSpeed
+                            self.trackPosBias = 0
+                            self.followStrength = 3
+                        end
+                    else -- find distance from car in front and stay 5? away
+                        local frontCar = getDriverByPos(self.formationPos - 1)
+                        local frontDist = self.carRadar.front
+                        local carDist = frontDist
+                        if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                            --print("invalid frontCar",self.racePosition,self.formationPos,frontCar)
+                        else
+                            carDist = getDistance(self.location, frontCar.location)
+                        end
+                        
+                        if  carDist < 12 then -- if car too close, slow down
+                            self.speedControl = slowSpeed
+                        
+                        elseif carDist > 13 then -- if car too far, speed up
+                            if self.raceRestart then -- if the race is restarting
+                                self.speedControl = 0
+                                self.caution = false
+                                self.formation = false
+                                self.raceRestart = false
+                                self.followStrength = 4
+                                self.trackPosBias = 0
+                            else
+                                self.speedControl = fastSpeed
+                            end
+                        else -- if car right in the money
+                            self.speedControl = baseSpeed-- or whatever speed we decide
+                        end
+                    end
+                end
+
+            elseif self.racePosition > self.formationPos then --  if car is behind desired caution pos 
+                self.trackPosBias = -13 -- put car on left side of track
+                self.followStrength = 7 -- loosely follow left side ish
+                -- will continue this until racePosition == caution Pos
+                --print("")
+                if self.raceRestart then -- if the race is restarting
+                    self.speedControl = 0
+                    self.caution = false
+                    self.formation = false
+                    self.raceRestart = false
+                    self.trackPosBias = 0
+                    self.followStrength = 4
+                else
+                    self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
+                end
+            elseif self.racePosition < self.formationPos then -- if car is ahead of desired formationPos 
+                if self.formationPos <= 1 then --This shouldnt happen
+                --print(" invalid formationPos",self.racePosition,self.formationPos)
+                else -- Keep distance away from head car (makes room for car inbetween)
+                    local frontCar = getDriverByPos(self.formationPos - 1) -- car you want to follow
+                    local frontDist = self.carRadar.front
+                    local carDist = frontDist
+                    if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                    -- print("invalid frontCar",self.racePosition,self.formationPos,frontCar)
+                    --print("fail frontCar",carDist)
+                    else
+                        carDist = getDistance(self.location, frontCar.location)
+                        --print(" got frontCar",carDist)
+                    end
+
+
+                    --print("carDist",carDist)
+                    if carDist <  16 then -- make big gap
+                        self.speedControl = slowSpeed - 1
+                    elseif carDist > 20 then -- if car too far, speed up
+                        if self.raceRestart then -- if the race is restarting
+                            self.speedControl = 0
+                            self.caution = false
+                            self.formation = false
+                            self.raceRestart = false
+                            self.followStrength = 4
+                            self.trackPosBias = 0
+                        else
+                            self.speedControl = fastSpeed -- Add a distance measurement to next pplace and increase fast speed
+                        end
+                    else -- if car right in the money
+                        self.speedControl = baseSpeed -- or whatever speed we decide
+                    end
+                end
+            end
+        end
+    else -- Perform new formation logic when after formation point TODO: pack these into separate functions and just call them here lots of redundancy
+        if #ALL_DRIVERS > 1 then -- check self position in relation to formationPosition
+            if self.racePosition == self.formationPos then -- if car is aligned in position
+                -- Double check if car's rear is behind by 5?
+                local dist = 0
+                self.trackPosBias =  posFromLane(formationLane)
+                biasMult =1.3 --
+                self.followStrength = 7 -- loosen? or somehow get trackBias Strength tighened
+                if self.formationPos < #ALL_DRIVERS - 1 then -- if not in last two spots
+                    local rearCar = getDriverByPos(self.racePosition + 2) -- should be car set directly behind
+                    dist = getDriverDistance(self,rearCar,#self.nodeChain)
+                    --print(dist)
+                else --if in last two spots
+                    local frontCar = getDriverByPos(self.racePosition - 2)
+                    dist = getDriverDistance(frontCar,self,#self.nodeChain) -- should be a negative distance, but seems to not always be the case
+                    --print(dist)
+                end
+                
+                --local name = (self.carData['metaData'].Car_Name or 'Unnamed')
+                --print(self.tagText,dist,self.formationPos,self.racePosition)
+                if dist < - 10 then -- if car behind is decent distance, do stuff
+                    if self.racePosition == 1 then -- if in first then set pace
+                        if self.raceRestart then -- if the race is restarting
+                            self.speedControl = 0
+                            self.caution = false
+                            self.formation = false
+                            self.raceRestart = false
+                            self.followStrength = 4
+                            self.trackPosBias = 0
+                        else
+                            self.speedControl = baseSpeed - 2 -- possibly switch to slow speed
+                            self.formationAligned = true -- grab track Pos too?
+                            self.trackPosBias =  posFromLane(formationLane)
+                            self.followStrength = 7
+                        end
+                    elseif self.racePosition == 2 then -- second place slightly behind -- may need to change to formationPos
+                        local frontCar = getDriverByPos(self.formationPos - 1) -- should be first place
+                        local frontDist = self.carRadar.front
+                        local carDist = frontDist
+                        if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                            print("invalid formation frontCar",self.racePosition,self.formationPos,frontCar)
+                        else
+                            carDist = getDriverHVDistances(self, frontCar).vertical
+                        end
+                        
+                        --print("vhDist",self.tagText, carDist,self.speedControl)
+                        if  carDist < 1 then -- if car too close, slow down
+                            self.speedControl = slowSpeed - 1
+                        elseif carDist >= 2 then -- if car too far, speed up
+                            if self.raceRestart then -- if the race is starting. either ignore distance
+                                self.speedControl = 0
+                                self.caution = false
+                                self.formation = false
+                                self.raceRestart = false
+                                self.followStrength = 4
+                                self.trackPosBias = 0
+                            else
+                                self.speedControl = fastSpeed -2
+                            end
+                        else -- if car right in the money -- might need to turn this off on any other error
+                            self.formationAligned = true
+                            self.speedControl = baseSpeed - 2-- or whatever speed we decide
+                        end
+                
+                    else -- find distance from car in front and stay 5? away
+                        local frontCar = getDriverByPos(self.formationPos - 2)
+                        local frontDist = self.carRadar.front
+                        local carDist = frontDist
+                        if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                            --print("invalid frontCar",self.racePosition,self.cautionPos,frontCar)
+                        else
+                            carDist = getDistance(self.location, frontCar.location)
+                        end
+                        
+                        --print("nottop2",self.tagText, carDist)
+                        if  carDist < 13 then -- if car too close, slow down
+                            self.speedControl = slowSpeed - 2
+                            --print("slowplz")
+                        elseif carDist > 14 then -- if car too far, speed up
+                            if self.raceRestart then -- if the race is restarting
+                                self.speedControl = 0
+                                self.caution = false
+                                self.formation = false
+                                self.raceRestart = false
+                                self.followStrength = 4
+                                self.trackPosBias = 0
+                            else
+                                self.speedControl = fastSpeed -2
+                            end
+                        else -- if car right in the money -- might need to turn this off on any other error
+                            self.formationAligned = true
+                            self.speedControl = baseSpeed - 2-- or whatever speed we decide
+                        end
+                    end
+                else -- if car behind is too close, speed up/ continue normal speed
+                    self.formationAligned = true
+                    -- continue on path TODO: make these into separate function, lots of repetition
+                    if self.racePosition <= 2 then -- if in first then set pace
+                        if self.raceRestart then -- if the race is restarting
+                            self.speedControl = 0
+                            self.caution = false
+                            self.formation = false
+                            self.raceRestart = false
+                            self.followStrength = 4
+                            self.trackPosBias = 0
+                        else
+                            self.speedControl = baseSpeed - 2
+                            
+                        end
+                    else -- if not top 2
+                        local frontCar = getDriverByPos(self.formationPos - 2)
+                        local frontDist = self.carRadar.front
+                        local carDist = frontDist
+                        if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                            --print("invalid frontCar",self.racePosition,self.formationPos,frontCar)
+                        else
+                            carDist = getDistance(self.location, frontCar.location)
+                        end
+                        
+                        if  carDist < 12 then -- if car too close, slow down
+                            self.speedControl = slowSpeed - 2
+                        
+                        elseif carDist > 13 then -- if car too far, speed up
+                            if self.raceRestart then -- if the race is restarting
+                                self.speedControl = 0
+                                self.caution = false
+                                self.formation = false
+                                self.raceRestart = false
+                                self.followStrength = 4
+                                self.trackPosBias = 0
+                            else
+                                self.speedControl = fastSpeed - 2
+                            end
+                        else -- if car right in the money
+                            self.speedControl = baseSpeed - 2-- or whatever speed we decide
+                        end
+                    end
+                end
+
+            elseif self.racePosition > self.formationPos then --  if car is behind desired caution pos 
+                self.trackPosBias = posFromLane(formationLane) * 1.1 -- exxagerate pos slightly, maybe increase?
+                self.followStrength = 7
+                if self.raceRestart then -- if the race is restarting, just go
+                    self.speedControl = 0
+                    self.caution = false
+                    self.formation = false
+                    self.raceRestart = false
+                    self.followStrength = 4
+                    self.trackPosBias = 0
+                else
+                    self.speedControl = fastSpeed - 2 -- Add a distance measurement to next pplace and increase fast speed
+                end
+            elseif self.racePosition < self.formationPos then -- if car is ahead of desired cautionpos 
+                self.trackPosBias = posFromLane(formationLane)
+                if self.formationPos <= 1 then --This shouldnt happen
+                --print(" invalid cautionPos",self.racePosition,self.cautionPos)
+                elseif self.formationPos == 2 then -- second place looks ahead at first, can change this
+                    self.trackPosBias = posFromLane(formationLane)
+                    self.followStrength = 7
+                    self.speedControl = slowSpeed -1
+
+                else -- Keep distance away from head car (makes room for car inbetween)
+                    local frontCar = getDriverByPos(self.formationPos -2) -- car you want to follow
+                    local frontDist = self.carRadar.front
+                    local carDist = frontDist
+                    if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
+                    -- print("invalid frontCar",self.racePosition,self.cautionPos,frontCar)
+                    --print("fail frontCar",carDist)
+                    else
+                        carDist = getDistance(self.location, frontCar.location)
+                        --print(" got frontCar",carDist)
+                    end
+
+
+                    --print("carDist",carDist)
+                    if carDist <  16 then -- make big gap -- TODO: check if this is flip flopped, seems like it may speed up when car ahead is too far away, use vhdif instead?
+                        self.speedControl = slowSpeed - 2
+                    elseif carDist > 20 then -- if car too far, speed up
+                        if self.raceRestart then -- if the race is restarting
+                            self.speedControl = 0
+                            self.caution = false
+                            self.formation = false
+                            self.raceRestart = false
+                            self.followStrength = 4
+                            self.trackPosBias = 0
+                        else
+                            self.speedControl = fastSpeed - 2-- Add a distance measurement to next pplace and increase fast speed
+                        end
+                    else -- if car right in the money
+                        self.speedControl = baseSpeed - 2-- or whatever speed we decide
+                    end
+                end
+            end
+        end
+
+    end
     
 
     local biasDif = 0
@@ -2914,7 +3355,7 @@ function Driver.cancelPass(self) -- cancels passing
 end
 
 function Driver.checkPassingSpace(self,opponent) -- calculates the best direction to pass -1 = left, 1 = right, 0 = nope.. bigger numbers will represent confidence level
-    if  (self.caution or self.formation) then return 0 end
+    --if  (self.caution or self.formation) then return 0 end
     if not self.currentNode then return 0 end
     if not opponent then return 0 end
     if not opponent.currentNode then return 0 end -- Consolidate to validation function?
@@ -3050,7 +3491,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
 end
 
 function Driver.calculateClosestPassPoint(self,opponent) -- oppLoc = diver vh dist
-    if  (self.caution or self.formation) then return 0 end
+    --if  (self.caution or self.formation) then return 0 end
     if not self.currentNode then return 0 end
     if not opponent then return 0 end
     if not opponent.currentNode then return 0 end    local oppTPos = opponent.trackPosition -- OOOR Just take the opponents distance from left/right wall
@@ -3173,7 +3614,7 @@ function Driver.calculateClosestPassPoint(self,opponent) -- oppLoc = diver vh di
 end
 
 function Driver.confirmPassingSpace(self,opponent,dir) -- checks if the previus committed space is still availible
-    if  (self.caution or self.formation) then return 0 end
+    --if  (self.caution or self.formation) then return 0 end
     if not self.currentNode then return 0 end
     if not opponent then return 0 end
     if not opponent.currentNode then return 0 end -- Consolidate to validation function?
@@ -3782,6 +4223,10 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         self:checkCautionPos()
     end
 
+    if self.formation then
+        self:checkFormationPos()
+    end
+
 
 end
 
@@ -3880,7 +4325,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
     --print(self.followStrength)
     if self.goalNode == nil then return 1 end
     if self.currentNode == nil then return 1 end 
-    if self.caution then return 10 end -- TODO: figure out why
+    --if self.caution then return 10 end -- TODO: figure out why
     --local segBegin = self:getSegmentBegin(self.goalNode.segID) -- Could be Either goal or current...
     local segLen = self:getSegmentLength(self.goalNode.segID)
     if math.abs(self.velocity.z) > 0.25 then -- short cut jumping
@@ -3994,7 +4439,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
                         --print("Stright increase",self.followStrength)
                         return self.followStrength + 0.07
                     else
-                        return 14
+                        return 12
                     end
                 end
             end
@@ -4103,10 +4548,12 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
     --print(self.id,"revieved command",command)
     if command.type == "raceStatus" then --TODO: make these send out individual commands instead of toggle here
         if command.value == 1 then -- start race
-            self.safeMargin = true -- just starting out race
+            self.safeMargin = false -- just starting out race
             self.racing = true
             if self.caution or self.formation then -- if previously in caution or formation then
                 self.raceRestart = true
+                self.trackPosBias = 0 -- reset this
+                self.followStrength = 4 -- reset followstrength too?
             else
                 self.caution = false
                 self.formation = false
@@ -4374,6 +4821,17 @@ function Driver.checkCautionPos(self) -- goes through and makes sure theres no d
     --print("Set caution Positions")
 end
 
+function Driver.checkFormationPos(self)
+    for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
+        local curPos = self.formationPos
+        if v.id ~= self.id then -- not same
+            if v.formationPos == curPos then
+                print("Formation collision")
+                self:sv_sendCommand({car = {self.id}, type = "set_formation_pos", value = 1})
+            end
+        end
+    end
+end
 
 --[[ Caution flag strategy
 validate self (return end)
@@ -4535,12 +4993,15 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
             self:updateCautionSteering(self.pathGoal)
         
         elseif self.formation then-- formation logic
+            self:updateGoalNodeMid()
+            if self.lost then return end
             self:updateFormationSteering(self.pathGoal) -- Get goal from character layer (pit,mid,race)
 
         else -- Regular racing hopefully
             self:updateGoalNode()
             if self.lost then return end
-            self:updateStrategicSteering(self.pathGoal) -- Get goal from character layer (pit,mid,race)
+            --print(self.tagText,"race",self.followStrength,self.trackPosBias)
+            self:updateStrategicSteering(self.pathGoal) -- TODO: Get goal from character layer (pit,mid,race)
             
         end
 

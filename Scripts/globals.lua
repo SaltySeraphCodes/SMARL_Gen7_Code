@@ -413,6 +413,19 @@ function getDriverFromId(id)
 	end
 end
 
+
+function getDriverFromMetaId(id) -- grabs driver's metadata id
+    for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
+		if v.carData ~= nil then
+            if v.carData['metaData'] ~= nil then
+                if id == v.carData['metaData'].ID then
+                    return v
+                end
+            end
+        end
+	end
+end
+
 function getAllDrivers()
     return ALL_DRIVERS
 end
@@ -421,6 +434,19 @@ function getDriversFromIdList(idList)
     local driverList = {}
     for k=1, #idList do local v=idList[k]
 		local driver = getDriverFromId(v)
+        if driver ~= nil then
+            table.insert(driverList,driver)
+        else
+            print("driver not found",v)
+        end
+	end
+    return driverList
+end
+
+function getDriversFromMetaIdList(idList)
+    local driverList = {}
+    for k=1, #idList do local v=idList[k]
+		local driver = getDriverFromMetaId(v)
         if driver ~= nil then
             table.insert(driverList,driver)
         else

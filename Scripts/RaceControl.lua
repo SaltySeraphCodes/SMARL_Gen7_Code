@@ -179,7 +179,7 @@ function Control.server_init(self)
 
     self.controllerSwitch = nil -- interactable that is connected to swtcgh
 
-    self.qualifying = false -- whether we are qualifying or not -- dynamic
+    self.qualifying = true -- whether we are qualifying or not -- dynamic
     self.flight = 1 -- which flight
     self.finishResults = {}
     self.qualifyingResults = {} -- list of results per flight
@@ -479,6 +479,10 @@ function  Control.sv_recieveCommand( self,command ) -- recieves command/data fro
         self:setCautionPositions(command.car,command.value)
     end
 
+    if command.type == "set_formation_pos" then -- racer has crossed lap
+        self:setFormationPositions(command.car,command.value)
+    end
+
 end
 
 function Control.sv_checkReset(self) -- checks if the car can reset
@@ -531,7 +535,7 @@ function Control.sv_toggleRaceMode(self,mode) -- starts
         print("Yellow flag")
         self:sv_cautionFormation()
     elseif mode == 3 then 
-        print("formationlap?")
+        print("formation lap")
         self:sv_startFormation()
     end
 
@@ -566,8 +570,15 @@ function Control.sv_startFormation(self) -- race status 2
     print("Beggining formation lap")
     -- Grab qualifying information
     qualData = self:sv_ReadQualJson()
+    for k=1, #qualData do local v=qualData[k] -- sets driver formation position based on data
+        local id = v.racer_id
+        local driver = getDriverFromMetaId(id)
+        if driver ~= nil then
+            driver.formationPos = v.position
+        end
+    end 
+    self:sv_sendAlert("Starting Formation Lap")
     self.raceStatus = 2
-    self:sv_sendAlert("Formation Lap")
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 2 })
     
 end
@@ -586,6 +597,24 @@ function Control.setCautionPositions(self) -- sv sets all driver caution positio
         local curPos = self.cautionPos
         v.cautionPos = v.racePosition
         
+    end
+end
+
+
+function Control.setFormationPositions(self) -- sv sets all driver caution positions to their current positions
+    qualData = self:sv_ReadQualJson()
+    if qualData == nil then
+        for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k] -- sets driver formation position based index placed
+            v.formationPos = k
+        end 
+    else
+        for k=1, #qualData do local v=qualData[k] -- sets driver formation position based on data
+            local id = v.racer_id
+            local driver = getDriverFromMetaId(id)
+            if driver ~= nil then
+                driver.formationPos = v.position
+            end
+        end 
     end
 end
     --print("Set caution Positions")
@@ -719,11 +748,10 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             ['split'] = driver.raceSplit
         }
         if self.qualifying then
-            print("got qualifyin and now nomore")
+            --print("Qualifyind data inserted",finishData)
             table.insert(self.qualifyingResults,finishData)
-        else
-            table.insert(self.finishResults,finishData)
         end
+        table.insert(self.finishResults,finishData) -- also store in finishResults
         --print("Finished:",#self.finishResults, #ALL_DRIVERS)
     end
     
@@ -731,16 +759,18 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
         driver.raceFinished = self.raceFinished
     
 
-    --if #self.finishResults == #ALL_DRIVERS then -- TODO: deciding on whether to output all at once or one at a time, will need to adjust log parse if one at a time
-        print("Final driver finished!",self.finishResults)
-        local outputString = 'finish_data= [ '
-        if self.qualfying then --  qualifying round
-            outputString = 'qualifying_data= [ '
-            -- might need to convert to json string??
-            sm.json.save(self.qualifyingResults, QUALIFYING_DATA)
+    --if #self.finishResults == #ALL_DRIVERS then -- TODO: deciding on whether to output all at once or one at a time, will need to adjust log parse if all at once
+        if #self.qualifyingResults == #ALL_DRIVERS then
+            if self.qualifying then --  qualifying round
+                print("Saving Final qual data",self.qualifyingResults)
+                sm.json.save(self.qualifyingResults, QUALIFYING_DATA)
+            end
         end
+
+        --print("driver finished!",self.finishResults)
+        local outputString = 'finish_data= [ ' -- 
         
-        for k=1, #self.finishResults do local v=self.finishResults[k]
+        for k=1, #self.finishResults do local v=self.finishResults[k] -- Output finish data for live board
             --print("Finished race, outputting")
             if v ~= nil then
                 local time_split = string.format("%.3f",v.split)
@@ -1324,7 +1354,7 @@ function Control.sv_output_allRaceData(self) -- Outputs race data into a  big li
 	local noCommaEnding = string.sub(outputString,1,-2)
 	local endString = ']'
 	outputString = noCommaEnding .. endString 
-	self:sv_output_data(outputString)
+	--self:sv_output_data(outputString)
 end
 
 
