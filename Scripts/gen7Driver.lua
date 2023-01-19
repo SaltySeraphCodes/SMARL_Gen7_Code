@@ -1796,7 +1796,7 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
     -- check if goalNode pos is offTrack
     local onTrack = self:checkLocationOnTrack(self.goalNode,goalNodePos)
     if not onTrack then
-        print("formation node not on track")
+        --print("formation node not on track")
         if self.passing.isPassing then
             --print("offtrackStuff?")
             --self:cancelPass()
@@ -2028,7 +2028,7 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
                         local frontDist = self.carRadar.front
                         local carDist = frontDist
                         if frontCar == nil then -- If this fails, it will fallback into whatever they currently are set up as
-                            print("invalid formation frontCar",self.racePosition,self.formationPos,frontCar)
+                            --print("invalid formation frontCar",self.racePosition,self.formationPos,frontCar)
                         else
                             carDist = getDriverHVDistances(self, frontCar).vertical
                         end
