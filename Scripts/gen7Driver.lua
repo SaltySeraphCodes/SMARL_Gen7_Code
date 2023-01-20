@@ -12,9 +12,6 @@
 -- TODO: get ratio between totallaps and current laps, step up aggression by lap until limit reached
 -- TODO: Fix Track Passing: Don't just check to pass when directly behind one, check to pass if the car is also behind not beside, default to closest pass space`
 -- TODO: Send raycast when stuck/offtrack to goal/currentnodes. if there is no obstruction, then keep on rejoin, else, continue to be "stuck"
--- TODO: Check for Clear track before resetting car pos
--- TODO: Reduce or eliminate stuck timeout during caution flags
--- TODO: Caution flags and formation laps (have race mode:  Q,F,R,C, Or weekend mode that cycles between all three without input)
 -- TODO: Find max common color, possibly make tag text match
 -- Car still senses things below
 
@@ -200,7 +197,7 @@ function Driver.server_init( self )
     self.userSteer = 0
     self.userSeated = false -- self explanitory hopefully
 
-    self.racing = false -- TODO: Add More race statuses
+    self.racing = false 
     self.pitting = false
     self.caution = false
     self.cautionPos = 1 -- Position for caution
@@ -251,7 +248,8 @@ function Driver.server_init( self )
     self.lastLap = 0
     self.bestLap = 0
     self.raceFinished = false 
-    
+    self.stuckCooldown = {true,self.location} -- if true, check current node, if curNode is nil, check self current
+
     -- Situational/goalstate
     self.pathGoal = "location"
     -- Track Data (copied?)
@@ -274,7 +272,6 @@ function Driver.server_init( self )
     self.overSteerTolerance = -2 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
     self.underSteerTolerance = -0.4 -- Smaller (more negative [fractional]) the more tolerance to understeer-- USED TO BE:THe bigger (positive) more tolerance to understeer (will not slow down as early, DEFAULT -0.3)
     self.passAggression = -0.4 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
-    -- TODO: add these to a UI and self.storage for racer customization?
     -- testing states
     self.maxSpeed = nil
     self.maxFriction = nil
@@ -575,7 +572,7 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     -- Driving and character layer states
     self.seatConnected = false -- whether seat is conrol
     self.userControl = false -- If a driver seat is connected (and ai switch is off), user has control over strategic steering+throttle
-    self.racing = false -- TODO: Add More race statuses
+    self.racing = false 
     self.pitting = false
     self.caution = false
     self.cautionPos = 1 -- Position for caution
@@ -1069,12 +1066,34 @@ end
 function Driver.checkStuck(self) -- checks if car velocity is not matching car rpm
     if self.goalNode == nil then return end-- print?
     if self.engine == nil then return end
+    if self.stuckCooldown[1] == true then -- cooldown actvie
+        if self.stuckCooldown[2] == nil then -- check if location  is set
+            if self.location == nil then -- both are nil
+                print("stuck coolwon both nil")
+                return
+            else -- location exists
+                self.stuckCooldown[1] == false
+                return
+            end
+        else -- location node exista
+            local dist = getDistance(self.stuckCooldown[2],self.location)
+            if dist < 2 then 
+                print("stuck? not very far, not doing anything")
+            else
+                self.stuckCooldown[1] = false
+                return
+            end
+        end
+    end
+
+
+
     local offset = posAngleDif3(self.location,self.shape.at,self.goalNode.location)
     --print(offset,self.goalDirectionOffset)
     --print("hah",self.engine.curRPM)
     --print(self.speed,toVelocity(self.engine.curRPM),self.curGear, offset) -- Get distance away from node? track Dif?
-    if math.abs(offset) >= 30 or math.abs(self.goalDirectionOffset) > 8.5 then -- TODO:Have cooldown before checking after a car starts racing
-        --print("Stuck?",offset,self.goalDirectionOffset,self.speed)
+    if math.abs(offset) >= 30 or math.abs(self.goalDirectionOffset) > 8.5 then 
+        print("Stuck?",offset,self.goalDirectionOffset,self.speed)
         if self.speed <= 3 then
             --print("offset stuck",offset,self.speed,self.goalDirectionOffset)
             self.stuck = true
@@ -1498,7 +1517,7 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     local SteerAngle
     if self.goalNode == nil then return end
     
-    local goalNodePos = self.goalNode.location -- TODO: Replace with [racetype]
+    local goalNodePos = self.goalNode.location
     local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
     local goalPerp = self.goalNode.perp
    
@@ -1557,7 +1576,7 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
     local SteerAngle
     if self.goalNode == nil then return end
     
-    local goalNodePos = self.goalNode.mid -- TODO: Replace with [racetype]
+    local goalNodePos = self.goalNode.mid 
     local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
     goalNodePos = self.goalNode.mid + goalOffset-- place goalnode offset here...
     -- check if goalNode pos is offTrack
@@ -4575,6 +4594,7 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
     --print(self.id,"revieved command",command)
     if command.type == "raceStatus" then --TODO: make these send out individual commands instead of toggle here
         if command.value == 1 then -- start race
+            self.stuckCooldown = {true, self.location}
             self.safeMargin = false -- just starting out race
             self.racing = true
             if self.caution or self.formation then -- if previously in caution or formation then
