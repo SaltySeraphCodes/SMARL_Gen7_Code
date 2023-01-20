@@ -1356,7 +1356,7 @@ function Control.sv_output_allRaceData(self) -- Outputs race data into a  big li
 	local noCommaEnding = string.sub(outputString,1,-2)
 	local endString = ']'
 	outputString = noCommaEnding .. endString 
-	--self:sv_output_data(outputString)
+	self:sv_output_data(outputString)
 end
 
 

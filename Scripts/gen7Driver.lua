@@ -285,7 +285,7 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = true
+    self.debug = false
 
 
     -- errorTimeouts
@@ -1069,16 +1069,17 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
     if self.stuckCooldown[1] == true then -- cooldown actvie
         if self.stuckCooldown[2] == nil then -- check if location  is set
             if self.location == nil then -- both are nil
-                print("stuck coolwon both nil")
+                --print("stuck coolwon both nil")
                 return
             else -- location exists
-                self.stuckCooldown[1] == false
+                self.stuckCooldown[1] = false
                 return
             end
         else -- location node exista
             local dist = getDistance(self.stuckCooldown[2],self.location)
-            if dist < 2 then 
-                print("stuck? not very far, not doing anything")
+            if dist < 1 then 
+                --print("stuck?",dist)
+                return 
             else
                 self.stuckCooldown[1] = false
                 return
@@ -1093,7 +1094,7 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
     --print("hah",self.engine.curRPM)
     --print(self.speed,toVelocity(self.engine.curRPM),self.curGear, offset) -- Get distance away from node? track Dif?
     if math.abs(offset) >= 30 or math.abs(self.goalDirectionOffset) > 8.5 then 
-        print("Stuck?",offset,self.goalDirectionOffset,self.speed)
+        --print("Stuck?",offset,self.goalDirectionOffset,self.speed)
         if self.speed <= 3 then
             --print("offset stuck",offset,self.speed,self.goalDirectionOffset)
             self.stuck = true
