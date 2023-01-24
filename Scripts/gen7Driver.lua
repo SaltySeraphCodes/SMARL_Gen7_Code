@@ -247,6 +247,7 @@ function Driver.server_init( self )
     self.raceSplit = 0
     self.lastLap = 0
     self.bestLap = 0
+    self.isFocused = false
     self.raceFinished = false 
     self.stuckCooldown = {true,self.location} -- if true, check current node, if curNode is nil, check self current
 

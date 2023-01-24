@@ -12,7 +12,7 @@ dofile "Timer.lua"
 ZOOM_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/zoomControls.json"
 CAMERA_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/cameraInput.json"
 QUALIFYING_DATA = MOD_FOLDER .. "/JsonData/qualifyingData.json" -- Data structure with id, place, and split, formed by python
-
+QUALIFYING_FLIGHT_DATA = MOD_FOLDER .. "/JsonData/qualifying_flight_"
 Control = class( nil )
 Control.maxChildCount = -1
 Control.maxParentCount = -11
@@ -179,8 +179,12 @@ function Control.server_init(self)
 
     self.controllerSwitch = nil -- interactable that is connected to swtcgh
 
+    -------------------- QUALIFYING SETUP -----------------
     self.qualifying = true -- whether we are qualifying or not -- dynamic
-    self.flight = 1 -- which flight
+    self.qualifyingFlight = 1 -- which flight to store data as
+    self.totalFlights = 1 -- choose how many flights there are (can automate but eh)
+    -----------------------------------------------------
+
     self.finishResults = {}
     self.qualifyingResults = {} -- list of results per flight
 
@@ -764,8 +768,12 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
     --if #self.finishResults == #ALL_DRIVERS then -- TODO: deciding on whether to output all at once or one at a time, will need to adjust log parse if all at once
         if #self.qualifyingResults == #ALL_DRIVERS then
             if self.qualifying then --  qualifying round
-                print("Saving Final qual data",self.qualifyingResults)
-                sm.json.save(self.qualifyingResults, QUALIFYING_DATA)
+                local flightNum = string.format("%s",self.qualifyingFlight) -- May need to string format
+                sm.json.save(self.qualifyingResults, QUALIFYING_FLIGHT_DATA .. flightNum .. ".json")
+                if self.totalFlights == 1 then -- If only one flight, just push results straight to final file
+                    print("Saving single flight qual data",self.qualifyingResults)
+                    sm.json.save(self.qualifyingResults, QUALIFYING_DATA)
+                end
             end
         end
 
@@ -1338,6 +1346,7 @@ function Control.sv_readZoomJson(self) -- BETTER IDEA: only begin reading when k
 end
 
 
+
 function Control.sv_output_allRaceData(self) -- Outputs race data into a  big list
     local outputString = 'realtime_data= [ '
 	for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
@@ -1348,7 +1357,8 @@ function Control.sv_output_allRaceData(self) -- Outputs race data into a  big li
             v:determineRacePosBySplit()
             local time_split = string.format("%.3f",v.raceSplit)
 			local output = '{"id": "'.. v.carData['metaData']["ID"] ..'", "locX": "'..v.location.x..'", "locY": "'.. v.location.y..
-            '", "lastLap": "'..v.lastLap..'", "bestLap": "'..v.bestLap ..'", "lapNum": "'.. v.currentLap..'", "place": "'.. v.racePosition..'", "timeSplit": "'.. time_split..'"},'
+            '", "lastLap": "'..v.lastLap..'", "bestLap": "'..v.bestLap ..'", "lapNum": "'.. v.currentLap..'", "place": "'.. v.racePosition..
+            '", "timeSplit": "'.. time_split ..'", "isFocused": "'..v.isFocused ..'", "speed": "'..v.speed..'"},'
 			outputString = outputString .. output
 		end
         
@@ -1428,7 +1438,17 @@ end
 -- camera and car following stuff
 function Control.sv_cycleFocus(self,direciton) -- calls iterate camera
     self.network:sendToClients("cl_cycleFocus",direciton)
+    -- remove isFocused (should be SV)
+    if self.focusedRacerData ~= nil then
+        self.focusedRacerData['isFocused'] = false
+    end
 end 
+
+function Control.sv_setFocused(self,racerID)
+    racer = getDriverFromId(racerID)
+    racer.isFocused = true
+end
+
 
 function Control.cl_cycleFocus(self,direction) -- Cycle Which racer to Focus on ( NON Drone Function), Itterates by position
 	if self.focusedRacePos == nil then 
@@ -1467,6 +1487,8 @@ function Control.cl_cycleFocus(self,direction) -- Cycle Which racer to Focus on 
 	self.droneFollowRacer = false 
 	self.droneFocusPos = true 
 	self.droneFocusRacer = false 
+
+    self.network:sendToServer("sv_setFocused",self.focusedRacerID) -- sends to server driver focus stats
 
 	self:focusAllCameras(nextRacer) -- TODO: get this
 end
