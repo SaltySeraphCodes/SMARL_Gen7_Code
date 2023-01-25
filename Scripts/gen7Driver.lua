@@ -5119,6 +5119,7 @@ end
 function Driver.server_onFixedUpdate( self, timeStep )
     --print(self.id,self.location.z)
     -- First check if driver has seat connectd
+    local startTime = CLOCK()
     self:parseParents()
     if self.body ~= self.shape:getBody() then
         --print(self.id,"updating body?",self.body)
@@ -5204,9 +5205,13 @@ function Driver.server_onFixedUpdate( self, timeStep )
     else
         print(self.id,"body id mismatch")
     end
+    local endTime = CLOCK()
+    local svFixedTime = endTime - startTime
+    print(string.format("sv_FixedUpdate: %.5f",svFixedTime))
 end
 
 function Driver.client_onFixedUpdate(self,timeStep)
+    -- are is this bad?
     if self.showingVisuals then
         self:updateVisuals()
     end
