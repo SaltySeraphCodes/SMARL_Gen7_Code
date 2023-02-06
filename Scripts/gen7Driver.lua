@@ -115,7 +115,9 @@ function Driver.server_init( self )
     -- Car Attributes
     --print("set body",self.shape.body,self.shape:getBody())
     self.body = self.shape:getBody()
-    self.mass = self.body.mass
+    if self.body then
+        self.mass = self.body.mass
+    end
     self.location  = self.shape.worldPosition -- location of center of body (may need to offset?)
     if self.carData == nil then -- no car data 
         self.carData = {} -- create empty table then save
@@ -408,7 +410,7 @@ function Driver.client_init(self)
     end
 	self.idTag:setText( "Text", "#ff0000"..self.tagText)
 
-
+    self.userSeated = false
     if self.debug then
         self:showVisuals()
     end
@@ -435,7 +437,9 @@ function Driver.sv_softReset(self)
     self.validError = false
     self.scanningError = false
     self.body = self.shape:getBody()
-    self.mass = self.body.mass
+    if self.body then
+        self.mass = self.body.mass
+    end
     self.location  = self.shape.worldPosition -- location of center of body (may need to offset?)
     if self.carData == nil then -- no car data 
         print("Soft reset could not find car data")
@@ -524,7 +528,9 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     --print("set body",self.shape.body,self.shape:getBody())
     self.body = self.shape:getBody()
     self.creationBodies = self.body:getCreationBodies()
-    self.mass = self.body.mass
+    if self.body then
+        self.mass = self.body.mass
+    end
     self.location  = self.shape.worldPosition -- location of center of body (may need to offset?)
 
     self.carData = self.storage:load()  -- load car data from stored bp/storagedata possibly replace with self.data
@@ -5207,7 +5213,7 @@ function Driver.server_onFixedUpdate( self, timeStep )
     end
     local endTime = CLOCK()
     local svFixedTime = endTime - startTime
-    print(string.format("sv_FixedUpdate: %.5f",svFixedTime))
+    --print("sv_FixedUpdate",svFixedTime)
 end
 
 function Driver.client_onFixedUpdate(self,timeStep)
@@ -5257,9 +5263,10 @@ end
 
 function Driver.client_onInteract(self,character,state)
     -- if driver active, then toggle userControl
+    print("client onInteract")
     if state then
         if self.userSeated then
-            --print("toggle ai",self.userSeated)
+            print("toggling user control",self.userSeated)
             self:cl_toggleUserControl()
             return
         end

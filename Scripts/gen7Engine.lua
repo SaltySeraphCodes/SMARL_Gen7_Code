@@ -129,7 +129,28 @@ function Engine.setRPM(self,value)
     --print("engine speed",value,toEngineSpeed(value))
     if value == nil then value = 0 end -- error value cuz no driver
     if self.noDriverError then value = 0 end
-    local rotationstrength = 220
+
+    --local carWeight = self.body.
+    local rotationstrength = 250 -- Default
+    if self.driver ~= nil then 
+        if self.driver.mass then
+            --bvprint("got mass",self.driver.mass)
+            local mass = (self.driver.mass or 5000) -- in case mass is nill
+            rotationstrength = ratioConversion(0,100000,1000,2500,mass)--self.driver.body.mass)
+            if rotationstrength < 250 then
+                rotationstrength = 250
+            end
+
+            if rotationstrength > 1000 then
+                rotationstrength = 1000
+            end
+            --print(self.driver.body.mass,rotationstrength)
+        else
+            print(self.driver.id, "no body?")
+        end
+    end
+
+    local rotationstrength = 500
     for k, v in pairs(sm.interactable.getBearings(self.interactable )) do
         sm.joint.setMotorVelocity(v, value, rotationstrength )
     end

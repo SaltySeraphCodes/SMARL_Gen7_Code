@@ -39,7 +39,7 @@ function SmarlCamera.client_init( self )
 	self.zoomStrength = 60
 	self.zoomIn = false
 	self.zoomOut= false
-	self.zoomSpeed = 0.1
+	self.zoomSpeed = 0.01
 	self.zoomAccel = 0.001
 	self.raceStatus = 0
 	self.gameWorld = sm.world.getCurrentWorld()
@@ -66,19 +66,19 @@ function SmarlCamera.client_init( self )
 	self.network:sendToServer("server_init")
 
 	self.shakeVector = { -- camera shake vector
-		xStrength = 0.01, -- amount
-		xBump = 0.01, -- baked lerp
-		yStrength = 0.01,
-		yBump = 0.01,
-		zStrength = 0.01,
-		zBump = 0.01,
+		xStrength = 0.0, -- amount
+		xBump = 0.0, -- baked lerp
+		yStrength = 0.0,
+		yBump = 0.0,
+		zStrength = 0.0,
+		zBump = 0.0,
 
 		rStrengthX = 0.02,
-		rBumpX = 0.05,
-		rStrengthY = 0.01,
-		rBumpY = 0.05,
-		rStrengthZ = 0.01,
-		rBumpZ = 0.05,
+		rBumpX = 0.01,
+		rStrengthY = 0.02,
+		rBumpY = 0.01,
+		rStrengthZ = 0.02,
+		rBumpZ = 0.01,
 
 	}
 
@@ -306,7 +306,7 @@ function SmarlCamera.client_onPrimaryUse( self, state )
 	elseif state == 0 then
 		self.zooming = false
 		self.zoomAccel = 0
-		self.zoomSpeed = 0.1
+		self.zoomSpeed = 0.01
 		self.accelZoom = false
 	end
 	
@@ -324,7 +324,7 @@ function SmarlCamera.client_onSecondaryUse( self, state )
 	elseif state == 0 then
 		self.zoomoutg = false
 		self.zoomAccel = 0
-		self.zoomSpeed = 0.1
+		self.zoomSpeed = 0.01
 		self.accelZoom = false
 	end
 	
@@ -428,10 +428,10 @@ function SmarlCamera.client_onUpdate( self, timeStep )
 	local zoomAmmount = 0
 	if self.zoomIn then 
 		--print("zoomin")
-		zoomAmmount = -0.5
+		zoomAmmount = -0.6
 	elseif self.zoomOut then
 		--print("zoomOut")
-		zoomAmmount = 0.5
+		zoomAmmount = 0.6
 	end
 	if zoomAmmount ~= 0 then 
 		self.zoomSpeed = sm.util.lerp(self.zoomSpeed,zoomAmmount,0.1)

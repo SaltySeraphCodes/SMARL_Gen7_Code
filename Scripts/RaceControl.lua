@@ -114,7 +114,7 @@ function Control.client_init( self )
 
 -- Camera things
     self.smarCamLoaded = false
-    self.externalControlsEnabled = true
+    self.externalControlsEnabled = true -- TODO: Check if on seraph's computer
     self.viewIngCamera = false -- whether camera is being viewed
     self.cameraMode = 0 -- camera viewing mode: 0 = free cam, 1 = race cam
 
@@ -215,7 +215,7 @@ function Control.server_init(self)
 
     -- just cam things
     self.smarCamLoaded = false
-    self.externalControlsEnabled = true
+    self.externalControlsEnabled = true -- TODO: check if this
     self.viewIngCamera = false -- whether camera is being viewed
     
     
@@ -422,7 +422,7 @@ end
 
 function Control.cl_setZoom(self)
     --print(self.zoomIn,self.zoomOut)
-    local zoomSpeed = 0.6
+    local zoomSpeed = 0.1
     if (self.zoomIn and self.zoomOut) or  (not self.zoomIn and not self.zoomOut) then -- add self.zooming attribute, indicate zoom
         self:cl_sendCameraCommand({command="SetZoom",value=0})
     end
@@ -609,17 +609,17 @@ end
 
 function Control.setFormationPositions(self) -- sv sets all driver caution positions to their current positions
     qualData = self:sv_ReadQualJson()
-    if qualData == nil then
-        for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k] -- sets driver formation position based index placed
-            v.formationPos = k
-        end 
-    else
+    if qualData and #qualData == #ALL_DRIVERS then 
         for k=1, #qualData do local v=qualData[k] -- sets driver formation position based on data
             local id = v.racer_id
             local driver = getDriverFromMetaId(id)
             if driver ~= nil then
                 driver.formationPos = v.position
             end
+        end 
+    else
+        for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k] -- sets driver formation position based index placed
+            v.formationPos = k
         end 
     end
 end
@@ -832,7 +832,7 @@ function Control.server_onFixedUpdate(self)
         end
     end
 
-    if self.smarCamLoaded and self.externalControlsEnabled then
+    if self.smarCamLoaded or self.externalControlsEnabled then
         self:sv_ReadJson()
         self:sv_readZoomJson()
     end
@@ -982,6 +982,12 @@ function Control.client_onUpdate(self,dt)
         raceStat = "Race Status: #11ee11Racing"
     elseif self.raceStatus == 0 then
         raceStat = "Race Status: #ff2222Stopped"
+    elseif self.raceStatus == 3 then
+        raceStat = "Race Status: #ffff11Caution"
+    
+    elseif self.raceStatus == 2 then
+        raceStat = "Race Status: #fafafaFormation"
+    
     end
     if self.raceFinished then
         raceStat = "Race Status: #99FF99Finished"
@@ -1103,7 +1109,7 @@ end
 
 function Control.cl_showAlert(self,msg) -- client recieves alert
     --print("Displaying",msg)
-    sm.gui.displayAlertText(msg,3)
+    --sm.gui.displayAlertText(msg,3) TODO: Uncomment this?? 
 end
 
 
@@ -1295,6 +1301,8 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
             self.freecamSpeed = self.freecamSpeed - 0.1
         elseif self.freecamSpeed > 0.019 then
             self.freecamSpeed = self.freecamSpeed - 0.01
+        elseif self.freecamSpeed > 0.001 then
+            self.freecamSpeed = self.freecamSpeed - 0.001
         end
 
 		if self.spacePressed and self.shiftPressed then -- Optional just in case something happens
@@ -1356,9 +1364,10 @@ function Control.sv_output_allRaceData(self) -- Outputs race data into a  big li
             --print(v.carData['metaData']["ID"],v.carData['metaData']["Car_Name"])
             v:determineRacePosBySplit()
             local time_split = string.format("%.3f",v.raceSplit)
+            local isFocused = string.format("%s",v.isFocused)
 			local output = '{"id": "'.. v.carData['metaData']["ID"] ..'", "locX": "'..v.location.x..'", "locY": "'.. v.location.y..
             '", "lastLap": "'..v.lastLap..'", "bestLap": "'..v.bestLap ..'", "lapNum": "'.. v.currentLap..'", "place": "'.. v.racePosition..
-            '", "timeSplit": "'.. time_split ..'", "isFocused": "'..v.isFocused ..'", "speed": "'..v.speed..'"},'
+            '", "timeSplit": "'.. time_split ..'", "isFocused": "'.. isFocused ..'", "speed": "'..v.speed..'"},'
 			outputString = outputString .. output
 		end
         
@@ -2018,7 +2027,7 @@ function Control.client_buttonPress( self, buttonName )
         self.network:sendToServer("sv_changeHandiCap",-0.1)
     elseif buttonName == "ResetRace" then
         --print("Resetting Race")
-        if self.raceStatus == 1 and not self.raceFinished then -- Mid race
+        if (self.raceStatus == 1 or self.raceStatus == 2 or self.raceStatus == 3 )and not self.raceFinished then -- Mid race
             self.RaceMenu:setText("PopUpYNMessage", "Still Racing, Reset?")
             self.RaceMenu:setVisible("PopUpYNMainPanel", true)
 		    self.RaceMenu:setVisible("CreateRacePanel", false)
