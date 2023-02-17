@@ -180,7 +180,7 @@ function Control.server_init(self)
     self.controllerSwitch = nil -- interactable that is connected to swtcgh
 
     -------------------- QUALIFYING SETUP -----------------
-    self.qualifying = true -- whether we are qualifying or not -- dynamic
+    self.qualifying = false -- whether we are qualifying or not -- dynamic
     self.qualifyingFlight = 1 -- which flight to store data as
     self.totalFlights = 1 -- choose how many flights there are (can automate but eh)
     -----------------------------------------------------
