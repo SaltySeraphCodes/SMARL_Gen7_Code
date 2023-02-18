@@ -80,7 +80,7 @@ end
 
 function Driver.sv_add_metaData(self,metaData) -- Adds car specific metadata to self
     if self.carData['metaData'] == nil then
-        print("no metaData")
+        print("Metadata Loading:",metaData)
     else
         print("metaData already loaded",self.carData['metaData'])
     end
@@ -2394,24 +2394,25 @@ function Driver.getAccel(self) -- GEts acceleration flag
     end
 end
 
-function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on multiple factors
+function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on multiple factors T
+    --TODO: change to show distance offline & turn dir as vmax punishment and not just midle of track
     --print("original",vMax)
     if not self:valididtyCheck() then return vMax end
 
     local tWidth = (segEndNode.width or 10)
     if segEndNode == nil then return vMax end
-    vMax = vMax + tWidth/4.6
-    vMax = vMax - (math.abs(self.trackPosition)/1.6)  -- Adjust max velocity based on closeness to center of track
+    vMax = vMax + tWidth/8 -- higher value is more punishment for thinner tracks
+    vMax = vMax - (math.abs(self.trackPosition)/1.5)  -- Adjust max velocity based on closeness to center of track
     --print("twidthVmax",math.abs(self.trackPosition)/1.5,vMax)
-    if self.passing.isPassing then vMax = vMax +0.4 end -- go a bit slower while passing
+    if self.passing.isPassing then vMax = vMax +0.3 end -- go a bit slower while passing
     if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~= 0 then -- slow down when there is car alongside
-        vMax = vMax - 2
+        vMax = vMax - 3
     else
         
     end
-    if tWidth <= 26 then -- if track is thinner, slow down more
+    if tWidth <= 30 then -- if track is thinner, slow down more
         --print("thintrack",tWidth)
-        vMax = vMax - vMax/5
+        vMax = vMax - (vMax/4.5)
     end
 
     if self.offline then
@@ -2423,7 +2424,7 @@ function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on 
     --print(goalAngle)
     if math.abs(goalAngle) < 1 then --TODO: make threshold more variable depending on skill
         --print("turn boost",goalAngle)
-        vMax = vMax + 5 -- ?variable depending on skill
+        vMax = vMax + 3 -- ?variable depending on skill
     end
 
     --print("returning",vMax,math.abs(self.goalDirectionOffset))
@@ -3898,6 +3899,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if self.goalNode == nil or self.currentNode == nil then return end
 
 -- Check tilted
+    --print(self.currentNode.location.z,self.currentNode.mid.z)
     if self.tilted== true then 
         if self.debug  then
             --print(self.id,"correcting tilt")
@@ -4143,7 +4145,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                 --print(self.tagText,"rejoining",offset,dist,self.speed,maxSpeed,self.engine.curRPM,self.strategicThrottle)
                 
                 
-                if (self.speed >= maxSpeed - 4 and toVelocity(self.engine.curRPM) >= maxSpeed - 5 and self.offTrack == 0) or (self.curGear >=4 and self.offTrack == 0) then
+                if (self.speed >= maxSpeed - 6 and toVelocity(self.engine.curRPM) >= maxSpeed - 6 and self.offTrack == 0) or (self.curGear >=4 and self.offTrack == 0) then
                     self.rejoining = false
                     self.stuck = false
                     self.pathGoal = "location"
@@ -4317,12 +4319,13 @@ function Driver.resetPosition(self,force) -- attempts to place the driver on a l
             self.creationBodies = bodies
             local locationNode = (self.resetNode or self.nodeChain[4])
             local location = locationNode.mid * 4
+            print(locationNode.location.z,locationNode.mid.z)
             local rotation = getRotationIndexFromVector(locationNode.outVector,0.75)
             if rotation == -1 then
                 print("Got bad rotation")
                 rotation = getRotationIndexFromVector(locationNode.outVector, 0.45) -- less precice, more likely to go wrong or do a getNearest Axis and then rotate
             end
-            local realPos = sm.vec3.new(math.floor( location.x + 0.5 ), math.floor( location.y + 0.5 ), math.floor(  self.nodeChain[2].mid.z + 5.5 ))
+            local realPos = sm.vec3.new(math.floor( location.x + 0.5 ), math.floor( location.y + 0.5 ), math.floor(  location.z + 5.5 ))
             -- check if this will intersect with anything else
             local okPosition, liftLevel = sm.tool.checkLiftCollision( self.creationBodies, realPos, rotation )
             --print("QuieckCHeck",okPosition,liftLevel)
@@ -5280,10 +5283,10 @@ function Driver.client_onInteract(self,character,state)
                 end
             end
             local metaData = {   
-            ['ID'] = 13, -- actual car id
-            ['Car_Name'] = "Dirty Drafter",
+            ['ID'] = 16, -- actual car id
+            ['Car_Name'] = "Super Fury",
             ['Car_Type'] = "Stock",
-            ['Body_Style'] = "Bently",
+            ['Body_Style'] = "Mercedes",
             }
             self.network:sendToServer("sv_add_metaData",metaData) --TODO: MAKE SURE THIS IS On/off appropriately
        else

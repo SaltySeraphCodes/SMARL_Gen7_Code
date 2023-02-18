@@ -408,7 +408,6 @@ function Generator.createEfectLine(self,from,to,color) --
 
 end
 
-
 function Generator.generatePerpVector2(self,direction,location,node) -- generates perpendicular vector based on last angle to wall
     if node == nil or node.last == nil then
         return generatePerpVector(direction)
@@ -444,6 +443,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
     end
     local floor = location.z
     if floorHeight then
+        --print("local normie",floorData.normalLocal,floorData.normalWorld)
         floor = floorData.pointWorld.z + 0.6
     else
         print("could not find floor",floor)
@@ -456,12 +456,11 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
         --table.insert(self.debugEffects,self:generateEffect(testLoc,sm.color.new('ff00ffff'))) -- purple dot at end locationi
     end
 
-    
     -- Look Forward First to see if floor is rising in front
     -- First send node out to front and see if it hits a point at higher z than floor
     local front, frontData =  sm.physics.raycast(location,location + direction * self.scanSpeed) -- change multiplier?
     if front then -- TODO: UPGRADSE THIS TO determine last location from next location , subtract the z values and you get z slope dif
-        --print("Hit something in front")
+        
         local floorDif = frontData.pointWorld.z - floor
         if floorDif < -.3 then
             --print("Road is sloping up")
@@ -557,7 +556,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
             --table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
             --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
         end
-        if lData.valid == false then -- scan ended, keep going
+        if lData.valid == false then --or (hitL and lData.type ~= 'terrainAsset') then -- could not find wall
             --print("L Wallfailed",k)
         else -- we found the wall, create debug effect line
             if cycle == 1 then
@@ -565,14 +564,18 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
                 --print("FoundLeftWall",searchLocation.z,location.z) -- Validate difference/distance between walls
             end
 
+            --print("local normieLWall",lData.normalLocal,lData.normalWorld)
+
             if lastLeftWall then
                 local wallChange = getDistance(lastLeftWall,lData.pointWorld)
-                if wallChange > 9 then  -- TODO: figure out good averag and go 2+ (so var avg is 4-5)
+                if wallChange > 5 then  -- TODO: figure out good averag and go 2+ (so var avg is 4-5)
                     print("drastic left wall change",wallChange)
                     if cycle == 1 then
-                        self:createEfectLine(location,searchLocation,sm.color.new('ee127fff')) -- red ish line
+                        --self:createEfectLine(location,searchLocation,sm.color.new('ee127fff')) -- red ish line
                         table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
-                        table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
+                        --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
+                        table.insert(self.debugEffects,self:generateEffect(lData.pointWorld,sm.color.new('0000ffff'))) -- blue dot at wall location
+
                     end
                 end
             end
@@ -588,7 +591,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
 
     ------ RIGHT WALL SCAN
     local hitR, rData
-    local zOffsetLimit = 8 -- How far above/below to search [ may need to increase]
+    local zOffsetLimit = 5 -- How far above/below to search [ may need to increase]
     local rightZOffsetStart = location.z -- default floor level
     local lastRightWall = nil
     if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].rightWall then
@@ -615,14 +618,17 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
                 --self:createEfectLine(location,searchLocation,sm.color.new('2271eeff')) -- blue ish line
                 --print("FoundRighttWall",location.z,lData.pointWorld.z) -- Validate difference/distance between walls
             end
+            --print("local normieRWall",rData.normalLocal,rData.normalWorld)
             if lastRightWall then
                 local wallChange = getDistance(lastRightWall,rData.pointWorld)
-                if wallChange > 9 then 
+                if wallChange > 5 then 
                     print("drastic Right wall change",wallChange)
                     if cycle == 1 then
-                        self:createEfectLine(location,searchLocation,sm.color.new('2271eeff')) -- blue ish line
+                        --self:createEfectLine(location,searchLocation,sm.color.new('2271eeff')) -- blue ish line
                         table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
-                        table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
+                        --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
+                        table.insert(self.debugEffects,self:generateEffect(rData.pointWorld,sm.color.new('0000ffff'))) -- blue dot at wall location
+
                     end
                 end
             end
@@ -710,7 +716,6 @@ function Generator.analyzeSegment(self,initNode,flag) -- Attempt # 4
 
 end
 
-
 function Generator.backTraceSegment(self,initNode,startNode) -- goes backwards and finds beginning of turn + 3 nodes
     if initNode == nil then print("Error No init node") return end
     local index = startNode.id - 1
@@ -749,7 +754,6 @@ function Generator.backTraceSegment(self,initNode,startNode) -- goes backwards a
     end
 
 end
-
 
 --segment analyzer attempt # 5 
 function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
@@ -810,7 +814,6 @@ function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
         end
     end
 end
-
 
 function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: run a filterpass over segments and combine all like/adjacent segments into one segID
     local firstNode = self.nodeChain[1]
@@ -896,8 +899,6 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
    
     --print(self.nodeChain[#self.nodeChain-1].id,self.nodeChain[#self.nodeChain-1].segType)
 end
-
-
 
 function Generator.generateSegments(self) -- starts loading track segments
     -- Scan and set track segments ( better results if done after optimization)
@@ -1417,7 +1418,6 @@ end]]
 function Generator.scanPit(self) -- Scans just like regular but looks for pit lane if user properly bloced off track
 end
 
-
 function Generator.quickSmooth(self,ammount)
     local scanLen = 0
     for i = 0, ammount do -- Have seperate optimize clock?
@@ -1689,7 +1689,6 @@ function Generator.startTrackScan(self)
     end
 end
 
-
 function Generator.startOptimization(self)
     sm.gui.displayAlertText("Optimizing")
     if self.instantOptimize then -- Game freezing optimization loop
@@ -1719,7 +1718,6 @@ function Generator.startOptimization(self)
     end
 end
  
-
 function Generator.printNodeChain(self)
     for k, v in pairs(self.nodeChain) do
 		print(v.id,v.segID)
