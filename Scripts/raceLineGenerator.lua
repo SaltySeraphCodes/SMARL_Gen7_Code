@@ -331,14 +331,16 @@ function Generator.generateEffect(self,location,color) -- Creates new effect at 
 end
 -----
 
-function Generator.generateMidNode(self,index,previousNode,location,inVector,distance,width,leftWall,rightWall,bank)
+function Generator.generateMidNode(self,index,previousNode,location,inVector,distance,width,leftWall,rightWall,bank,leftWallTop,rightWallTop)
    -- print("making node",dirVector)
    -- TODO: upgrade to perpvector2?
     if inVector == nil then
         print("node gen no inVector")
     end
-    return {id = index, pos = location, outVector = nil, last = previousNode, inVector = inVector, force = nil, distance = distance, perpVector = generatePerpVector(inVector), 
-            midPos = location, pitPos = nil, width = width, next = nil, effect = nil, segType = nil, segID = nil, pinned = false, weight = 1, incline = 0,leftWall = leftWall,rightWall = rightWall,bank = bank} -- move effect?
+    return {id = index, pos = location, outVector = nil, last = previousNode, inVector = inVector, force = nil, distance = distance, 
+            perpVector = generatePerpVector(inVector), midPos = location, pitPos = nil, width = width, next = nil, effect = nil, 
+            segType = nil, segID = nil, pinned = false, weight = 1, incline = 0,
+            leftWall = leftWall,rightWall = rightWall,leftWallTop = leftWallTop, rightWallTop = rightWallTop ,bank = bank} -- move effect?
 end
 
 
@@ -433,6 +435,7 @@ function Generator.generatePerpVector2(self,direction,location,node) -- generate
 
 end
 
+-- Call this when setting up first node.
 function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is new, determines which time it is ran to prevent annoying overlay on debug draw
     --print("originalZ",location.z)
     --print("scaning perp",direction)
@@ -685,6 +688,174 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
 end
 
 
+function Generator.scanForWalls(self,location,direction,threshold)
+     -- Scans from location to another location from top down 
+     -- original location is estimated position based off of last wall
+     -- stores floor location and if floor height theshold is passed then will return wall location
+    local scanHeight = 3 -- how high from location to start scan
+    local perpOffset = -3 -- start loc
+    local perpLimit = 3 -- end scan dist
+    local floorValue = nil
+    local scanGrain = 0.1
+    local scanStart = location + (direciton * perpOffset)
+    local scanStart.z = location.z + scanHeight
+    local scanEnd = scanStart + sm.vec3.new(0,0,-10) -- scan down
+    local foundWall = nil
+
+
+    for k= perpOffset, perpLimit, scanGrain do -- scans from pre direction, to post direction
+            hit,data = sm.physics.raycast(scanStart,scanEnd) -- shoot raycast down
+                
+            if hit then -- found floor
+                floorLoc = data.pointWorld.z
+                if floorValue and (floorLoc - floorValue)  > theshold then -- if there is a large change in floorthreshold
+                    print("found potential wall",floorLoc.z,floorValue)
+                    self:createEfectLine(location,searchLocation,sm.color.new('ee127fff')) -- red ish line
+                    foundWall = data.pointWolrd
+
+                else
+                    floorValue = floorLoc -- adjust floor location in case uneven terrain
+                end
+            end
+            
+            
+            -- Set new location 
+            scanStart = location + (direciton * k)
+            scanStart.z = location.z + scanHeight
+            scanEnd = scanStart + sm.vec3.new(0,0,-10) -- scan down
+    end
+
+    return foundWall
+end
+
+function Generator.checkForSharpEdge(lastWall,newWall,cycle)
+    if cycle == 1 then
+        --self:createEfectLine(location,searchLocation,sm.color.new('ee127fff')) -- red ish line
+        --print("FoundLeftWall",searchLocation.z,location.z) -- Validate difference/distance between walls
+    end
+
+    if lastWall then
+        local wallChange = getDistance(lastWall,newWall)
+        if wallChange > 6 then  -- TODO: figure out good averag and go 2+ (so var avg is 4-5)
+            print("drastic left wall change",wallChange)
+            if cycle == 1 then
+                --self:createEfectLine(location,searchLocation,sm.color.new('ee127fff')) -- red ish line
+                table.insert(self.debugEffects,self:generateEffect(lastWall,sm.color.new('ff0000ff'))) -- red dot at start locationi
+                --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
+                table.insert(self.debugEffects,self:generateEffect(newWall,sm.color.new('0000ffff'))) -- blue dot at wall location
+                --self:createEfectLine(location,lData.pointWorld,sm.color.new('ee127fff')) -- left is more red
+            end
+        end
+    end
+end
+
+function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method for scanning Utilizes top down approach.
+    --print("originalZ",location.z)
+    --print("scaning perp",direction)
+    --if self.nodeChain == nil then return end
+    -- TODO: figure out loopdy loops, will need to look forward instead of straight down in order to find ramps/inclines. have upsidedown tag for node aswell
+    -- TODO: FIgure out fixes for bugs like goin in tunnels,scanner will break
+    --[[
+        * Initial node has to be flat surface and clear access to walls
+        * Reasonable track width consistency 
+        * After initial floor and wall locations are found
+        * Scanner establishes perp nodes
+        * Scanner has established height (5?)
+            * Or no higher than 3 units above wall
+        * Sets initial scan heightpos to wall height +3?
+        * Scanner scans top down with multiple casts along perpnode starting from slightly inside previous wall distance to outside wall distance 
+        * Scan for floor location, store z<
+        * Check difference from last known floor z location.
+        * If difference > 3? Establish that location as wall
+        * Begin vertical z scan outwards towards wall until Sccanheight reached (start from floor locatio
+        * Store distance to wall (starting 1? Closer to center of track) 
+        * If difference from previous scan is >1? Establish the previous location as top of the wall (for tunnels it will stop upon 
+        * intersection with terrain top (very dramatic (possibly really close) distance) might need top wall decrease 
+        * Set new wall height if needed but only if dif is > 2? Initial wall height (not previous)
+    ]]
+
+    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodechain[#self.nodeChain]].lastNode.width/2
+    local scanFromHeight = 3.5 --* self.shape.up
+    if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].width then
+        searchLimit = (self.nodeChain[self.nodeIndex-1].width * 0.8 or 60)
+    end
+    local incline = false
+    local perp = generatePerpVector(direction)-- Generates perpendicular vector to given direction - right side 
+    local perp2 = self:generatePerpVector2(direction,location,self.nodeChain[#self.nodeChain])
+    if perp.z ~=0 then -- perp is zerod in prior function
+        --print("perp z no need",perp.z)
+        perp.z = 0
+    end
+    local lastLeftWall, lastRightWall,lastCenter -- find previous node wall locations
+    if self.nodeChain[self.nodeIndex -1] ~= nil then 
+        if self.nodeChain[self.nodeIndex-1].leftWall then
+            lastLeftWall = self.nodeChain[self.nodeIndex-1].leftWall
+        end
+    
+        if self.nodeChain[self.nodeIndex-1].rightWall then
+            lastRightWall = self.nodeChain[self.nodeIndex-1].rightWall
+        end
+
+        if self.nodeChain[self.nodeIndex-1].location then
+            lastCenter = self.nodeChain[self.nodeIndex-1].location
+        end
+
+    
+    local leftWallDist = getDistance(lastLeftWall,lastcenter)
+    local rightWallDist = getDistance(lastRightWall,lastcenter)
+    print("LwallRWall",leftWallDist,rightWallDist)
+    -- check previous leftWall/rightWall locations/distances/existence
+    if cycle == 1 then
+        --table.insert(self.debugEffects,self:generateEffect(location + self.shape.up *3.5 ,sm.color.new('ffff00ff'))) -- oarnge dot at start locationi
+    end
+    
+    -- Left wall scan
+    local wallThreshold = 0.5 -- how much difference in floor height to determine a wall
+    -- Can possibly make ^ dynamic according to failed params?
+    --local location = lastLeftWall
+    local leftWall = self:scanForWalls(lastLeftWall,-perp2,wallThreshold)
+    if  leftWall == nil then
+        print("L Wallfailed",leftWall)
+        -- do failsafe scan?
+    else -- we found the wall, create debug effect line
+        self:checkForSharpEdge(lastLeftWall,leftWall,cycle)
+    end
+
+    ------ RIGHT WALL SCAN
+    local rightWall = self:scanForWalls(lastRightWall,perp2,wallThreshold)
+    if  rightWall == nil then
+        print("R Wallfailed",rightWall)
+        -- do failsafe scan?
+    else -- we found the wall, create debug effect line
+        self:checkForSharpEdge(lastRightWall,rightWall,cycle)
+    end
+    
+-- TODO: find top of wall by scanning from bottom up until drastic raycast diff is found
+    -- Error checking
+
+    if rightWall == nil or leftWall == nil then
+        print("Something went wrong While scanning track")
+        -- Just Return Best Guess Which is just location but new floor
+        self.scanError = true
+        self.errorLocation = location
+        
+        return location
+    end
+   
+    local midPoint = getMidpoint(leftWall,rightWall)
+    midPoint.z = floor -- prevent wonky spacing during banks
+    local width = getDistance(leftWall,rightWall) -- -1 padding?
+    local bank = 0
+    local bankThresh = 3 -- threshold to determine banking
+    if leftWall.z - rightWall.z > bankThresh then -- If left wall is 3? higher than right wall, it is banked right
+        bank = 1
+    elseif rightWall.z - leftWall.z > bankThresh then -- if right wall is 3? hgihter than left wall, it is banked left
+        bank = -1
+    end -- else bank is 0
+    
+    return midPoint, width,leftWall,rightWall,bank
+end
+
 function Generator.analyzeSegment(self,initNode,flag) -- Attempt # 4
     if initNode == nil then print("Error No init node") return end
     local index = initNode.id
@@ -727,7 +898,6 @@ function Generator.analyzeSegment(self,initNode,flag) -- Attempt # 4
             end
         end
     end
-
 end
 
 function Generator.backTraceSegment(self,initNode,startNode) -- goes backwards and finds beginning of turn + 3 nodes
@@ -1453,16 +1623,17 @@ function Generator.iterateScan(self)
     --print("node",self.nodeIndex)
     local nextLocation = getPosOffset(self.scanLocation,self.scanVector,self.scanSpeed)
     --print("next location",nextLocation)
-    local wallmidPoint,leftWall,rightWall,bank = self:getWallMidpoint(nextLocation,self.scanVector,0) -- new midpoint based off of previous vector
+    -- TODO: allow wallMidpoint scan to be dynamic per algorithm
+    local wallmidPoint, width,leftWall,rightWall,bank  = self:getWallMidpoint2(nextLocation,self.scanVector,0) -- new midpoint based off of previous vector
     local nextVector = getNormalVectorFromPoints(self.scanLocation,wallmidPoint)-- Measure from last node to current midPoint
     --print(nextVector)
     -- maybe smooth it? YES IT DOES
-    local wallmidPoint2, width,leftWall,rightWall,bank = self:getWallMidpoint(nextLocation,nextVector,1)
+    local wallmidPoint2, width,leftWall,rightWall,bank  = self:getWallMidpoint2(nextLocation,nextVector,1) -- TODO: determine if we need to find top
     local nextLocation2 = wallmidPoint2 -- Do another nextVector?
     local nextVector2 = getNormalVectorFromPoints(self.scanLocation,wallmidPoint2)-- Measure from last node to current midPoint can remove nextVector2 if necessary, doubles as inVector
 
     self.scanLocation = nextLocation2
-    self.scanVector = nextVector
+    self.scanVector = nextVector -- not nextVector2?? TODO: investigate why
 
     if nextVector == nil then
         print("nil vector")
@@ -1668,12 +1839,12 @@ function Generator.startTrackScan(self)
     self.started = clock()
     self.nodeIndex = 1
     sm.gui.displayAlertText("Scanning")
-    local startPoint, width,leftWall,rightWall,bank = self:getWallMidpoint(self.location,self.trackStartDirection,1)
+    local startPoint, width,leftWall,rightWall,leftWallTop,rightWallTop,bank = self:getWallMidpoint(self.location,self.trackStartDirection,1)
     self.scanLocation = startPoint
     self.scanVector = sm.vec3.normalize(self.trackStartDirection)
     print("Starting SCAN",#self.nodeChain,self.nodeIndex,width)
    
-    local startingNode = self:generateMidNode(self.nodeIndex,nil,startPoint,self.trackStartDirection,self.totalDistance,width,leftWall,rightWall,bank)
+    local startingNode = self:generateMidNode(self.nodeIndex,nil,startPoint,self.trackStartDirection,self.totalDistance,width,leftWall,rightWall,bank,leftWallTop,rightWallTop)
     table.insert(self.nodeChain, startingNode)
     if self.instantScan then -- instant game freezing scan
         while self.scanClock < self.scanLength do
