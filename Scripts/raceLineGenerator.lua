@@ -44,6 +44,7 @@ function Generator.client_onDestroy(self)
     if self.effect:isPlaying() then
         self.effect:stop()
     end
+
     self:stopVisualization()
 end
 
@@ -90,8 +91,8 @@ function Generator.client_init( self )  -- Only do if server side???
     self.segSearch = 0
     self.segSearchTimeout = 100
 
-    self.debug = true -- Debug flag
-    self.instantScan = false
+    self.debug = false  -- Debug flag
+    self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
     -- error states
     self.scanError = false
@@ -200,12 +201,18 @@ function Generator.stopVisualization(self) -- Stops all effects in node chain (s
         end
     end
 
-    if self.debug then -- only show up on debug for now
-        for k=1, #self.debugEffects do local effect=self.debugEffects[k]
+    
+    for k=1, #self.debugEffects do local effect=self.debugEffects[k]
+        if effect ~= nil then
             if not effect:isPlaying() then
                 effect:stop()
             end
         end
+    end
+    
+
+    if self.errorNode then
+        self.errorNode:stop()
     end
     self.visualizing = false
 end
@@ -283,7 +290,13 @@ function Generator.updateVisualization(self) -- moves/updates effects according 
         end
     end
 
-    if self.debug then -- only show up on debug for now
+    if self.errorNode then
+        if not self.errorNode:isPlaying() then
+            self.errorNode:start()
+        end 
+    end
+
+    if self.debug and self.visualizing then -- only show up on debug for now
         for k=1, #self.debugEffects do local effect=self.debugEffects[k]
             if not effect:isPlaying() then
                 effect:start()
@@ -568,11 +581,11 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
 
             if lastLeftWall then
                 local wallChange = getDistance(lastLeftWall,lData.pointWorld)
-                if wallChange > 5 then  -- TODO: figure out good averag and go 2+ (so var avg is 4-5)
+                if wallChange > 6 then  -- TODO: figure out good averag and go 2+ (so var avg is 4-5)
                     print("drastic left wall change",wallChange)
                     if cycle == 1 then
                         --self:createEfectLine(location,searchLocation,sm.color.new('ee127fff')) -- red ish line
-                        table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
+                        table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('aa9910ff'))) -- red dot at start locationi
                         --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
                         table.insert(self.debugEffects,self:generateEffect(lData.pointWorld,sm.color.new('0000ffff'))) -- blue dot at wall location
 
@@ -611,7 +624,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
             --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
         end
 
-        if rData.valid == false then -- scan ended, keep going
+        if rData.valid == false then -- scan ended, keep going TODO: Make sure that it does not scan human
             --print("R Wallfailed",k)
         else -- we found the wall, create debug effect line
             if cycle == 1 then 
@@ -621,13 +634,13 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
             --print("local normieRWall",rData.normalLocal,rData.normalWorld)
             if lastRightWall then
                 local wallChange = getDistance(lastRightWall,rData.pointWorld)
-                if wallChange > 5 then 
+                if wallChange > 6 then 
                     print("drastic Right wall change",wallChange)
                     if cycle == 1 then
                         --self:createEfectLine(location,searchLocation,sm.color.new('2271eeff')) -- blue ish line
-                        table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
+                        table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('aa9910ff'))) -- red dot at start locationi
                         --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
-                        table.insert(self.debugEffects,self:generateEffect(rData.pointWorld,sm.color.new('0000ffff'))) -- blue dot at wall location
+                        table.insert(self.debugEffects,self:generateEffect(rData.pointWorld,sm.color.new('0011ffff'))) -- blue dot at wall location
 
                     end
                 end
@@ -649,6 +662,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
         -- Just Return Best Guess Which is just location but new floor
         self.scanError = true
         self.errorLocation = location
+        self.errorReason = "Wall invalid @ red dot (check for gaps or tunnels)"
         
         return location
     end
@@ -1434,6 +1448,7 @@ function Generator.quickSmooth(self,ammount)
 end 
 
 function Generator.iterateScan(self)
+
     self.nodeIndex = self.nodeIndex + 1
     --print("node",self.nodeIndex)
     local nextLocation = getPosOffset(self.scanLocation,self.scanVector,self.scanSpeed)
@@ -1459,6 +1474,7 @@ function Generator.iterateScan(self)
     if lastNode == nil then
         print("could not find node index")
         self.scanError = true
+        self.errorReason = "Could not format node chain, (contact seraph)"
         return true  
     end
     --print(self.nodeIndex,"lastNode",lastNode.id)
@@ -1557,10 +1573,10 @@ function Generator.client_onFixedUpdate( self, timeStep )
         self.scanning = false
         self.smoothing = false
         if not self.errorDisplayed then
-            sm.gui.displayAlertText("Scan Failed: Error")
+            sm.gui.displayAlertText("Scan Failed: " .. (self.errorReason or ""),10)
             self.errorDisplayed = true
-            local errorNode = self:generateEffect(self.errorLocation,sm.color.new("EE2222FF"))
-            errorNode:start()
+            self.errorNode = self:generateEffect(self.errorLocation,sm.color.new("EE2222FF"))
+            self.errorNode:start()
             return
         end
     end
@@ -1646,19 +1662,28 @@ function Generator.tickClock(self)
 end
 
 function Generator.startTrackScan(self)
+    self.scanError = false -- reset error
+    self.nodeChain = {} -- reset nodechain
+    self.scanClock = 0 -- reset scanclock
     self.started = clock()
     self.nodeIndex = 1
     sm.gui.displayAlertText("Scanning")
     local startPoint, width,leftWall,rightWall,bank = self:getWallMidpoint(self.location,self.trackStartDirection,1)
     self.scanLocation = startPoint
     self.scanVector = sm.vec3.normalize(self.trackStartDirection)
-    print("Starting SCAN at",self.scanLocation,self.scanVector,self.nodeIndex)
+    print("Starting SCAN",#self.nodeChain,self.nodeIndex,width)
    
     local startingNode = self:generateMidNode(self.nodeIndex,nil,startPoint,self.trackStartDirection,self.totalDistance,width,leftWall,rightWall,bank)
     table.insert(self.nodeChain, startingNode)
     if self.instantScan then -- instant game freezing scan
         while self.scanClock < self.scanLength do
             if self.scanError then
+                print("Scan error",self.debug)
+                if not self.debug then
+                    sm.gui.displayAlertText("Scan Failed: " .. (self.errorReason or "") .. " \n(Crouch interact to toggle debug)",10)
+                else
+                    sm.gui.displayAlertText("Scan Failed: " .. (self.errorReason or ""),10)
+                end
                 break
             end
             local finished = self:iterateScan()
@@ -1727,6 +1752,7 @@ end
 function Generator.client_onInteract(self,character,state)
      if state then
 		if character:isCrouching() then
+            self.debug = not self.debug -- togle debug
             self:toggleVisual(self.nodeChain)
 		elseif not self.scanning then
             print("Starting Scan")

@@ -15,8 +15,12 @@
       "description" : "Crouch and press E to Open Camera, Pres space and shift + right click to close camera",
       "title" : "SMAR Camera"
    },
+   "b20d3826-3235-459c-a4c9-ef1438caaed9" : {
+      "description" : "Attatch Driver block to this and then connect this to tail lights (only braking)",
+      "title" : "Brake Unit"
+   },
    "e80d963c-3af2-47aa-99d8-365e1569a568" : {
-      "description" : "Place these down in order, making sure the arrows are facing the desired direction. Once You finish placing and setting widths (E for increase width, Crouch + E for decrease width), shoot the first checkpoint placed to genereate a racing line, ",
+      "description" : "[NOT READY, PLEASE IGNORE]",
       "title" : "SMAR CheckPoint"
    },
    "fbc31377-6081-426d-b518-f676840c407c" : {

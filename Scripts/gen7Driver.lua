@@ -249,6 +249,7 @@ function Driver.server_init( self )
     self.raceSplit = 0
     self.lastLap = 0
     self.bestLap = 0
+    self.lapAverage = 0
     self.isFocused = false
     self.raceFinished = false 
     self.stuckCooldown = {true,self.location} -- if true, check current node, if curNode is nil, check self current
@@ -274,7 +275,7 @@ function Driver.server_init( self )
     -- Tolerances and Thresholds
     self.overSteerTolerance = -2 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
     self.underSteerTolerance = -0.4 -- Smaller (more negative [fractional]) the more tolerance to understeer-- USED TO BE:THe bigger (positive) more tolerance to understeer (will not slow down as early, DEFAULT -0.3)
-    self.passAggression = -0.4 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
+    self.passAggression = -1 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
     -- testing states
     self.maxSpeed = nil
     self.maxFriction = nil
@@ -298,7 +299,7 @@ function Driver.server_init( self )
     self.resetPosTimeout = 0
 
     -- Race results state
-    self.displayResults = true -- Whether to actually send the chat messge
+    self.displayResults = false -- Whether to actually send the chat messge
     self.resultsDisplayed = false -- Check if message already displayed
 
     -- Effects 
@@ -623,6 +624,7 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     self.raceSplit = 0
     self.lastLap = 0
     self.bestLap = 0
+    self.lapAverage = 0
     self.raceFinished = false 
     
     -- Situational/goalstate
@@ -650,7 +652,7 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     self.stuckTimeout = 0
 
     -- Race results state
-    self.displayResults = true -- Whether to actually send the chat messge
+    self.displayResults = false -- Whether to actually send the chat messge
     self.resultsDisplayed = false -- Check if message already displayed
 	print("SMAR Driver Hard Reset",self.id)
 
@@ -920,12 +922,28 @@ function Driver.sv_hard_reset_Racer(self) -- resets racers (used after races mos
     self.network:sendToClients("cl_hard_reset")
 end
 
+-- helper for single car output
+function Driver.debugOutput(self,id,data)
+    if data == nil then return end
+    if self.carData and self.carData.metaData then
+        if self.carData.metaData.ID == id then -- load different DF data
+            local output = ""
+            for _,data in ipairs(data) do
+                output = output .. " " .. data
+            end
+            print(output)
+        end
+    end
+
+end
 -- Control layer
 function Driver.setSteering(self,value) --Just sets the bearings
-    if self.speed > 0.2 then -- prevent twitching while in stand still
+
+    if self.speed > 0.11 then -- prevent twitching while in stand still
         for k, v in pairs(sm.interactable.getBearings(self.interactable )) do
             -- Possibly set the steer speed (0.25) to be adjusted by car speed
-            sm.joint.setTargetAngle( v, value, 11, 10000)
+            
+            sm.joint.setTargetAngle( v, value, 3, 2000)
         end
     end
 end
@@ -945,9 +963,18 @@ function  Driver.shiftGear(self,gear) --sets the gear for engine
     self.engine:setGear(gear)
 end
 
-function Driver.updateControlLayer(self)
+function Driver.updateControlLayer(self) -- Min angle for F1 cars is 40
     if not self.userControl then 
-        local angle = steeringToDegrees((self.strategicSteering or 0))-- In Degrees 
+        local angle = steeringToDegrees((self.strategicSteering or 0))-- In Degrees
+        local steerLim = 55 -- normal steer limit
+        
+        if self.carData and self.carData.metaData then -- TODO: make a helper function that does this
+            if self.carData.metaData.Car_Type == "F1" then -- load different DF data
+                steerLim = 40
+            end
+        end
+
+        angle =mathClamp(-steerLim,steerLim,angle) -- TODO: clamp for only f1 cars?
         local radians = angleToRadians(angle) -- Can save performance by reducing # of conversions if necessary
         self.steering = angle -- Has steering in degrees (necessary to calculate oversteer n stuff)
         local acceleration = (self.strategicThrottle or 0)
@@ -1084,7 +1111,7 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
             end
         else -- location node exista
             local dist = getDistance(self.stuckCooldown[2],self.location)
-            if dist < 1 then 
+            if dist < 0.7 then -- if car is still within small dist
                 --print("stuck?",dist)
                 return 
             else
@@ -1110,14 +1137,14 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
         
     end
     --print(self.stuck,self.speed,toVelocity(self.engine.curRPM))
-    if self.speed <= toVelocity(self.engine.curRPM) -1 then
+    if  toVelocity(self.engine.curRPM) - self.speed > 2.5 then -- if attempted speed and current speed > 2
         if self.speed <= 2  then
-            --print("slow stuck",offset,self.engine.curRPM)
+            --print("slow stuck",self.speed,self.engine.curRPM,toVelocity(self.engine.curRPM))
             self.stuck = true
             return
         end
     end
-    if self.rejoining == false and self.stuck and self.offTrack == 0 and self.speed > 2 then -- check this
+    if self.rejoining == false and self.stuck and self.offTrack == 0 and self.speed > 2.5 then -- check this
         --print("Toggle stuck",self.offTrack,self.stuckTimeout)
         self.stuck = false
         self.stuckTimeout = 0
@@ -1367,7 +1394,7 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     if self.lost then return end
     if self.currentNode == nil then return end
     local lookAheadConst = 5 -- play around until perfect -- SHould be dynamic depending on downforce?
-    local lookAheadHeur = 0.5 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    local lookAheadHeur = 0.55 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 8
         lookAheadHeur = 1
@@ -1384,7 +1411,7 @@ function Driver.updateGoalNodeMid(self) -- Updates self.goalNode to mid node (ov
     if self.lost then return end
     if self.currentNode == nil then return end
     local lookAheadConst = 5 -- play around until perfect -- SHould be dynamic depending on downforce?
-    local lookAheadHeur = 0.5 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    local lookAheadHeur = 0.4 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 8
         lookAheadHeur = 1
@@ -1518,7 +1545,9 @@ end
 
 function Driver.smoothTurns(self) -- if no cars dangerously close, make turns smooth (go wide, end wide)
     -- Allow faster Vmax when further on outside of corner
-
+    -- if radar is clar, get distance from turn, set track bias to opposit side
+    -- remove bias once turn is close
+    -- set bias back to that opposite side if there is a long straight as next segment
 end
 
 function Driver.updateStrategicSteering(self,pathType) -- updates broad steering goals based on path parameter [race,mid,pit]
@@ -1956,8 +1985,8 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
                 end
 
             elseif self.racePosition > self.formationPos then --  if car is behind desired caution pos 
-                self.trackPosBias = -13 -- put car on left side of track
-                self.followStrength = 7 -- loosely follow left side ish
+                self.trackPosBias = -9 -- put car on left side of track
+                self.followStrength = 6 -- loosely follow left side ish
                 -- will continue this until racePosition == caution Pos
                 --print("")
                 if self.raceRestart then -- if the race is restarting
@@ -1984,11 +2013,11 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
                         carDist = getDriverHVDistances(self, frontCar).vertical
                         --print(self.tagText," got frontCar",carDist)
                     end
-
+                    self.trackPosBias = 2 -- move slighlty to right
 
                     --print("carDist",carDist)
                     if carDist <  16 then -- make big gap
-                        self.speedControl = slowSpeed - 1
+                        self.speedControl = slowSpeed - 2
                     elseif carDist > 20 then -- if car too far, speed up
                         if self.raceRestart then -- if the race is restarting
                             self.speedControl = 0
@@ -2278,23 +2307,24 @@ end
 
 -- Throttle
 -- segment work
-function Driver.getSegmentEnd(self,segID)
-    for i=1, #self.nodeChain do local node = self.nodeChain[i]
+function Driver.getSegmentEnd(self,segID) -- TODO: Make more efficient (dont need to look through all nodes, hah BINARY SEARCH DUH)
+    local segNodeIndex = searchNodeSegment(self.nodeChain,segID)-- Made Effficient with Binary search: 431 worst case to 72 on SC
+    for i=segNodeIndex, #self.nodeChain do local node = self.nodeChain[i]
         if node ~= nil then
             local nextNode =  getNextItem(self.nodeChain,i,1)
             if nextNode.segID == getNextIndex(self.totalSegments,segID,1) then
-                --print("found end node")
-                return nextNode
+                return node -- returns node so we dont go into the wrong seg
             end
         end
-    end 
+    end   
 end
 
 function Driver.getSegmentBegin(self,segID) -- parameratize by passing in nodeChain
-    for i=1, #self.nodeChain do local node = self.nodeChain[i]
+    local segNodeIndex = searchNodeSegment(self.nodeChain,segID)-- random index with segmentID
+    for i=segNodeIndex, 1,-1 do local node = self.nodeChain[i] -- iterate backwards until first node found (reversed segEnd)
         if node ~= nil then
-            if node.segID == segID then
-                --print("found begin node")
+            local prevNode =  getNextItem(self.nodeChain,i,-1)
+            if prevNode.segID == getNextIndex(self.totalSegments,segID,-1) then
                 return node
             end
         end
@@ -2312,7 +2342,7 @@ function Driver.getSegmentLength(self,segID) --Returns a list of nodes that are 
     local timeoutLimit = 100
     while foundSegment == false do
         if segTimeout >= timeoutLimit then
-            --print("getSeglength timoeut")
+            print("getSeglength timoeut")
             break
         end
         segTimeout = segTimeout + 1
@@ -2339,7 +2369,6 @@ function Driver.getSegmentLength(self,segID) --Returns a list of nodes that are 
    
     return count
 end
-
 
 function Driver.updateBrakeDistance(self) -- Pull in braking info from ALL_DRIVERS table (posted by engine) then find the distance it you can do
     local brakePower = self.engine.engineStats.MAX_BRAKE
@@ -2373,8 +2402,8 @@ function Driver.getAccel(self) -- GEts acceleration flag
     local segLen = self:getSegmentLength(segID)
     local segEnd = self:getSegmentEnd(segID)
     local vMax = calculateMaximumVelocity(self.goalNode,segEnd,segLen)
+    --self:debugOutput(1,{"accelMax:"})
     vMax = self:refineBrakeSpeed(vMax,segEnd)
-    --print("vmax:",vMax)
     if self.speedControl > 0 then
         vMax = self.speedControl
         --print("SC",self.speed,vMax)
@@ -2396,27 +2425,32 @@ end
 
 function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on multiple factors T
     --TODO: change to show distance offline & turn dir as vmax punishment and not just midle of track
-    --print("original",vMax)
+    --self:debugOutput(1,{"original",vMax})
+    --self:debugOutput(1,{segEndNode.segType})
+
     if not self:valididtyCheck() then return vMax end
 
     local tWidth = (segEndNode.width or 10)
     if segEndNode == nil then return vMax end
-    vMax = vMax + tWidth/8 -- higher value is more punishment for thinner tracks
-    vMax = vMax - (math.abs(self.trackPosition)/1.5)  -- Adjust max velocity based on closeness to center of track
-    --print("twidthVmax",math.abs(self.trackPosition)/1.5,vMax)
-    if self.passing.isPassing then vMax = vMax +0.3 end -- go a bit slower while passing
-    if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~= 0 then -- slow down when there is car alongside
-        vMax = vMax - 3
+    vMax = vMax + tWidth/7.2 -- higher value is more punishment for thinner tracks
+    vMax = vMax - (math.abs(self.trackPosition)/1.6)  -- Adjust max velocity based on closeness to center of track
+    
+    if self.passing.isPassing then vMax = vMax +1.1 end -- go a bit slower while passing?
+    if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~= 0 then -- slow down when there is car alongside 
+        vMax = vMax - 2.5
     else
-        
+        vMax = vMax + 1 -- speeds up if clear air
     end
     if tWidth <= 30 then -- if track is thinner, slow down more
-        --print("thintrack",tWidth)
         vMax = vMax - (vMax/4.5)
     end
 
+    if tWidth <= 15 then -- if track is thinner, slow down more
+        vMax = vMax - (vMax/2)
+    end
+
     if self.offline then
-        vMax = vMax - 1
+        vMax = vMax - 2.5
     end
 
     --print(tWidth)
@@ -2424,10 +2458,10 @@ function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on 
     --print(goalAngle)
     if math.abs(goalAngle) < 1 then --TODO: make threshold more variable depending on skill
         --print("turn boost",goalAngle)
-        vMax = vMax + 3 -- ?variable depending on skill
+        vMax = vMax + (vMax/5) -- ?variable depending on skill
     end
 
-    --print("returning",vMax,math.abs(self.goalDirectionOffset))
+    --self:debugOutput(1,{"returning",vMax})
     return vMax
 end
    
@@ -2439,7 +2473,7 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
     if not self:valididtyCheck() then return 1 end
 
     local segID = self.currentSegment
-    --print(segID,self.currentNode)
+    --self:debugOutput(1,{"Seg:",segID,self.currentNode.segType,self.currentNode.segCurve})
     if self.currentNode == nil or self.currentSegment == nil then
         return 0.2 -- slightly slow down
     end
@@ -2465,11 +2499,14 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
     local lookaheadDist = getDistance(self.location,segBegin.mid)
     --print("emmediateVmxCherck",segmentEnd.segID)
     local segLen = self:getSegmentLength(segBegin.segID)
+    --self:debugOutput(1,{"B&E",segBegin.segID,segBegin.segType,segEnd.segID,segEnd.segType,segLen})
     local vMax = calculateMaximumVelocity(segBegin,segEnd,segLen) -- REMOVED handicap speed boost due to issues.
+    --self:debugOutput(1,{"Brake1:"})
     vMax = self:refineBrakeSpeed(vMax,segEnd)
-   
+
     --print("\nBrakeChecka",vMax)
     local brakeDist = getBrakingDistance(self.speed,self.engine.engineStats.MAX_BRAKE,vMax)
+    --self:debugOutput(1,{"shouldBrake?", self.speed,vMax})
     if self.speed > vMax then
         return 1 -- make easy braking function // based off of distance from node (ajustable by skill/state), not hard braking
     else
@@ -2504,8 +2541,9 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
             --print("Looking at",segID,segBegin.id,segEnd.id)
             local segLen = self:getSegmentLength(segBegin.segID)
             local maxSpeed = calculateMaximumVelocity(segBegin,segEnd,segLen)
+            --self:debugOutput(1,{"Brake2:"})
             maxSpeed = self:refineBrakeSpeed(maxSpeed,segEnd)
-            
+
 
             --print("next",self.speed,maxSpeed,segID)
             if self.speed > maxSpeed then
@@ -2515,7 +2553,7 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
                     return 0.1 -- untilSomethinghppens we can figure it out
                 end
                 local distToTurn = getDistance(self.location,segBegin.mid)
-                --print(segBegin.id,"dist",brakeDist,distToTurn,self.speed,maxSpeed)
+                --self:debugOutput(1,{segBegin.id,"dist",brakeDist,distToTurn,self.speed,maxSpeed})
                 if brakeDist > distToTurn then
                     --print("brake")
                     return 1 -- Skill based param too
@@ -2536,6 +2574,7 @@ end
 function Driver.updateStrategicThrottle(self)
     if self.stuck then return end
     local braking = self:getBraking() -- self:getCollissionBraking
+    --self:debugOutput(1,{"finalBrake",braking})
     local accel = 0
     if braking == 0 then
         accel = self:getAccel()
@@ -2692,7 +2731,6 @@ function getCollisionAvoidanceSteer(vhDif)
     return newSteer
 end
 
-
 function calculateCollisionMove(pointName,vhDif,opponent) -- move to global?
     local accel = 0
     local steer = 0
@@ -2798,7 +2836,6 @@ function Driver.updateCollisionLayer(self)
     if self.carData.carDimensions == nil then return end -- not scanned
     if self.engine == nil then return end
     if self.engine.engineStats == nil then return end -- Do validattion instead?
-
     --if self.speed < 5 then return end -- too slow
     local carsInRange = getDriversInDistance(self,70) -- gets list of all cars within certain distanvce
     if carsInRange == nil then -- No cars go home
@@ -3119,8 +3156,8 @@ function Driver.updateCollisionLayer(self)
             local vMax =opponent.speed
             local eThrot = colThrottle
             if self.speed - opponent.speed > 9 or opponent.speed < 8 then
-                --print("Approaching front fast")
-                eThrot = eThrot - 0.95
+                --print("Approaching front fast",self.speed,opponent.speed)
+                eThrot = eThrot - 1
                 --print("emergency brake")
                 if self.passing.isPassing or oppFlags.pass then --and vhDist['vertical'] < 7 then -- TODO: determine if this is correct decision, dont cancel pass if opp is far away
                     --print("canceled pass emergency pass")
@@ -3159,13 +3196,13 @@ function Driver.updateCollisionLayer(self)
                             --print("oppPass but not self.pass")
                             oppFlags.pass = false
                         end
-                        eThrot = 0.80- math.abs(vMax/self.speed) 
-                        --print("ebrake2",oppFlags.pass,self.passing.isPassing)
+                        eThrot = 0.75- math.abs(vMax/self.speed) 
+                        --print(self.tagText,"ebrake2",oppFlags.pass,self.passing.isPassing)
                     end
                 end
             else -- way too close
-                eThrot = 0.65- math.abs(vMax/self.speed)
-                --print("ebrake3")
+                eThrot = 0.9- math.abs(vMax/self.speed)
+                --print(self.tagText,"ebrake3",eThrot)
                 if oppFlags.pass then
                     oppFlags.pass = false
                 end
@@ -3892,7 +3929,6 @@ function Driver.calculateFutureTurn(self) -- calculate future turns
     return {segID = segID, direction = turnDir, length = segLen, distance = distanceFromTurn} 
 end
 
-
 function Driver.updateErrorLayer(self) -- Updates throttle/steering based on error fixing
     if self.engine == nil then return end
     if self.engine.engineStats == nil then return end
@@ -3928,7 +3964,6 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 			stopDir.z = -500 -- maybe anti self.weight?
 			--offset = 
 		end
-		--print("correcting tilt")
 		sm.physics.applyImpulse( self.shape.body, stopDir,true,offset)
     end
 -- Check oversteer and understeer
@@ -4100,7 +4135,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                     if self.speed > 1 then -- TEMPORARY FIX for leaning against wall, check tilt and rotation as well 
                         self.curGear = 1
                         self:shiftGear(1)
-                        self.strategicThrottle = 1
+                        self.strategicThrottle = 0.95
                         -- stay mid until up to speed?
                         -- check for wall in front?
                         --print("aligned/Finish reverse",offset,dist)
@@ -4112,7 +4147,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                    if not self.nudging then
                         self.stuckTimeout = self.stuckTimeout + 1
                    end
-                    self.strategicThrottle = 1
+                    self.strategicThrottle = 0.95
                 end
 
             elseif self.curGear > 0 then -- If moving forward to rejoin
@@ -4122,8 +4157,8 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                 local segLen = self:getSegmentLength(segBegin.segID)
                 local maxSpeed = calculateMaximumVelocity(segBegin,segEnd,segLen) 
                 --print(self.tagText,"gear > 0",self.strategicThrottle,toVelocity(self.engine.curRPM))
-                if toVelocity(self.engine.curRPM) > 6 and  self.speed <= math.abs(toVelocity(self.engine.curRPM)) -2 then -- Stuck going forward
-                    if self.speed <= 1 then
+                if toVelocity(self.engine.curRPM) > 5 and  self.speed <= math.abs(toVelocity(self.engine.curRPM)) -1 then -- Stuck going forward
+                    if self.speed <= 2 then
                         --print("rejoin stuck",toVelocity(self.engine.curRPM),self.speed,self.trackPosBias)
                         local distanceThreshold = -50 -- make dynamic?
                         local clearFlag = self:checkForClearTrack(distanceThreshold)
@@ -4132,7 +4167,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                             self.stuckTimeout = self.stuckTimeout + 1
                             self.curGear = -1
                             self:shiftGear(-1)
-                            self.strategicThrottle = 1
+                            self.strategicThrottle = 0.95
                             local curentSide = self:getCurrentSide()
                             --print("Rejoining backwards",self.trackPosition,curentSide)
                             self.trackPosBias = curentSide
@@ -4141,11 +4176,11 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                         end
                     end
                 end
-                self.strategicThrottle = 1 -- until otherwise?
+                self.strategicThrottle = 0.5 -- until otherwise?
                 --print(self.tagText,"rejoining",offset,dist,self.speed,maxSpeed,self.engine.curRPM,self.strategicThrottle)
                 
                 
-                if (self.speed >= maxSpeed - 6 and toVelocity(self.engine.curRPM) >= maxSpeed - 6 and self.offTrack == 0) or (self.curGear >=4 and self.offTrack == 0) then
+                if (self.speed >= maxSpeed - 5 and toVelocity(self.engine.curRPM) >= maxSpeed - 5 and self.offTrack == 0) or (self.curGear >=5 and self.offTrack == 0) then
                     self.rejoining = false
                     self.stuck = false
                     self.pathGoal = "location"
@@ -4157,23 +4192,23 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                print(self.tagText,"SOmething wrong",self.curGear)
                self:shiftGear(1)
                self.curGear = 1
-               self.strategicThrottle = 1
+               self.strategicThrottle = 0.5
                self.rejoining = true
                self.stuck = false
                self.trackPosBias = 0 -- reset bias...
                self.stuckTimeout = self.stuckTimeout + 5
             end
 
-        else -- start rejoin process
+        else -- start rejoin process (only if car has tried going forward)
             if self.engine.curRPM > 1 and self.curGear >=0 then
-                --print("slowing",self.engine.curRPM)
+                --print("slowing to reverse?",self.engine.curRPM)
                 self.strategicThrottle = -1
             else -- Check for clear entry point then reverse
 
-                local distanceThreshold = -50 -- make dynamic?
+                local distanceThreshold = -55 -- make dynamic?
                 local clearFlag = self:checkForClearTrack(distanceThreshold)
                 if clearFlag then
-                    local curentSide = self:getCurrentSide()
+                    local curentSide =0 -- 0 self:getCurrentSide() TODO:get right and finsih
                     --print("Rejoining",self.trackPosition,curentSide)
                     self.trackPosBias = curentSide
                     self.rejoining = true
@@ -4182,7 +4217,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                     --print("reeversing begin",self.curGear,self.engine.curRPM)
                     self.strategicThrottle = 0.6
                     self.strategicSteering = self.strategicSteering * -1.4
-                else
+                else -- stay stopped
                     self.strategicThrottle = -1
                 end
             end
@@ -4197,7 +4232,6 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
             --print(self.id,"offtrack correction", print(self.id,"offtrack",self.goalDirectionOffset))
             self.strategicSteering = self.strategicSteering - (self.goalDirectionOffset/(math.abs(self.offTrack) +0.1))
             --print("start rejoining?")
-            --self.stuck = true
         else -- just use nodefollow?
             self.strategicThrottle = -0.2
             if self.speed < 1 then
@@ -4621,14 +4655,15 @@ function Driver.sv_recieveCommand(self,command) -- recieves various commands fro
             self.racing = false
             self.caution = false
             self.formation = false
-        elseif command.value == 2 then -- formation lap
+        elseif command.value == 3 then -- formation lap
             self:determineRacePos()
-            
+            self.stuckCooldown = {true, self.location}
             self.racing = true -- ??
             self.formation = true 
             self.caution = false --??
             self.raceRestart = false
-        elseif command.value == 3 then -- Caution flag
+        elseif command.value == 2 then -- Caution flag
+            self.stuckCooldown = {true, self.location}
             self:determineRacePos()
             self.racing = true -- ??
             self.formation = false 
@@ -4707,6 +4742,10 @@ function Driver.checkLapCross(self) -- also sets racePOS
         
         now = CLOCK()
         local lapTime = now - (self.lapStarted or 0)
+        -- average time
+        if self.currentLap > 1 then -- only start after full hotlap also can hijack if bestLappExists
+            self.lapAverage = runningAverage(self,lapTime)
+        end
         self.lapStarted = now
         local split = 0
         -- check if first car to cross
@@ -4758,8 +4797,8 @@ function Driver.checkLapCross(self) -- also sets racePOS
 
             self:sv_sendCommand({car = self.id, type = "lap_cross", value = now}) -- maybe calculate dif between laps? keep running avg?
             if self.racePosition == 1 then print() end -- separator
-            local output = self.tagText .. ": " .. "Position: " .. self.racePosition .. " Current Lap: " .. self.currentLap .. " Split: " .. string.format("%.3f",split) ..
-                          " Last: " .. string.format("%.3f",lapTime) .. " Best: " .. string.format("%.3f",self.bestLap)
+            local output = string.format("%26.26s",self.tagText) .. ": " .. "Pos: " .. string.format("%2.2s",self.racePosition).. " Lap: " .. self.currentLap .. " Split: " .. string.format("%6.3f",split) ..
+                          " Last: " .. string.format("%.3f",lapTime) .. " Best: " .. string.format("%.3f",self.bestLap ) .. " Average: " .. string.format("%.3f",self.lapAverage)
             --print(self.id,self.racePosition,self.currentLap,self.handicap,split,lapTime,self.bestLap)
             sm.log.info(output)
         end
@@ -4768,7 +4807,7 @@ function Driver.checkLapCross(self) -- also sets racePOS
     if self.raceFinished and self.displayResults and not self.resultsDisplayed then
         local displayString = "#aa7777"..self.tagText .. "#FFFFFF: Position: #00aa00" ..self.racePosition .. " #ffffffSplit: #aaaa00".. string.format("%.3f",self.raceSplit) .. " #ffffffBest: #aaaa00" .. string.format("%.3f",self.bestLap)
         --print(displayString)
-        self:sv_sendChatMessage(displayString)
+        self:sv_sendChatMessage(displayString) -- TODO: uncomment this before pushing to production
         self.resultsDisplayed = true
         -- Show Data on NameTag too?
     end
@@ -4956,18 +4995,33 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     end
     
     if self.speed > 2 and not self.noEngineError then
-        local force = sm.vec3.new(0,0,1)*-(self.speed^1.6)  -- TODO: Check for wedges/aero parts, tire warmth factor too
-        --print(self.speed*10)
-        -- if downforce enabled
+        local maxForce = -500
+        local minForce = -280
+        local offset = 0.11 -- offset towards/from front to push down
+
+        if self.carData and self.carData.metaData then
+            if self.carData.metaData.Car_Type == "F1" then -- load different DF data
+                maxForce = -900
+                minForce = -700
+                offset = 0.05
+            end
+        end
+
+
+        local force = sm.vec3.new(0,0,1) * -(self.speed^1.8)  -- TODO: Check for wedges/aero parts, tire warmth factor too
+        force.z = mathClamp(maxForce,minForce,force.z)
+
         if self.velocity.z < -0.1 and not self.tilted then -- falling down
             --print(self.id,"vertical",self.velocity.z)
-            sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,120),true,self.shape.at*1.4) -- should not be negative, and 100
+            sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,80),true,self.shape.at*0.3) -- should not be negative, and 100
             
         elseif self.velocity.z > 0.4 then -- going up
             --print(self.id,"Boost")
             --sm.physics.applyImpulse(self.shape.body,self.shape.at*900,true) -- really shouldnt be a thing
-        else -- in between
-            sm.physics.applyImpulse(self.shape.body,force,false)--,--self.shape.at)
+        else -- flatprin
+            --print(self.tagText,self.speed,force.z)
+
+            sm.physics.applyImpulse(self.shape.body,force,true,self.shape.at*offset)--,--self.shape.at) -- THis is the downforce, TODO: offset towards front of car?
         end 
     end
    -- HAve flag for when car is airborne, have it stop or slow down wheels
@@ -5032,7 +5086,7 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
         end
     end
     if self.raceFinished then -- or caution flag?
-        self.speedControl = 10 -- Make it vary
+        self.speedControl = 18 -- Make it vary
     elseif self.racing and (self.caution or self.formation) then
         --self.speedControl = 0
         -- Passing off speedcontrol to strategic steering FCY and formation module
@@ -5074,7 +5128,7 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
 end
 
 
-function Driver.parseParents( self ) -- Gets and parses parents (check for car
+function Driver.parseParents( self ) -- TODO: have a client side toggle as well! or it at least update client side data too
     --print("Parsing Parents")
 	local parents = self.interactable:getParents()
     if #parents == 0 then
@@ -5125,9 +5179,11 @@ function Driver.parseParents( self ) -- Gets and parses parents (check for car
 end
 
 
-function Driver.server_onFixedUpdate( self, timeStep )
+function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client too!
     --print(self.id,self.location.z)
     -- First check if driver has seat connectd
+    --print(string.format("%26.26s",self.tagText),"hey")
+
     local startTime = CLOCK()
     self:parseParents()
     if self.body ~= self.shape:getBody() then
@@ -5215,12 +5271,21 @@ function Driver.server_onFixedUpdate( self, timeStep )
         print(self.id,"body id mismatch")
     end
     local endTime = CLOCK()
-    local svFixedTime = endTime - startTime
-    --print("sv_FixedUpdate",svFixedTime)
+    if self.carData.metaData.ID == 2 then 
+        --print("fixedUpdateInterTime:",svFixedTime)
+        --print("latency",endTime - (self.lastClientUpdateTime or 0),timeStep)-- between time since last ran
+    end
+    self.lastClientUpdateTime = CLOCK() -- 
+end
+
+
+
+function Driver.client_onUpdate(self,timeStep) -- lag test
+    
 end
 
 function Driver.client_onFixedUpdate(self,timeStep)
-    -- are is this bad?
+
     if self.showingVisuals then
         self:updateVisuals()
     end
@@ -5229,6 +5294,7 @@ function Driver.client_onFixedUpdate(self,timeStep)
     end
     --local filter = sm.interactable.connectionType.seated + sm.interactable.connectionType.bearing + sm.interactable.connectionType.power
 	--local currentConnectionCount = #self.interactable:getChildren( filter ) -- can connecto to lights and engine! without crazy loading thing
+    
 end
 
 function Driver.try_raceControl(self)
@@ -5283,10 +5349,10 @@ function Driver.client_onInteract(self,character,state)
                 end
             end
             local metaData = {   
-            ['ID'] = 16, -- actual car id
-            ['Car_Name'] = "Super Fury",
-            ['Car_Type'] = "Stock",
-            ['Body_Style'] = "Mercedes",
+            ['ID'] = -10, --Fake ID
+            ['Car_Name'] = "F1Test",
+            ['Car_Type'] = "F1",
+            ['Body_Style'] = "Open",
             }
             self.network:sendToServer("sv_add_metaData",metaData) --TODO: MAKE SURE THIS IS On/off appropriately
        else
@@ -5429,7 +5495,7 @@ end
 
 function Driver.determineFrictionCoefficient(self)
     --local force = self.shape.right* 1000
-    --print("pushing",force:length())
+    print("pushing",force:length())
     sm.physics.applyImpulse(self.shape.body,force,true)
     if self.location ~= sm.shape.getWorldPosition(self.shape) then
         if not self.sliding then
@@ -5526,19 +5592,13 @@ function angularAverage(self,num)
 end
 
 function runningAverage(self, num)
-    local runningAverageCount = 1000
-    if self.runningAverageBuffer == nil then self.runningAverageBuffer = {} end
-    if self.nextRunningAverage == nil then self.nextRunningAverage = 0 end
-    
-    self.runningAverageBuffer[self.nextRunningAverage] = num 
-    self.nextRunningAverage = self.nextRunningAverage + 1 
-    if self.nextRunningAverage >= runningAverageCount then self.nextRunningAverage = 0 end
-    
     local runningAverage = 0
+    if self.runningAverageBuffer == nil then self.runningAverageBuffer = {} end
+    table.insert(self.runningAverageBuffer, num)
+    local runningAverageCount = #self.runningAverageBuffer -- length
     for k, v in pairs(self.runningAverageBuffer) do
       runningAverage = runningAverage + v
     end
-    --if num < 1 then return 0 end
     return runningAverage / runningAverageCount;
 end
 

@@ -623,7 +623,7 @@ function CheckPoint.client_onInteract(self,character,state)
         if character:isCrouching() then
             self.width = self.width - 1
             self.network:sendToServer("sv_changeWidth",self.width)
-            self:cl_showAlert("decreasing width")
+            self:cl_showAlert("Decreasing width")
         else
             self.width = self.width + 1
             self.network:sendToServer("sv_changeWidth",self.width)

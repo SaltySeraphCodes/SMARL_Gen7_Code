@@ -197,7 +197,8 @@ function Control.server_init(self)
 
     self.dataOutputTimer = Timer()
     self.dataOutputTimer:start(1)
-
+    self.outputRealTime = true
+    
     self.timeSplitArray = {} -- each node makes rough split
 
     self.handiCapThreshold = 5 -- how far away before handicap starts
@@ -408,7 +409,7 @@ function Control.sv_setZoomInState(self,val)
     if val == 1 then
         state = true
     end
-    self.network:sendToClients("cl_setZoomInState",state) --TODO maybe have pcall here for aborting versus stopping
+    self.network:sendToClients("cl_setZoomInState",state) --TODO maybe have pcall here for aborting versus stopping -- TODO: Find out how often this is called
 end
 
 
@@ -417,7 +418,7 @@ function Control.sv_setZoomOutState(self,val)
     if val == 1 then
         state = true
     end
-    self.network:sendToClients("cl_setZoomOutState",state) --TODO maybe have pcall here for aborting versus stopping
+    self.network:sendToClients("cl_setZoomOutState",state) --TODO maybe have pcall here for aborting versus stopping -- make efficient
 end
 
 function Control.cl_setZoom(self)
@@ -529,6 +530,7 @@ end
 
 function Control.sv_toggleRaceMode(self,mode) -- starts 
     print("toggling race mode")
+    
     if mode == 0 then --
         print("stopping race")
         self:sv_stopRace()
@@ -542,10 +544,16 @@ function Control.sv_toggleRaceMode(self,mode) -- starts
         print("formation lap")
         self:sv_startFormation()
     end
-
+    -- format and output status streing
+    local lapsLeft = getLapsLeft()
+    if lapsLeft == nil then
+        lapsLeft = "--"
+    end
+    local output = 'race_status= {"status": "'.. mode..'", "lapsLeft": "'.. lapsLeft..'"}'
+    self:sv_output_data(output)
 end
 
-function Control.sv_startRace(self)
+function Control.sv_startRace(self) -- race status 1
     print("Race Start!") -- introduce delay?
     self:sv_sendAlert("Race Started")
     self.powered = true
@@ -556,7 +564,7 @@ function Control.sv_startRace(self)
 end
 
 
-function Control.sv_stopRace(self)
+function Control.sv_stopRace(self) -- race status 0
     print("stoprace")
     self:sv_sendAlert("Race Stopped")
     self.raceStatus = 0
@@ -570,30 +578,21 @@ function Control.sv_stopRace(self)
     end
 end
 
-function Control.sv_startFormation(self) -- race status 2
+function Control.sv_startFormation(self) -- race status 3
     print("Beggining formation lap")
-    -- Grab qualifying information
-    qualData = self:sv_ReadQualJson()
-    for k=1, #qualData do local v=qualData[k] -- sets driver formation position based on data
-        local id = v.racer_id
-        local driver = getDriverFromMetaId(id)
-        if driver ~= nil then
-            driver.formationPos = v.position
-        else
-            print("missing",v.racer_name)
-        end
-    end 
+    -- set formation pos
+    self:setFormationPositions()
     self:sv_sendAlert("Starting Formation Lap")
-    self.raceStatus = 2
-    self:sv_sendCommand({car = {-1},type = "raceStatus", value = 2 })
+    self.raceStatus = 3
+    self:sv_sendCommand({car = {-1},type = "raceStatus", value = 3 })
     
 end
 
 
-function Control.sv_cautionFormation(self) -- race status 3
+function Control.sv_cautionFormation(self) -- race status 2
     self:sv_sendAlert("#FFFF00Caution Flag")
-    self.raceStatus = 3
-    self:sv_sendCommand({car = {-1},type = "raceStatus", value = 3 })
+    self.raceStatus = 2
+    self:sv_sendCommand({car = {-1},type = "raceStatus", value = 2 })
     -- store position
 
 end
@@ -615,6 +614,8 @@ function Control.setFormationPositions(self) -- sv sets all driver caution posit
             local driver = getDriverFromMetaId(id)
             if driver ~= nil then
                 driver.formationPos = v.position
+            else
+                print("missing",v.racer_name)
             end
         end 
     else
@@ -697,7 +698,7 @@ end
 
 function Control.sv_removeSplitNode(self,nodeNum) -- TODO: adjust so it deletes all things before this, not just one node
     for k, v in pairs(self.timeSplitArray) do
-        if v.id == nodeNum then
+        if v.id <= nodeNum then
             table.remove(self.timeSplitArray, k)
             --print("removed",#self.timeSplitArray)
         end
@@ -730,6 +731,16 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             self.finishTime = time
             -- TODO: Send Chat message with complete stats nicely formatted
         end
+        -- reduce laps left
+        local lapsLeft = getLapsLeft() -- shortcut with driver racepos
+        if lapsLeft == nil then
+            lapsLeft = "--"
+        end
+        if self.raceStatus == nil then
+            self.raceStatus = 1
+        end
+        local output = 'race_status= {"status": "'.. self.raceStatus ..'", "lapsLeft": "'.. lapsLeft..'"}'
+        self:sv_output_data(output)
     end
 
     if self.currentLap <= self.targetLaps  then -- race on going -- or qualifying
@@ -739,7 +750,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
         end
 
         if self.currentLap  == self.targetLaps - 1 then -- last laps
-            driver.passAggression = -0.25 -- more agggressive passes?
+            driver.passAggression = -0.2 -- more agggressive passes?
         end
             --TODO: Investigate why car tied with 10th of second between them theoretically
         self.raceFinished = false
@@ -778,7 +789,12 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
         end
 
         --print("driver finished!",self.finishResults)
-        local outputString = 'finish_data= [ ' -- 
+        local outputString = ''
+        if self.qualifying then 
+            outputString = 'qualifying_data= [ ' -- 
+        else
+            outputString = 'finish_data= [ ' -- 
+        end
         
         for k=1, #self.finishResults do local v=self.finishResults[k] -- Output finish data for live board
             --print("Finished race, outputting")
@@ -982,10 +998,10 @@ function Control.client_onUpdate(self,dt)
         raceStat = "Race Status: #11ee11Racing"
     elseif self.raceStatus == 0 then
         raceStat = "Race Status: #ff2222Stopped"
-    elseif self.raceStatus == 3 then
+    elseif self.raceStatus == 2 then
         raceStat = "Race Status: #ffff11Caution"
     
-    elseif self.raceStatus == 2 then
+    elseif self.raceStatus == 3 then
         raceStat = "Race Status: #fafafaFormation"
     
     end
@@ -1104,12 +1120,12 @@ function Control.sv_n_onChatCommand( self, params, player )
 end
 
 function Control.sv_sendAlert(self,msg) -- sends alert message to all clients (individual clients not recognized yet)
-    self.network:sendToClients("cl_showAlert",msg) --TODO maybe have pcall here for aborting versus stopping
+    --self.network:sendToClients("cl_showAlert",msg) --TODO maybe have pcall here for aborting versus stopping
 end
 
 function Control.cl_showAlert(self,msg) -- client recieves alert
-    --print("Displaying",msg)
-    --sm.gui.displayAlertText(msg,3) TODO: Uncomment this?? 
+    print("Displaying",msg)
+    sm.gui.displayAlertText(msg,3) --TODO: Uncomment this before pushing to production
 end
 
 
@@ -1124,7 +1140,7 @@ function Control.tickClock(self) -- Just tin case
         --print(self.dataOutputTimer:remaining())
         if self.dataOutputTimer:done() and not self.raceFinished then
             self:sv_performTimedFuncts()
-            self.dataOutputTimer:start(3)
+            self.dataOutputTimer:start(2)
         end
         
     else
@@ -1138,7 +1154,9 @@ end
 
 function Control.sv_performTimedFuncts(self)
     --print("doing tick thing")
-    self:sv_output_allRaceData()
+    if self.outputRealTime then -- only do so when wanted
+        self:sv_output_allRaceData()
+    end
 end
 
 
@@ -1242,13 +1260,9 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 		elseif self.spacePressed then 
 		elseif self.shiftPressed then
             local shifter = 0
-            if convertedIndex < 4 then 
-                shifter = 0
-            elseif convertedIndex < 8 then
-                shifter = 3
-            elseif convertedIndex < 10 then
-                shifter = 7
-            end
+            if convertedIndex < 4 then shifter = 0 end
+            if convertedIndex >=4 then shifter = 3 end
+            if convertedIndex >=7 then shifter = 7 end
             local racePos = convertedIndex + shifter
             self:focusCameraOnPos(racePos)
 		else -- Direct switch to camera number (up to 10)
@@ -1414,7 +1428,7 @@ function Control.sv_ReadJson(self)
                 self:sv_exitCamera()
             elseif instruction == "focusCycle" then
                 local direction = instructions['value']
-                print("focus cycing",direction)
+                --print("focus cycing",direction)
                 self:sv_cycleFocus(direction)
             elseif instruction == "camCycle" then
                 local direction = instructions['value']
@@ -1448,14 +1462,18 @@ end
 function Control.sv_cycleFocus(self,direciton) -- calls iterate camera
     self.network:sendToClients("cl_cycleFocus",direciton)
     -- remove isFocused (should be SV)
-    if self.focusedRacerData ~= nil then
-        self.focusedRacerData['isFocused'] = false
-    end
 end 
 
-function Control.sv_setFocused(self,racerID)
-    racer = getDriverFromId(racerID)
-    racer.isFocused = true
+function Control.sv_setFocused(self,last_racerID) -- sv conflicting race condition sometimes??
+    if last_racerID ~= nil then
+        local racer = getDriverFromId(last_racerID)
+        racer.isFocused = false
+    end
+    
+    if self.focusedRacerData ~= nil then
+        local racer = getDriverFromId(self.focusedRacerData.id)
+        racer.isFocused = true
+    end
 end
 
 
@@ -1481,6 +1499,7 @@ function Control.cl_cycleFocus(self,direction) -- Cycle Which racer to Focus on 
 		-- Means that the racers POS are 0 or error
 		return
 	end
+    self.network:sendToServer("sv_setFocused",self.focusedRacerID) -- sends to server driver focus stats
 	self.focusedRacerData = nextRacer
 	self.focusedRacePos = nextRacerPos
 	self.focusedRacerID =nextRacer.id
@@ -1497,7 +1516,7 @@ function Control.cl_cycleFocus(self,direction) -- Cycle Which racer to Focus on 
 	self.droneFocusPos = true 
 	self.droneFocusRacer = false 
 
-    self.network:sendToServer("sv_setFocused",self.focusedRacerID) -- sends to server driver focus stats
+    
 
 	self:focusAllCameras(nextRacer) -- TODO: get this
 end
@@ -1513,6 +1532,7 @@ function Control.focusCameraOnPos(self,racePos) -- Grabs Racers from racerData b
 		print("Racer has no RacePos",racer)
 		return
 	end
+    self.network:sendToServer("sv_setFocused",self.focusedRacerID)
     --*print("Settinf focus on pos",racer.id)
 	self.focusedRacerData = racer
 	self.focusedRacePos = racer.racePosition

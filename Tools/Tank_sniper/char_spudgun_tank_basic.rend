@@ -1,0 +1,18 @@
+{
+	"lodList": [{
+		"mesh": "$CONTENT_DATA/Tools/Tank_sniper/char_spudgun_tank_basic_geo.dae",
+		"includes" : ["POSITION", "UV0", "NORMAL", "TANGENTS", "BLEND_INDICES", "BLEND_WEIGHTS"],
+		"subMeshList" : [
+			{
+				"textureList": [
+					"$CONTENT_DATA/Tools/Tank_sniper/char_spudgun_tank_basic_dif.tga",
+					"$CONTENT_DATA/Tools/Tank_sniper/char_spudgun_tank_basic_asg.tga",
+					"$CONTENT_DATA/Tools/Tank_sniper/char_spudgun_tank_basic_nor.tga"
+				],
+				"color": "366283",
+				"material": "DifAsgNor"
+			}
+		],
+		"maxViewDistance": 1000.0
+	}]
+}
