@@ -2450,9 +2450,27 @@ function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on 
     end
 
     if self.offline then
-        vMax = vMax - 2.5
+        vMax = vMax - 2    
     end
 
+    -- Get radar
+    local radar = self.carRadar
+    local distFront = radar.front
+    local distRright = radar.right
+    local distLeft = radar.left
+
+
+    local slowDownThreshold = 5
+    local slowDownMultiplier = 1.0 
+    if self.passing.isPassing then 
+        slowDownMultiplier =0.2
+    end
+    if distFront <= slowDownThreshold then -- potential car ahead
+        if distLeft > -3 and distRight < 3 then -- checking if potential for collision (may be wrong)
+            local slowDown = (slowDownThreshold - distFront) * slowDownMultiplier -- Maybe have logarithmic dist thresh? (slower when closer)
+            vmax = vmax - slowDown
+        end
+    end
     --print(tWidth)
     local goalAngle =  angleDiff(self.shape.at,segEndNode.outVector)
     --print(goalAngle)
