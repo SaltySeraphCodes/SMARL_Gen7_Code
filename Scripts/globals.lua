@@ -11,7 +11,7 @@ sm.SMARGlobals = {
     SMAR_CAM = -1 -- Smar camera loaded from cinecam mod
 }
 
-MAX_STEER_VALUE = 40 -- maximum angle car can turn wheels
+MAX_STEER_VALUE = 50 -- maximum angle car can turn wheels
 ALL_DRIVERS = {} -- contains all constantly updating information of each driver, can be read from anywhere that imports globals.lua (updated dynamically)
 RACE_CONTROL = nil -- Contains race control Object
 ALL_CAMERAS = {}
@@ -29,8 +29,8 @@ VELOCITY_ROTATION_RATE = 0.37 -- 1 rotation speed ~= 0.37 velocity length -- How
 DECELERATION_RATE = -9.112992895 -- Multiply this number by the braking speed to get the aproximate deceleration rate for brake distance calculaitons (decrease for longer breaking distances)
 -- VMAX calculation defaults
 MAX_VELOCITY = 150
-DEFAULT_MAX_STEER_VEL = 14
-DEFAULT_MINOR_STEER_VEL = 26
+DEFAULT_MAX_STEER_VEL = 13
+DEFAULT_MINOR_STEER_VEL = 25
 DEFAULT_MAX_STEER = (MAX_STEER_VALUE or 55)
 DEFAULT_MINOR_STEER = 5
 DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- steering angle goes here
@@ -39,7 +39,7 @@ DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- stee
 -- Track generation options -- possibly move to track piece?
 FORCE_SENSITIVIY = 4 -- How much angle differences affect total force on node chain
 FORCE_THRESHOLD = 0.01 -- when nodes accept where they are
-WALL_PADDING = 6.5
+WALL_PADDING = 7
 TRACK_DATA = 1 -- Location to save world storage for the racing line
 
 TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
@@ -92,38 +92,38 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
    {
         TYPE = "road", -- slowest
         COLOR = "222222ff", -- black
-        MAX_SPEED = 73.5, -- 73.5 ?
+        MAX_SPEED = 75, -- 73.5 engine
         MAX_ACCEL = 0.4,
-        MAX_BRAKE = 0.70,
-        GEARING = {0.6,0.5,0.4,0.2,0.2}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 73.8/5 -- LImit for VRPM TODO: adjust properly
+        MAX_BRAKE = 0.8,
+        GEARING = {0.6,0.5,0.4,0.25,0.2}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 75/5 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "sports", -- medium -- dark gray
         COLOR = "4a4a4aff",
-        MAX_SPEED = 80, -- 80
+        MAX_SPEED = 90, -- 80
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.9, -- 1?
-        GEARING = {0.7,0.6,0.5,0.3,0.2}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 80/5 -- LImit for VRPM TODO: adjust properly
+        GEARING = {0.7,0.6,0.5,0.3,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 90/5 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "formula", -- Fast
         COLOR = "7f7f7fff", -- Light gray
-        MAX_SPEED = 100,
-        MAX_ACCEL = 1,
+        MAX_SPEED = 120,
+        MAX_ACCEL = 1.1,
         MAX_BRAKE = 1,
-        GEARING = {0.75,0.8,0.6,0.2,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 100/5
+        GEARING = {0.7,0.8,0.6,0.4,0.3}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 120/5
     },
     {
         TYPE = "insane", -- Insane -- add custom later?
         COLOR = "eeeeeeff", -- white
-        MAX_SPEED = 150,
+        MAX_SPEED = 160,
         MAX_ACCEL = 2,
         MAX_BRAKE = 1.5,
-        GEARING = {0.8,0.85,0.65,0.4,0.3}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 150/5
+        GEARING = {0.8,0.99,0.75,0.6,0.5}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 160/5
     }
 }
 -- Data managment
@@ -330,7 +330,28 @@ function getNodeClosest(nodeList,location) -- Gets node closest to to {location}
     return closestNode
 end
 
--- Engine/Driver Connector helpers
+
+function searchNodeSegment(nodeList,segmentID) -- binary search node to find segment 
+    if nodeList == nil then return 0 end
+    local minIndex = 1 -- can shortcut?
+    local maxIndex = #nodeList
+    for i=minIndex, #nodeList do local node = nodeList[i] -- failsafe loop, should return much faster than full n
+        searchIndex = math.floor((maxIndex+minIndex)/2)
+        if nodeList[searchIndex].segID == segmentID then-- found search
+            return searchIndex -- return Index
+        elseif nodeList[searchIndex].segID > segmentID then -- currently too high, search low
+            maxIndex = searchIndex - 1
+        elseif nodeList[searchIndex].segID < segmentID then -- currently too low, search high
+            minIndex = searchIndex +1
+        end
+    end
+    print("seg not found",segmentID,searchIndex,nodeList[searchIndex].segID)
+    return searchIndex
+end
+
+
+
+-- Engine/Driver Connector helpers TODO: get this to a more accurate and dynamic flavor
 function calculateMaximumVelocity(segBegin,segEnd,segLen) -- gets maximumSpeed based on segment node and length of turn
     local segType = segBegin.segType
     local segCurve = segBegin.segCurve
@@ -340,7 +361,7 @@ function calculateMaximumVelocity(segBegin,segEnd,segLen) -- gets maximumSpeed b
     local angle2 = angleDiff(segBegin.outVector,segEnd.outVector) -- depreciated
     if  segType == "Straight" then -- sometimes things go wrong
         
-        return getVmax(angle) * 2
+        return getVmax(angle) * 2.2
     elseif segType == "Fast_Right" or segType == "Fast_Left" then -- reduce ang
         --print("fastSeg",segLen)
         if segLen >= 20 then -- Long turn
@@ -385,6 +406,14 @@ function getBrakingDistance(speed,brakePower,targetSpeed) -- Get distance needed
 
 end
 
+function mathClamp(min,max,value) -- caps value based off of max and min
+    if value > max then
+        return max
+    elseif value < min then
+        return min
+    end
+    return value
+end
 
 function getRotationIndexFromVector(vector,precision) -- Precision fraction 0-1
 	if vector.y >precision then -- north?
@@ -707,7 +736,7 @@ function getSegment(nodeChain,first,last) -- Shoves first node and last node int
     return segList
 end
 
-
+-- TODO: Make more efficient, use binary search to find begin of node and to find end of node (getSegBegin, getSegEnd, then getSegment)
 function findSegment(nodeChain,segID) --Returns a list of nodes that are in a segment, (could be out of order) (altered binary search??)
     local segList = {}
     local index = 1
@@ -1086,6 +1115,24 @@ function checkMax(previous,current)
     end
 
     if current > previous then
+        return current
+    else
+        return previous
+    end
+end
+
+
+function checkMin(previous,current)
+    if previous == nil and current == nil then
+        print("CheckMin of two nils error")
+        return 0
+    end
+
+    if previous == nil or current == nil then
+        return (current or previous)
+    end
+
+    if current < previous then
         return current
     else
         return previous

@@ -1,0 +1,86 @@
+{
+    "lodList":
+	[
+		{
+			"subMeshMap" :
+			{
+				"char_spudgun_base_mat" : 
+				{
+				    "textureList":
+					[
+						"$CONTENT_DATA/Tools/Base_sniper/char_spudgun_base_dif.tga",
+						"$CONTENT_DATA/Tools/Base_sniper/char_spudgun_base_asg.tga",
+						"$CONTENT_DATA/Tools/Base_sniper/char_spudgun_base_nor.tga"
+				   	],
+					"color": "c98605",
+					"material": "DifAsgNor"
+				},
+				"grip_mat" : 
+				{
+				    "textureList":
+					[
+						"$CONTENT_DATA/Tools/Base_sniper/char_spudgun_grip_dif.tga",
+						"$CONTENT_DATA/Tools/Base_sniper/char_spudgun_grip_asg.tga",
+						"$CONTENT_DATA/Tools/Base_sniper/char_spudgun_grip_nor.tga"
+				   	],
+					"color": "c98605",
+					"material": "DifAsgNor"
+				},
+				"barrel_mat" : 
+				{
+					"textureList":
+					[
+						"$CONTENT_DATA/Tools/Barrel_sniper/char_spudgun_barrel_basic_dif.tga",
+						"$CONTENT_DATA/Tools/Barrel_sniper/char_spudgun_barrel_basic_asg.tga",
+						"$CONTENT_DATA/Tools/Barrel_sniper/char_spudgun_barrel_basic_nor.tga"
+					],
+					"color": "78211f",
+					"material": "DifAsgNor"
+				},
+				"sight_mat" : 
+				{
+					"textureList":
+					[
+						"$CONTENT_DATA/Tools/Sight_sniper/char_spudgun_sight_basic_dif.tga",
+						"$CONTENT_DATA/Tools/Sight_sniper/char_spudgun_sight_basic_asg.tga",
+						"$CONTENT_DATA/Tools/Sight_sniper/char_spudgun_sight_basic_nor.tga"
+					],
+					"color": "78211f",
+					"material": "DifAsgNor"
+				},
+				"stock_mat" : 
+				{
+					"textureList":
+					[
+						"$CONTENT_DATA/Tools/Stock_sniper/char_spudgun_stock_broom_dif.tga",
+						"$CONTENT_DATA/Tools/Stock_sniper/char_spudgun_stock_broom_asg.tga",
+						"$CONTENT_DATA/Tools/Stock_sniper/char_spudgun_stock_broom_nor.tga"
+					],
+					"color": "b9a263",
+					"material": "DifAsgNor"
+				},
+				"tank_mat" : 
+				{
+					"textureList":
+					[
+						"$CONTENT_DATA/Tools/Tank_sniper/char_spudgun_tank_basic_dif.tga",
+						"$CONTENT_DATA/Tools/Tank_sniper/char_spudgun_tank_basic_asg.tga",
+						"$CONTENT_DATA/Tools/Tank_sniper/char_spudgun_tank_basic_nor.tga"
+					],
+					"color": "c98605",
+					"material": "DifAsgNor"
+				},
+				"sightscrew_basicbarrel_mat" : {
+					"textureList": [
+						"$CONTENT_DATA/Tools/Sight_sniper/char_spudgun_sight_basic_screw_dif.tga",
+						"$CONTENT_DATA/Tools/Sight_sniper/char_spudgun_sight_basic_screw_asg.tga",
+						"$CONTENT_DATA/Tools/Sight_sniper/char_spudgun_sight_basic_screw_nor.tga"
+					],
+					"color": "ffffff",
+					"material": "DifAsgNor"
+				}
+			},
+			"mesh": "$CONTENT_DATA/Tools/char_spudgun_sniper_preview.fbx"
+		}
+	]
+}

@@ -136,14 +136,15 @@ function Engine.setRPM(self,value)
         if self.driver.mass then
             --bvprint("got mass",self.driver.mass)
             local mass = (self.driver.mass or 5000) -- in case mass is nill
-            rotationstrength = ratioConversion(0,100000,1000,2500,mass)--self.driver.body.mass)
-            if rotationstrength < 250 then
-                rotationstrength = 250
+            rotationstrength = ratioConversion(0,10000,1000,100,mass)--self.driver.body.mass)
+            if rotationstrength < 240 then
+                rotationstrength = 240
             end
 
             if rotationstrength > 1000 then
                 rotationstrength = 1000
             end
+            -- Standardize this shit
             --print(self.driver.body.mass,rotationstrength)
         else
             print(self.driver.id, "no body?")

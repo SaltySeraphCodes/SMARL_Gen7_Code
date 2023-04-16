@@ -1,0 +1,17 @@
+{
+	"lodList": [{
+		"mesh": "$CONTENT_DATA/Tools/Barrel_sniper/char_spudgun_barrel_basic_geo.dae",
+		"subMeshList" : [
+			{
+				"textureList": [
+					"$CONTENT_DATA/Tools/Barrel_sniper/char_spudgun_barrel_basic_dif.tga",
+					"$CONTENT_DATA/Tools/Barrel_sniper/char_spudgun_barrel_basic_asg.tga",
+					"$CONTENT_DATA/Tools/Barrel_sniper/char_spudgun_barrel_basic_nor.tga"
+				],
+				"color": "ffffff",
+				"material": "DifAsgNor"
+			}
+		],
+		"maxViewDistance": 1000.0
+	}]
+}
