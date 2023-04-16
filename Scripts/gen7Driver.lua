@@ -2339,10 +2339,10 @@ function Driver.getSegmentLength(self,segID) --Returns a list of nodes that are 
     local count = 1
     local index = 1
     local segTimeout = 0
-    local timeoutLimit = 100
+    local timeoutLimit = 250
     while foundSegment == false do
         if segTimeout >= timeoutLimit then
-            print("getSeglength timoeut")
+            print(self.tagText,"getSeglength timoeut",segID)
             break
         end
         segTimeout = segTimeout + 1
@@ -2430,6 +2430,34 @@ function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on 
 
     if not self:valididtyCheck() then return vMax end
 
+
+    -- Dangerous next segment adjustments (INEFFICENT AF TODO: Adjust this so that the next seg is calculated outside of refine func)
+    if self.currentSegment == 0 then
+    end
+    local nextSeg = getNextIndex(self.totalSegments,segEndNode.segID,1)
+    local segBeginNode = self:getSegmentBegin(nextSeg)
+    if segBeginNode and segBeginNode.incline then -- outdated tracks will not have incline or banking data
+        
+        if self.currentNode.segType == "Straight" and segBeginNode.incline ~= 0 then -- check if car is going up/down ramp and next segment is a turn/distance
+            local dangerSegs = {"Medium_Left","Medium_Right","Slow_Right","Slow_Left"}
+            if findInArray(dangerSegs,segBeginNode.segType) then -- if the next turn is sharp
+                local distance = getDistance(self.location,segBeginNode.mid)
+                local bDist = getBrakingDistance(self.speed,self.engine.engineStats.MAX_BRAKE,vMax/5)
+                --print(self.tagText,distance,bDist,self.speed,vMax/3)
+                if distance < bDist then -- check braking disance and pad some
+                    vMax = vMax /4 -- slow down by a lot
+                    --print(self.tagText,"Major slowdown",vMax,self.speed)
+                end
+            end
+        end
+    end
+
+
+    -- track banking adjustments
+
+
+
+    -- Track width & position based adjustments
     local tWidth = (segEndNode.width or 10)
     if segEndNode == nil then return vMax end
     vMax = vMax + tWidth/7.2 -- higher value is more punishment for thinner tracks
@@ -2453,10 +2481,11 @@ function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on 
         vMax = vMax - 2    
     end
 
+    -- Potential collision based slowing
     -- Get radar
     local radar = self.carRadar
     local distFront = radar.front
-    local distRright = radar.right
+    local distRight = radar.right
     local distLeft = radar.left
 
 
@@ -2465,13 +2494,17 @@ function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on 
     if self.passing.isPassing then 
         slowDownMultiplier =0.2
     end
-    if distFront <= slowDownThreshold then -- potential car ahead
-        if distLeft > -3 and distRight < 3 then -- checking if potential for collision (may be wrong)
-            local slowDown = (slowDownThreshold - distFront) * slowDownMultiplier -- Maybe have logarithmic dist thresh? (slower when closer)
-            vmax = vmax - slowDown
+    if radar and distFront and distRight and distLeft then 
+        if distFront <= slowDownThreshold then -- potential car ahead
+            if distLeft > -3 and distRight < 3 then -- checking if potential for collision (may be wrong)
+                local slowDown = (slowDownThreshold - distFront) * slowDownMultiplier -- Maybe have logarithmic dist thresh? (slower when closer)
+                vMax = vMax - slowDown
+            end
         end
     end
-    --print(tWidth)
+ 
+    
+    -- early angle finishing speeding up
     local goalAngle =  angleDiff(self.shape.at,segEndNode.outVector)
     --print(goalAngle)
     if math.abs(goalAngle) < 1 then --TODO: make threshold more variable depending on skill
@@ -2510,8 +2543,8 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
         return 1
     end
 
-    if segBegin.id == segEnd.id then
-        print("same seg begin and end?") -- not sure here
+    if segBegin.id == segEnd.id then -- Single node segment
+        --print(self.tagText,"same seg begin and end?") -- not sure here
     end
 
     local lookaheadDist = getDistance(self.location,segBegin.mid)
@@ -2565,7 +2598,7 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
 
             --print("next",self.speed,maxSpeed,segID)
             if self.speed > maxSpeed then
-                brakeDist =  getBrakingDistance(self.speed,self.engine.engineStats.MAX_BRAKE,maxSpeed)
+                brakeDist =  getBrakingDistance(self.speed,self.engine.engineStats.MAX_BRAKE,vMax + 10)
                 --local segBegin = self:getSegmentBegin(segID) -- if not nil
                 if segBegin == nil then
                     return 0.1 -- untilSomethinghppens we can figure it out

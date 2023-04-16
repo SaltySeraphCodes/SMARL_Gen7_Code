@@ -91,7 +91,7 @@ function Generator.client_init( self )  -- Only do if server side???
     self.segSearchTimeout = 100
 
     self.debug =false  -- Debug flag
-    self.instantScan = false
+    self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
     self.asyncTimeout = 0-- Scan speed [0 fast, 1 = 1per sec]
     self.asyncTimeout2 = 0 -- optimization speed
@@ -297,7 +297,7 @@ function Generator.updateVisualization(self) -- moves/updates effects according 
         end 
     end
 
-    if self.debug and self.visualizing then -- only show up on debug for now
+    if self.visualizing then -- only show up on debug for now
         for k=1, #self.debugEffects do local effect=self.debugEffects[k]
             if not effect:isPlaying() then
                 effect:start()
@@ -436,11 +436,7 @@ function Generator.generatePerpVector2(self,direction,location,node) -- generate
 
 end
 
--- Call this when setting up first node.
-
-
-
-function Generator.getWallFlatUp(self,location,perp,cycle) -- Scans directly out to the sides to determine wall location (starts at node then goes up)
+function Generator.getWallFlatUp(self,location,perp,cycle) -- Scans directly out to the sides to determine wall location (starts at node then goes up) 
     local searchLimit = 60 -- how far to look for walls, dynamic: self.nodechain[#self.nodeChain]].lastNode.width/2
     if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].width then
         searchLimit = (self.nodeChain[self.nodeIndex-1].width * 0.8 or 60)
@@ -455,26 +451,26 @@ function Generator.getWallFlatUp(self,location,perp,cycle) -- Scans directly out
         for k= 0, zOffsetLimit, zStep do -- Iterates z position up
             searchLocation = (location + (perp*searchLimit)) + sm.vec3.new(0,0,k) -- angle going from flat then start moving it down
             hit,data = sm.physics.raycast(location,searchLocation)
-            table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff')))
-            table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff')))
+            --table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff')))
+            --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff')))
             if data.valid == false then
-                print("K",k,"Left wall failed",location,searchLocation)
+                --print("K",k,"Left wall failed",location,searchLocation)
             else
                 if cycle == 1 then 
-                    self:createEfectLine(location,data.pointWorld,sm.color.new('ee127fff'))
+                   --self:createEfectLine(location,data.pointWorld,sm.color.new('ee127fff'))
                 end
                 return data.pointWorld
             end
         end
     else
         if cycle == 1 then 
-            self:createEfectLine(location,data.pointWorld,sm.color.new('ee127fff'))
+            --self:createEfectLine(location,data.pointWorld,sm.color.new('ee127fff'))
         end
         return data.pointWorld
     end
 end
 
-function Generator.getWallAngleDown(self,location,perp,cycle) -- finds wall from scanning from ground to up and down
+function Generator.getWallAngleDown(self,location,perp,cycle) -- finds wall from scanning from ground to up and down (Bad with tunnels and uneven terrain)
     local searchLimit = 60 -- how far to look for walls, dynamic: self.nodechain[#self.nodeChain]].lastNode.width/2
     if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].width then
         searchLimit = (self.nodeChain[self.nodeIndex-1].width * 0.8 or 60)
@@ -491,14 +487,14 @@ function Generator.getWallAngleDown(self,location,perp,cycle) -- finds wall from
         searchLocation.z =  zOffsetStart + k -- gives old offset and adds(subs) k to scan from top down
         hit,data = sm.physics.raycast(location,searchLocation)
         if cycle == 1 then
-            table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
-            table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
+            --table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
+            --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
         end
         if data.valid == false then --or (hitL and lData.type ~= 'terrainAsset') then -- could not find wall
-            print("L Wallfailed",k)
+            --print("L Wallfailed",k)
         else -- we found a wall, create debug effect line
             if cycle == 1 then
-                self:createEfectLine(location,data.pointWorld,sm.color.new('ee127fff')) -- red ish line
+                --self:createEfectLine(location,data.pointWorld,sm.color.new('ee127fff')) -- red ish line
             end
             return data.pointWorld
         end
@@ -506,16 +502,15 @@ function Generator.getWallAngleDown(self,location,perp,cycle) -- finds wall from
     
 end
 
-
 function Generator.getWallTopDown(self,location,direction,cycle,threshold) -- scans walls from the top down and across the perp axis (BEST)
     -- Scans from location to another location from top down 
     -- original location is estimated position based off of last wall
     -- stores floor location and if floor height threshold is passed then will return wall location
    local scanHeight = 3 -- how high from location to start scan
-   local perpOffset = -5 -- start loc
-   local perpLimit = 5 -- end scan dist
+   local perpOffset = -6 -- start loc
+   local perpLimit = 6 -- end scan dist
    local floorValue = nil
-   local scanGrain = 0.5
+   local scanGrain = 0.2
    local scanStart = location + (direction * perpOffset)
    scanStart.z = location.z + scanHeight
    local scanEnd = scanStart + sm.vec3.new(0,0,-10) -- scan down
@@ -694,7 +689,6 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
     return midPoint, width,leftWall,rightWall,bank
 end
 
-
 function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method for scanning Utilizes top down approach.
     -- TODO: figure out loopdy loops, will need to look forward instead of straight down in order to find ramps/inclines. have upsidedown tag for node aswell
     -- TODO: FIgure out fixes for bugs like goin in tunnels,scanner will break
@@ -773,7 +767,7 @@ function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method
     end
     
     -- Left wall scan
-    local wallThreshold = 0.2 -- how much difference in floor height to determine a wall
+    local wallThreshold = 0.2 -- how much difference in floor height to determine a wall [[TODO: Make dynamic, sweet spot is 0.25]]
     -- Can possibly make ^ dynamic according to failed params?
     --local location = lastLeftWall
     --print("\nLeft Wall Scan:")
@@ -781,8 +775,19 @@ function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method
     local lWallPredict = location + (-perp2*leftWallDist)
     local leftWall = self:getWallTopDown(lWallPredict,-perp2,cycle,wallThreshold)
     if  leftWall == nil then
-        print("L Wallfailed",leftWall)
+        print("Left Top Down scan failed",lWallPredict)
         -- do failsafe scan? -- increase/decrease threshold/granularity?
+        table.insert(self.debugEffects,self:generateEffect(location + self.shape.up *3.5 ,sm.color.new('bbbb00ff'))) -- oarnge dot at start location
+        leftWall = self:getWallFlatUp(location,-perp,cycle)
+        if leftWall == nil then -- only three methods
+            print("Left Flat Scan failed")
+            leftWall = self:getWallAngleDown(location,-perp,cycle)
+            if leftWall == nil then 
+                print("Left All scanning methods failed",location,-perp,cycle)
+                self:createEfectLine(location,lWallPredict,sm.color.new('aa3300ff')) -- redish orange line shows where it thinks the wall should be
+                -- TODO: Have wall scans send back scan pos debug when failed
+            end
+        end
     else -- we found the wall, create debug effect line
         self:checkForSharpEdge(location,leftWall,cycle) -- returns true/false for morefailsafes
     end
@@ -792,8 +797,18 @@ function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method
     local rWallPredict = location + (perp2*rightWallDist)
     local rightWall = self:getWallTopDown(rWallPredict,perp2,cycle,wallThreshold)
     if  rightWall == nil then
-        print("R Wallfailed",rightWall)
-        -- do failsafe scan?
+        print("Right Top Down scan fail",rWallPredict)
+        table.insert(self.debugEffects,self:generateEffect(location + self.shape.up *3.5 ,sm.color.new('bbbb00ff'))) -- oarnge dot at start location
+        rightWall = self:getWallFlatUp(location,perp,cycle)
+        if rightWall == nil then -- only three methods
+            print("Right Flat Scan failed")
+            rightWall = self:getWallAngleDown(location,perp,cycle)
+            if rightWall == nil then 
+                print("Right All scanning methods failed",location,perp,cycle)
+                self:createEfectLine(location,rWallPredict,sm.color.new('aa3300ff')) -- redish orange line shows where it thinks the wall should be
+                -- TODO: Have wall scans send back scan pos debug when failed, Possibly have it force a wall at the rWall Predict place (fill in gaps)
+            end
+        end
     else -- we found the wall, create debug effect line
         self:checkForSharpEdge(location,rightWall,cycle)
     end
@@ -830,7 +845,6 @@ function Generator.analyzeSegment(self,initNode,flag) -- Attempt # 4
     local straightThreshold = 0.04 -- how straight track needs to be before considered straight [0.02]4?
     for k = index, #self.nodeChain do local node = self.nodeChain[k]
         if node.next.id == self.nodeChain[1].id then
-            print("found end",node.id)
             return node,flag, true
         end
         if flag == 0 or flag == nil then -- on straight most likely
@@ -921,7 +935,6 @@ function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
     
     for k = index, #self.nodeChain do local node = self.nodeChain[k]
         if node.next.id == self.nodeChain[1].id then
-            print("found end",node.id)
             startNode = self:backTraceSegment(initNode,node) -- TODO: figure this out
             return startNode,node, true
         end
@@ -979,9 +992,9 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
     --print("betweenSeg?",#firstSegment,firstNode.id,startNode.id)
     if #firstSegment > 1 then
         local type,angle = defineSegmentType(firstSegment)
-        print(segID,"Setting Between segment (start)",firstNode.id,startNode.id,type.TYPE,angle)
+        --print(segID,"Setting Between segment (start)",firstNode.id,startNode.id,type.TYPE,angle)
         local output = segID.." setting between seg at start, " .. firstNode.id .. " - " .. startNode.id .. " : " .. type.TYPE
-        sm.log.info(output)
+        --sm.log.info(output)
         setSegmentType(firstSegment,type,angle,segID)
         segID = segID + 1
         --lastNode = startNode
@@ -991,7 +1004,7 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
     end
     local segment = getSegment(self.nodeChain,startNode,endNode)
     local type,angle = defineSegmentType(segment)
-    print(segID,"setting first segment",startNode.id,endNode.id,type.TYPE,angle)
+    --print(segID,"setting first segment",startNode.id,endNode.id,type.TYPE,angle)
     local output = segID.." setting first segment " .. startNode.id .. " - " .. endNode.id .. " : " .. type.TYPE
     sm.log.info(output)
     setSegmentType(segment,type,angle,segID)
@@ -1013,9 +1026,9 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         if #betweenSeg > 1 then -- If there is no segment between last turn and next turn
             --print("set between seg")
             local type,angle = defineSegmentType(betweenSeg)
-            print(segID,"setting between segment",lastNode.id,startNode.id,type.TYPE,angle)
+            --print(segID,"setting between segment",lastNode.id,startNode.id,type.TYPE,angle)
             local output = segID.." setting between segment " .. lastNode.id .. " - " .. endNode.id .. " : " .. type.TYPE
-            sm.log.info(output)
+            --sm.log.info(output)
             setSegmentType(betweenSeg,type,angle,segID)
             segID = segID + 1
         else -- set a segment between them first
@@ -1024,9 +1037,9 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         -- Acutally set turn segment
         local segment = getSegment(self.nodeChain,startNode,endNode)
         local type,angle = defineSegmentType(segment)
-        print(segID,"setting segment type",startNode.id,endNode.id,type.TYPE,angle)
+        --print(segID,"setting segment type",startNode.id,endNode.id,type.TYPE,angle)
         local output = segID.." setting next segment " .. startNode.id .. " - " .. endNode.id .. " : " .. type.TYPE
-        sm.log.info(output)
+        --sm.log.info(output)
         setSegmentType(segment,type,angle,segID)
 
         if finished then -- TODO: Figure if this will still work
@@ -1044,10 +1057,9 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
             break
         end
     end
-    print("Finish scan",segID)
     self.totalSegments = segID - 1
-    print(self.totalSegments)
-   
+    print("Finished scan, Segment Count:",self.totalSegments,"Node Count:",#self.nodeChain)
+    print()
     --print(self.nodeChain[#self.nodeChain-1].id,self.nodeChain[#self.nodeChain-1].segType)
 end
 
@@ -1060,13 +1072,13 @@ end
 
 function Generator.simplifyNodeChain(self) 
     local simpChain = {}
-    sm.log.info("simping node chain") -- TODO: make sure all seg IDs are consistance
+    --sm.log.info("simping node chain") -- TODO: make sure all seg IDs are consistance
     for k=1, #self.nodeChain do local v=self.nodeChain[k]
         output = v.segID .. ": " .. v.id
-        sm.log.info(output)
+        --sm.log.info(output) Possibly export into json for track transport
         local newNode = {id = v.id, distance = v.distance, location = v.pos, segID =v.segID, segType = v.segType.TYPE,
                          segCurve = v.segCurve, mid = v.midPos, pit = v.pitPos, width = v.width, perp = v.perpVector, 
-                         outVector = v.outVector,bank = v.bank } -- add race instead of location?-- Radius? Would define vMax here but car should calculate it instead
+                         outVector = v.outVector,incline = v.incline, bank = v.bank } -- add race instead of location?-- Radius? Would define vMax here but car should calculate it instead
         table.insert(simpChain,newNode)
     end
     --print("simpchain = ",simpChain)
@@ -1447,7 +1459,7 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
 
     
     if math.abs(dif - self.lastDif) < 0.002 then
-        print("smooth",self.dampening)
+        --print("smooth",self.dampening)
         self.dampening = self.dampening/ 1.2
         self.smoothEqualCount = self.smoothEqualCount + 0.5
     end
@@ -1747,7 +1759,6 @@ function Generator.client_onFixedUpdate( self, timeStep )
             --self:printNodeChain()
             self.smoothing = false
             self.scanClock = 0
-            print("finished Optimizing Track, saving")
             sm.gui.displayAlertText("Optimization Finished")
             if self.saveTrack then
                 self:saveRacingLine()
@@ -1812,10 +1823,6 @@ function Generator.startTrackScan(self)
     print("Starting SCAN",#self.nodeChain,self.nodeIndex,width)
    
     local startingNode = self:generateMidNode(self.nodeIndex,nil,startPoint,self.trackStartDirection,self.totalDistance,width,leftWall,rightWall,bank)
-    table.insert(self.debugEffects,self:generateEffect(startPoint,sm.color.new('ff00ff'))) -- purple dot at starting node
-    table.insert(self.debugEffects,self:generateEffect(leftWall,sm.color.new('ffff00'))) -- purple dot at wall lastWallplace
-    table.insert(self.debugEffects,self:generateEffect(rightWall,sm.color.new('feaa88'))) -- purple dot at wall lastWallplace
-
 
     table.insert(self.nodeChain, startingNode)
     if self.instantScan then -- instant game freezing scan
@@ -1838,11 +1845,11 @@ function Generator.startTrackScan(self)
                 
                 self:quickSmooth(self.smoothAmmount)
                 
-                self:hardUpdateVisual()
                 -- if self.optimize then
                 print("Finished Segment Gen, Optimizing Race line")
                 --self:racifyLine() -- Will pin nodes at entry/exit points of chain
                 self:startOptimization()
+                self:hardUpdateVisual()
                 break
             end
         end
@@ -1897,12 +1904,11 @@ function Generator.client_onInteract(self,character,state)
 		if character:isCrouching() then
             self.debug = not self.debug -- togle debug
             self:toggleVisual(self.nodeChain)
+            self.instantScan = false
 		elseif not self.scanning then
-            print("Starting Scan")
             self.nodeChain = {}
             self.effectChain = {}
             self:startTrackScan()
-            
 		else
 			print("Scan already started")
 		end

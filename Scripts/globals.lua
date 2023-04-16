@@ -94,7 +94,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         COLOR = "222222ff", -- black
         MAX_SPEED = 75, -- 73.5 engine
         MAX_ACCEL = 0.4,
-        MAX_BRAKE = 0.8,
+        MAX_BRAKE = 0.7,
         GEARING = {0.6,0.5,0.4,0.25,0.2}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 75/5 -- LImit for VRPM TODO: adjust properly
     },
@@ -814,7 +814,6 @@ function setSegmentType(segment,stype,curve,segID) -- Sets all nodes in segment 
     end
 end
 
-
 function getSegType(force)
     for k=1, #SEGMENT_TYPES do local v=SEGMENT_TYPES[k]
         --print("searching",color,v.COLOR)
@@ -825,7 +824,6 @@ function getSegType(force)
     end
     print("COULD NOT FIND SEG TIYPE")
 end
-
 
 
 -- Helpers
@@ -1050,6 +1048,14 @@ function calculateAvgvMax(nodeChain)
         totalVmax = totalVmax + ( v.vMaxEst or 0 )
     end
     return totalVmax/lenChain
+end
+
+function findInArray(array,item) -- finds specific item within array of items (both passed)
+    for i,v in ipairs(array) do
+        if v == item then
+            return true
+        end
+    end
 end
 
 function getSpeedColorScale(minColor,maxColor,value) -- Returns A scaled color Green is 0, red is max
