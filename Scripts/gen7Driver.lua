@@ -14,7 +14,7 @@
 -- TODO: Send raycast when stuck/offtrack to goal/currentnodes. if there is no obstruction, then keep on rejoin, else, continue to be "stuck"
 -- TODO: Find max common color, possibly make tag text match
 -- Car still senses things below
-
+-- TODO: Have cars check ahead segment ("brake refine"), if current segment is straight incline (or fast) and next segment is a turn then slow down vmax early
 dofile "globals.lua" -- Or json.load?
 
 Driver = class( nil )
