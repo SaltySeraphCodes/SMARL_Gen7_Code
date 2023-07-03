@@ -90,7 +90,7 @@ function Generator.client_init( self )  -- Only do if server side???
     self.segSearch = 0
     self.segSearchTimeout = 100
 
-    self.debug =false  -- Debug flag
+    self.debug =true  -- Debug flag
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
     self.asyncTimeout = 0-- Scan speed [0 fast, 1 = 1per sec]

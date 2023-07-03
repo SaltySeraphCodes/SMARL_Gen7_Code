@@ -103,7 +103,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         COLOR = "4a4a4aff",
         MAX_SPEED = 90, -- 80
         MAX_ACCEL = 0.5,
-        MAX_BRAKE = 0.9, -- 1?
+        MAX_BRAKE = 0.7, -- 1?
         GEARING = {0.7,0.6,0.5,0.3,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 90/5 -- LImit for VRPM TODO: adjust properly
     },
@@ -332,11 +332,14 @@ end
 
 
 function searchNodeSegment(nodeList,segmentID) -- binary search node to find segment 
+   
     if nodeList == nil then return 0 end
+    
     local minIndex = 1 -- can shortcut?
     local maxIndex = #nodeList
     for i=minIndex, #nodeList do local node = nodeList[i] -- failsafe loop, should return much faster than full n
         searchIndex = math.floor((maxIndex+minIndex)/2)
+        --if searchIndex == 0 then searchIndex = 1 end
         if nodeList[searchIndex].segID == segmentID then-- found search
             return searchIndex -- return Index
         elseif nodeList[searchIndex].segID > segmentID then -- currently too high, search low
@@ -398,7 +401,9 @@ function getBrakingDistance(speed,brakePower,targetSpeed) -- Get distance needed
     -- Ignoring the effects of negative acceleration, calculate distance
     --print("ticks",ticksToTarget)
     --return speed * ticksToTarget-- D = S*T -- Old dist formula
-
+    if speed > 20 then -- make longer brake dist?
+        brakePower = brakePower - 0.2
+    end
     local top = targetSpeed^2 - speed^2
     local bottom = 2*(brakePower*DECELERATION_RATE)
     local distance = top/bottom
@@ -890,6 +895,8 @@ function getEngineType(color)
             return v
         end
     end
+    -- else return slowest
+    return ENGINE_TYPES[1]
 end
 
 function getDistance(vector1,vector2) -- GEts the distance of vector by power

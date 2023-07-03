@@ -105,7 +105,7 @@ function BrakeLights.server_onFixedUpdate( self, timeStep )
                     self.loaded = true
                 end
             end
-            if v.power ~= self.accelInput then 
+            if v.power ~= self.accelInput then
 				self:calculateBrakeStatus(v.power)
 				self.accelInput = v.power
 			end

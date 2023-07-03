@@ -814,6 +814,11 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
 
 end
 
+function Control.manualOutputData(self)
+    local outputString = 'finish_data= [ {"id": "6", "bestLap": "61.518", "place": "1", "split": "0.000"},{"id": "15", "bestLap": "62.501", "place": "2", "split": "0.653"},{"id": "1", "bestLap": "61.421", "place": "3", "split": "0.901"},{"id": "17", "bestLap": "62.649", "place": "4", "split": "1.883"},{"id": "9", "bestLap": "62.935", "place": "5", "split": "2.203"},{"id": "11", "bestLap": "61.171", "place": "6", "split": "2.886"},{"id": "3", "bestLap": "62.302", "place": "7", "split": "3.650"},{"id": "18", "bestLap": "62.702", "place": "8", "split": "5.783"},{"id": "8", "bestLap": "62.487", "place": "9", "split": "9.954"},{"id": "13", "bestLap": "61.567", "place": "10", "split": "10.950"},{"id": "7", "bestLap": "60.429", "place": "11", "split": "11.599"},{"id": "2", "bestLap": "62.145", "place": "12", "split": "11.750"},{"id": "12", "bestLap": "61.768", "place": "13", "split": "22.334"},{"id": "5", "bestLap": "62.902", "place": "14", "split": "23.050"},{"id": "16", "bestLap": "61.532", "place": "15", "split": "29.734"},{"id": "10", "bestLap": "61.384", "place": "16", "split": "62.782"}]'
+    self:sv_output_data(outputString)
+end
+
 function Control.findLogicCon(self) -- returns connection that is logic
     local parents = self.interactable:getParents()
     if #parents == 0 then
@@ -1156,6 +1161,7 @@ function Control.sv_performTimedFuncts(self)
     --print("doing tick thing")
     if self.outputRealTime then -- only do so when wanted
         self:sv_output_allRaceData()
+        --self:manualOutputData()
     end
 end
 
@@ -1721,6 +1727,8 @@ function Control.toggleOnBoardCam(self) -- Toggles on board for whichever racer 
         -- already init
     end 
     local racer = self.focusedRacerData
+    if racer == nil then return end
+    if racer.shape == nil then return end
     local location = racer.shape:getWorldPosition()
     local rvel = racer.velocity
     local carDir = racer.shape:getAt()
@@ -1945,6 +1953,7 @@ end
 
 function Control.updateCameraPos(self,goal,dt)
 	--print(self.droneActive,dt,self.currentCamera,self.cameraActive)
+    if goal == nil then return end
     local camDir = sm.camera.getDirection()
     local camLoc = sm.camera.getPosition()
     local dirDT = dt *0.3
