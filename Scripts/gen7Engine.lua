@@ -110,7 +110,9 @@ function Engine.cl_resetEngine(self) -- resets the engine (noise effect primaril
             end
             self.effect = nil
         end
-        self.effect:setParameter("gas", 1 )
+        if self.effect then
+            self.effect:setParameter("gas", 1 )
+        end
     end
     -- self:server_init()?
     self.network:sendToServer("sv_resetEngine")

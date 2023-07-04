@@ -265,7 +265,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMAp, 
         --print("nodefilter?",math.abs(node.location.z - location.z))
         if node == nil then print("Bad node") return end
         if math.abs(node.location.z - location.z) > 2 then -- TODO: just make lower priority instead of removing...
-            print(node.id,"not in range")
+            --print(node.id,"not in range")
             table.remove( availibleNodes,i )
         end
     end

@@ -197,7 +197,7 @@ function Control.server_init(self)
 
     self.dataOutputTimer = Timer()
     self.dataOutputTimer:start(1)
-    self.outputRealTime = true
+    self.outputRealTime = false
     
     self.timeSplitArray = {} -- each node makes rough split
 

@@ -105,7 +105,7 @@ function Driver.server_init( self )
     self.lostError = false
     self.raceControlError = false
     self.validError = false
-    self.scanningError = false
+    self.scanningError = false -- Set this to true to cause car to rescan (on lift)
 
 
 	self.id = self.shape.id
@@ -134,10 +134,13 @@ function Driver.server_init( self )
         else
             print("Scan Success")
             self:sv_sendAlert("Car scan successful")
+            self.carData['carDimensions'] = self.carDimensions
+            self.storage:save(self.carData)
+            print(self.carData)
         end
-        self.carData['carDimensions'] = self.carDimensions
+        
         --self.carData = nil
-        self.storage:save(self.carData)
+     
 
     else -- if car data
         -- check for car/racer data, if nil, load from JSON?
@@ -155,10 +158,12 @@ function Driver.server_init( self )
             end
             self.carData['carDimensions'] = self.carDimensions
             --self.carData = nil
+            --print("saving else storage")
             self.storage:save(self.carData)
         else
             --print("Loaded car dimensions",self.carDimensions)
             --self.carData = nil
+            --print("saving else23 storage")
             self.storage:save(self.carData)
         end
     end
@@ -1104,21 +1109,21 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
         if self.stuckCooldown[2] == nil then -- check if location  is set
             if self.location == nil then -- both are nil
                 --print("stuck coolwon both nil")
-                print(self.tagText,"stuckcooldown")
+                --print(self.tagText,"stuckcooldown")
                 return
             else -- location exists
                 self.stuckCooldown[1] = false
-                print(self.tagText,"stuck[12] false")
+                --print(self.tagText,"stuck[12] false")
                 return
             end
         else -- location node exista
             local dist = getDistance(self.stuckCooldown[2],self.location)
             if dist < 0.7 then -- if car is still within small dist
-                print(self.tagText,"stuck?",dist)
+                --print(self.tagText,"stuck?",dist)
                 return 
             else
                 self.stuckCooldown[1] = false
-                print(self.tagText,"stuckfalse")
+                --print(self.tagText,"stuckfalse")
                 return
             end
         end
@@ -1403,7 +1408,7 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     local lookAheadHeur = 0.54 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 10
-        lookAheadHeur = 1
+        lookAheadHeur = 0.8
     end
     
     local lookaheadDist = lookAheadConst + self.speed*lookAheadHeur
@@ -3077,8 +3082,9 @@ function Driver.updateCollisionLayer(self)
             oppFlags.frontWarning = false
         end
         
-        if frontCol and frontCol < 2.8 then -- if real close use 0?
+        if frontCol and frontCol < 2.9 then -- if real close use 0?
             if (rightCol and rightCol <0) or (leftCol and leftCol > 0) then -- If overlapping
+                --print(self.tagText,"FrontEmerg",frontCol,self.passing)
                 oppFlags.frontEmergency = true
             else
                 oppFlags.frontEmergency = false -- good idea??
@@ -3247,18 +3253,19 @@ function Driver.updateCollisionLayer(self)
             local vMax =opponent.speed-4
             local eThrot = colThrottle
             if frontCol > 0 and frontCol <= 8 then
-                if self.speed - vMax > 0.2 and not oppFlags.pass then -- make smooth ratio instead? -- maybe have closer range? and not self.passing.isPassing?
-                    --print("AlertClose ") -- TODO: FIX emergency comes up while already passing, make sure car isnt being passed (oppFlags.pass?)
+                if self.speed - vMax > 0.1 and not oppFlags.pass then -- make smooth ratio instead? -- maybe have closer range? and not self.passing.isPassing?
+                    --print(self.tagText,"AlertClose ") -- TODO: FIX emergency comes up while already passing, make sure car isnt being passed (oppFlags.pass?)
                     eThrot = 0.90- math.abs(vMax/self.speed) 
                 else
                     if oppFlags.pass then -- maybe add pass ID(s) to self.passing.isPassing flag to cancel from outside of function too
                         if self.passing.isPassing and self.speed - vMax < 0 then
                             self:cancelPass()
-                            print("epassFail2")
+                            --print("epassFail2")
                             oppFlags.pass = false
                         end
                     else
                         if self.passing.isPassing then
+                            --print(self.tagText,"pasCancel?")
                             --print("oppPass but not self.pass")
                             oppFlags.pass = false
                         end
@@ -3273,6 +3280,7 @@ function Driver.updateCollisionLayer(self)
                     oppFlags.pass = false
                 end
                 if self.passing.isPassing then
+                    --print("canceling pass")
                     self:cancelPass()
                     oppFlags.pass = false
                 end
@@ -3340,6 +3348,11 @@ function Driver.updateCollisionLayer(self)
                             self.passCommit = passDirection
                             --print(self.tagText,"commiting pass",passDirection,vhDist['vertical'])
                             self.goalOffset = self:calculateGoalOffset(oppInRange[opponent.id],passDirection)
+                            --print(self.tagText,"->",opponent.tagText,vhDist['vertical'],self.carRadar.front,self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)))
+                            -- double check that opponent is proper one
+                            if (self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)) ~= 0) then
+                                print(self.tagText,"not closes racer to pass",self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)))
+                            end
                             self.passing.isPassing = true
                             self.passing.carID = opponent.id
                             oppFlags.pass = true -- Maybe make passing function?
@@ -3415,6 +3428,7 @@ function Driver.updateCollisionLayer(self)
                     self.goalOffset = self:calculateGoalOffset(oppInRange[opponent.id],passDirection)
                     --print("ePass start",passDirection)
                     eThrot = 0.99 - math.abs(vMax/self.speed)
+                    --print(self.tagText,"set passing emergency",opponent.tagText)
                     self.passing.isPassing = true
                     self.passing.carID = opponent.id
                     oppFlags.pass = true
@@ -4117,8 +4131,8 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local wallSteer = 0
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
-        if dist <= 7 then
-            wallSteer = ratioConversion(7,0,0.07,0,dist)  -- Convert x to a ratio from a,b to  c,d
+        if dist <= 9 then
+            wallSteer = ratioConversion(8,0,0.06,0,dist)  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
         end
         if dist < 1 then
@@ -4129,9 +4143,9 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 7  then
+        if dist <= 9  then
             --print("left",dist)
-            wallSteer = ratioConversion(7,0,0.09,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = ratioConversion(8,0,0.08,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",wallSteer)
         end
         if dist < 1 then
@@ -4149,7 +4163,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
         if dist <= 8 then
-            wallSteer = wallSteer + ratioConversion(10,0,0.08,0,dist)  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = wallSteer + ratioConversion(10,0,0.07,0,dist)  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
 
         end
@@ -4161,7 +4175,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 8 then
+        if dist <= 10 then
             --print("left",dist)
             wallSteer = wallSteer +  ratioConversion(10,0,0.15,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",walStwallSteereer)
@@ -4176,11 +4190,11 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local trackAdj = 0
     --if self.trackPosition == nil then return end
     local tDist = sideLimit - math.abs(self.trackPosition)
-    if tDist <7 then
+    if tDist <10 then
         if self.trackPosition > 0 then
-            trackAdj = ratioConversion(7,0,0.09,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
+            trackAdj = ratioConversion(8,0,0.095,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
         else
-            trackAdj = ratioConversion(7,0,0.09,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
+            trackAdj = ratioConversion(8,0,0.095,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
         end
         --print(self.tagText, "track limit",trackAdj,tDist)
     
@@ -4361,7 +4375,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                         end
                         self.goalOffsetCorrecting = true
                     end -- Else if speed < 7 then keep throttle at 0 or low power
-                    --print("Spinout??",self.goalDirectionOffset,self.strategicThrottle)
+                    --print(self.tagText,"Spinout??",self.goalDirectionOffset,self.strategicThrottle)
                     self.goalOffsetCorrecting = true
                 else
                     if self.goalOffsetCorrecting then 
@@ -4372,7 +4386,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
             else -- car turning
                 --print("turn",self.goalDirectionOffset)
                 if math.abs(self.goalDirectionOffset) > 3.2 then -- if too much turn
-                    --print(self.id,"Turn offDirection Adjust")
+                    --print(self.tagText,"Turn offDirection Adjust")
                     --self.strategicSteering = self.strategicSteering/1.5 -- + (self.goalDirectionOffset / 5) Mauybe remove
                     if self.speed > 20 then
                         --print(self.tagText, "WildOfftrackAdjustTurn",self.trackPosition,self.goalDirectionOffset)
@@ -4388,7 +4402,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                         end
                         self.goalOffsetCorrecting = true
                     end
-                    --print("Turn Spinout??",self.goalDirectionOffset,self.strategicThrottle)
+                    --print(self.tagText,"Turn Spinout??",self.goalDirectionOffset,self.strategicThrottle)
                 else
                     if self.goalOffsetCorrecting then 
                         self.goalOffsetCorrecting = false
@@ -4452,7 +4466,7 @@ function Driver.resetPosition(self,force) -- attempts to place the driver on a l
             self.creationBodies = bodies
             local locationNode = (self.resetNode or self.nodeChain[4])
             local location = locationNode.mid * 4
-            print(locationNode.location.z,locationNode.mid.z)
+            --print(locationNode.location.z,locationNode.mid.z)
             local rotation = getRotationIndexFromVector(locationNode.outVector,0.75)
             if rotation == -1 then
                 print("Got bad rotation")
@@ -4463,7 +4477,7 @@ function Driver.resetPosition(self,force) -- attempts to place the driver on a l
             local okPosition, liftLevel = sm.tool.checkLiftCollision( self.creationBodies, realPos, rotation )
             --print("QuieckCHeck",okPosition,liftLevel)
             if okPosition then
-                print('Resetting Position:',realPos,rotation)
+                --print('Resetting Position:',realPos,rotation)
                 sm.player.placeLift( self.player, self.creationBodies , realPos, liftLevel, rotation ) --Lift Level, rotation index
                 if not self.liftPlaced then
                     self.liftPlaced = true
@@ -4518,8 +4532,8 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
     --if self.caution then return 10 end -- TODO: figure out why
     --local segBegin = self:getSegmentBegin(self.goalNode.segID) -- Could be Either goal or current...
     local segLen = self:getSegmentLength(self.goalNode.segID)
-    if math.abs(self.velocity.z) > 0.1 then -- short cut jumping
-        --print("looseJumpe n")
+    if math.abs(self.velocity.z) > 0.2 then -- short cut jumping
+        --print(self.tagText,"jumping? ")
         return 10
     end
     
@@ -4536,7 +4550,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
     if self.offline then -- car offline
         if self.followStrength > 3 then
             --print("wideReduc",self.followStrength)
-            return self.followStrength - 0.03 -- or less?
+            return self.followStrength - 0.05 -- or less?
         else
             return 3
         end
@@ -4544,7 +4558,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
 
     if self.offTrack ~= 0 then
         --print("offtrack?",self.goalDirectionOffset)
-        return 15
+        return 10
     end
     
     if self.goalNode.segType == "Straight" then
@@ -4572,20 +4586,20 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
             --print("errorRewsolutionFollowChange",self.followStrength)
             --print("offfsetCorrectionTight?",self.goalOffsetCorrecting,self.followStrength)
             if math.abs(self.offTrack) >= 1 then
-                if self.followStrength > 2.5 then
+                if self.followStrength > 1 then
                     return self.followStrength - 0.05 
                 else
                     --print("offtrack node tighb 2.5")
-                    return 2.5
+                    return 1
                 end
             end
 
-            if self.followStrength > 5 then
+            if self.followStrength > 4 then
                 --print("reducing",self.followStrength)
                 return self.followStrength - 0.5 
             else
                 --print("reducde",self.followStrength)
-                return 5
+                return 4
             end
           
         else
@@ -5057,6 +5071,10 @@ if formationPos then
 */]]
 
 function Driver.updateCarData(self) -- Updates all metadata car may need (server)
+    --print(self.tagText,self.followStrength)
+    if self.passing.isPassing then
+        --print(self.tagText,"passing")-- get who?
+    end
     if self.shape:getBody():isStatic() then -- car on lift
         self.onLift = true
         self.nodeFindTimeout =0 -- --TODO: I think this may cause issues if car has failed scan while on lift during race reset??
@@ -5064,17 +5082,23 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
         self.lost = false
         self.strategicThrottle = 0
         if self.scanningError == true then
+            self.carDimensions = nil -- reset car dimensions
             self.carDimensions = self:generateCarDimensions()
-            self.frontColDist = self.carDimensions['front']:length() + self.vPadding
-            self.rearColDist = self.carDimensions['rear']:length() + self.vPadding 
-            self.leftColDist= self.carDimensions['left']:length() + self.hPadding 
-            self.rightColDist= self.carDimensions['right']:length() + self.hPadding 
-            if self.carDimensions == nil then
-                self:sv_sendAlert("Car scan failed,Er")
-                self.scanningError = true
-            else
+
+            if self.carDimensions then
                 self:sv_sendAlert("Car scan Successful")
                 self.scanningError = false
+                self.frontColDist = self.carDimensions['front']:length() + self.vPadding
+                self.rearColDist = self.carDimensions['rear']:length() + self.vPadding 
+                self.leftColDist= self.carDimensions['left']:length() + self.hPadding 
+                self.rightColDist= self.carDimensions['right']:length() + self.hPadding 
+                print("Car Scan success, saving")
+                self.carData['carDimensions'] = self.carDimensions
+                self.storage:save(self.carData)
+            else
+                self:sv_sendAlert("Car scan failed,Er")
+                self.scanningError = true
+                
             end
         end
     else
@@ -5094,9 +5118,9 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     end
     
     if self.speed > 2 and not self.noEngineError then
-        local maxForce = -600
-        local minForce = -300
-        local offset = 0.10 -- offset towards/from front to push down
+        local maxForce = -500
+        local minForce = -400
+        local offset = 0.08 -- offset towards/from front to push down
 
         if self.carData and self.carData.metaData then
             if self.carData.metaData.Car_Type == "F1" then -- load different DF data
@@ -5107,17 +5131,17 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
         end
 
 
-        local force = sm.vec3.new(0,0,1) * -(self.speed^1.8)  -- TODO: Check for wedges/aero parts, tire warmth factor too
+        local force = sm.vec3.new(0,0,1) * -(self.speed^1.7)  -- TODO: Check for wedges/aero parts, tire warmth factor too
         force.z = mathClamp(maxForce,minForce,force.z)
 
-        if self.velocity.z < -0.4 and not self.tilted then -- falling down
+        if self.velocity.z < -0.13 and not self.tilted then -- falling down
             --print(self.tagText,"down",self.velocity.z)
-            --sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,80),true,self.shape.at*0.3) -- should not be negative, and 100
+            sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,100),true,self.shape.at*0.3) -- should not be negative, and 100
             
-        elseif self.velocity.z > 0.4 then -- going up
+        elseif self.velocity.z > 0.13 then -- going up
             --print(self.tagText,"up")
-            --sm.physics.applyImpulse(self.shape.body,self.shape.at*900,true) -- really shouldnt be a thing
-        else -- flatprin
+            sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,100),true) -- really shouldnt be a thing
+        else -- GOing flat, normal downforce
             --print(self.tagText,self.speed,force.z)
             --print(self.tagText,"flat")
             --print(self.shape.at*offset)
@@ -5311,7 +5335,7 @@ function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client t
         --print(self.tagText,self.liftPlaced,self.onLift)
         if self.lost and self.trackLoaded then
             if self.liftPlaced and self.onLift  then -- if progam placed lift and creation on it
-                print(self.id,"lost and on reset lift")
+                --print(self.id,"lost and on reset lift")
                 sm.player.removeLift(self.player)
                 self.liftPlaced = false
             elseif self.onLift then
