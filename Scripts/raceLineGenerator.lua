@@ -355,6 +355,11 @@ end
 
 
 function Generator.getSegmentBegin(self,segID) -- parameratize by passing in nodeChain instead
+    if self.nodeChain == nil then
+        print("no node chain")
+        return
+    end
+    --print("segbegin",self.nodeChain[1].segID)
     for i=1, #self.nodeChain do local node = self.nodeChain[i]
         if node ~= nil then
             if node.segID == segID then
@@ -940,22 +945,23 @@ function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
     local straightCutoff = 3 -- how many straight nodes found before cutting of segment
     local turnDir = 0
     local turnThreshold = 2 -- how steep curve must be before apex is triggered
-    
+    print("startigna init",index)
     for k = index, #self.nodeChain do local node = self.nodeChain[k]
         if node.next.id == self.nodeChain[1].id then
             startNode = self:backTraceSegment(initNode,node) -- TODO: figure this out
+            print("first backtraced",startNode.id)
             return startNode,node, true
         end
         
         local angle = getNodeAngle(initNode,node)
-        --print(node.id,"f:",angle)
+        print(node.id,"f:",angle)
 
         if apexNode ~= nil then -- continue down curve until straight path found or reversal of turn
             if math.abs(angle - lastAngle) < straightThreshold then
-                --print("continue straight")
+                print("continue straight")
                 numStraight = numStraight + 1
             else
-                --print("curve continue")
+                print("curve continue")
                 lastAngle = angle
                 numStraight = 0
                 -- will need to account for quick reversals, set threshold? and if it crosses then end that turn too
@@ -963,22 +969,22 @@ function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
 
             -- reversal angle = 
             if numStraight >= straightCutoff then
-                --print("curve ends")
+                print("curve ends")
                 startNode = self:backTraceSegment(initNode,apexNode)
                 numStraight = 0
-                --print("returning:",startNode.id,node.id)
+                print("returning:",initNode.id,startNode.id,node.id)
                 return startNode,node,false -- just stop it for now, return start and end nodes eventually
                 -- Begin for loop that searches backwards?
             end
         else
             if angle > turnThreshold then
-                --print("right Turn apex")
+                print("right Turn apex",angle)
                 apexNode = node
                 lastAngle = angle
                 apexAngle = angle
             end
             if angle < -turnThreshold then
-                --print("left Turn apex")
+                print("left Turn apex",angle)
                 apexNode = node
                 lastAngle = angle
                 apexAngle = angle
@@ -988,13 +994,15 @@ function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
 end
 
 function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: run a filterpass over segments and combine all like/adjacent segments into one segID
+    print("scanning segm")
     local firstNode = self.nodeChain[1]
     local segID = 1
     local done = false
     local finished = false
     local flag = nil
     local startNode, endNode, finished = self:analyzeSegment5(firstNode) -- returns segment start and end
-    --print("First scan got", startNode.id,endNode.id)
+    print(firstNode.id)
+    print("First scan got", startNode.id,endNode.id)
     local lastNode
     local firstSegment = getSegment(self.nodeChain,firstNode,startNode) -- discover if there is segment before first "turn segment"
     --print("betweenSeg?",#firstSegment,firstNode.id,startNode.id)
@@ -1014,7 +1022,7 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
     local type,angle = defineSegmentType(segment)
     --print(segID,"setting first segment",startNode.id,endNode.id,type.TYPE,angle)
     local output = segID.." setting first segment " .. startNode.id .. " - " .. endNode.id .. " : " .. type.TYPE
-    --sm.log.info(output)
+    sm.log.info(output)
     setSegmentType(segment,type,angle,segID)
     segID = segID + 1
     lastNode = endNode
@@ -1066,6 +1074,7 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         end
     end
     self.totalSegments = segID - 1
+    
     print("Finished scan, Segment Count:",self.totalSegments,"Node Count:",#self.nodeChain)
     print()
     --print(self.nodeChain[#self.nodeChain-1].id,self.nodeChain[#self.nodeChain-1].segType)
@@ -1165,7 +1174,7 @@ end
 -- New ALgo? 
 -- Racifying -- Pins nodes at entry/exit points for a more raceline feeling TODO:Dothis...
 function Generator.racifyLine(self) -- Add heuristics? Tries to shif entry and exit nodes 
-    print("setting raceify line")
+    print(" raceify line")
     local turnMargin = 2 -- how many nodes in/out to place pinned exit point
     local pinThreshold = 5 -- how long a segment has to be to be considered for pinning -- The shorter it is, the less distance to move?
     local shiftMaxDiv = 3  -- Maximum node pin shiftiging amound (>2)
@@ -1197,7 +1206,7 @@ function Generator.racifyLine(self) -- Add heuristics? Tries to shif entry and e
                             if shiftAmmount > node.width/2 then print("what",shiftAmmount) end
                             --print("Moving",goalTrackLocation,node.width/2,turnDirection)
                             local desiredTrackPos = node.pos + (node.perpVector * (shiftAmmount * -turnDirection))
-                            print("MOVED PRe:",node.pos,shiftAmmount,turnDirection,desiredTrackPos )
+                            --print("MOVED PRe:",node.pos,shiftAmmount,turnDirection,desiredTrackPos )
                             node.pos = desiredTrackPos
                             --node.pinned = true
                             node.weight = 2.5
@@ -1211,6 +1220,7 @@ function Generator.racifyLine(self) -- Add heuristics? Tries to shif entry and e
             local nextSegmentID = getNextIndex(self.totalSegments,node.segID,1)
             --print(nextSegmentID,self.totalSegments)
             local segNode = self:getSegmentBegin(nextSegmentID)
+            --print("segnode:",segNode.id)
             if segNode.segType.TYPE ~= node.segType.TYPE then 
                 local segLen = self:getSegmentLength(node.segID)
                 --print("len",segLen)
@@ -1224,7 +1234,7 @@ function Generator.racifyLine(self) -- Add heuristics? Tries to shif entry and e
                         if shiftAmmount > node.width/2 then print("what",shiftAmmount) end
                         --print("Moving",goalTrackLocation,node.width/2,turnDirection)
                         local desiredTrackPos = node.pos + (node.perpVector * (shiftAmmount * -turnDirection))
-                        print("MOVED Post:",node.pos,shiftAmmount,turnDirection,desiredTrackPos )
+                        --print("MOVED Post:",node.pos,shiftAmmount,turnDirection,desiredTrackPos )
                         node.pos = desiredTrackPos
                         --node.pinned = true
                         node.weight = 2.5
@@ -1641,7 +1651,7 @@ function Generator.iterateScan(self)
     --print("Incline vector",nextVector.z)
     if math.abs(nextVector.z) >0.05 then
         newNode.incline = nextVector.z
-        newNode.pinned = true -- TODO: Check validity of pinning incline nodes
+        newNode.pinned = false -- TODO: Check validity of pinning incline nodes
     end
     -- Finish calculations on previous node
     lastNode.next = newNode
@@ -1743,11 +1753,11 @@ function Generator.client_onFixedUpdate( self, timeStep )
         if finished then
             self.scanning = false
             self.scanClock = 0
-            --print("finished Track Scan, Generating segments")
+            print("finished Track Scan, Generating segments")
             self:quickSmooth(self.smoothAmmount)
-            --self:generateSegments() original
+            self:generateSegments() --original
             --print("Finished Segment Gen, Optimizing Race line")
-            --self:racifyLine() on hold until further noteice
+            self:racifyLine() --on hold until further noteice
             self:startOptimization()
             
             --self:hardUpdateVisual()
@@ -1762,7 +1772,7 @@ function Generator.client_onFixedUpdate( self, timeStep )
     if self.smoothing and not self.instantOptimize then  
         local finished = self:asyncSleep(self.iterateSmoothing,self.asyncTimeout2)
         if finished then
-            --print("Generating segmens after optimization")
+            print("Generating segmens after optimization")
             self:generateSegments()-- testing location
             --self:printNodeChain()
             self.smoothing = false
@@ -1852,10 +1862,10 @@ function Generator.startTrackScan(self)
                 -- quick smoothing
                 
                 self:quickSmooth(self.smoothAmmount)
-                
+                self:generateSegments()
                 -- if self.optimize then
                 print("Finished Segment Gen, Optimizing Race line")
-                --self:racifyLine() -- Will pin nodes at entry/exit points of chain
+                self:racifyLine() -- Will pin nodes at entry/exit points of chain
                 self:startOptimization()
                 self:hardUpdateVisual()
                 break

@@ -1405,9 +1405,9 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     if self.lost then return end
     if self.currentNode == nil then return end
     local lookAheadConst = 5 -- play around until perfect -- SHould be dynamic depending on downforce?
-    local lookAheadHeur = 0.54 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    local lookAheadHeur = 0.51 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
-        lookAheadConst = 10
+        lookAheadConst = 9
         lookAheadHeur = 0.8
     end
     
