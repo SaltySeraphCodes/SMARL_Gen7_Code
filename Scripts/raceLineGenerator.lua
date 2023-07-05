@@ -371,6 +371,51 @@ function Generator.getSegmentBegin(self,segID) -- parameratize by passing in nod
     print("segBegin found no node...",segID,self.totalSegments)
 end
 
+
+function Generator.findTypeLimits(segType,startNode) -- similar to get segment begin/end but returns both directions and moves across segments
+    --returns two nodes startNode, endNode
+    if segType == nil or startNode == nil then return startNode, startNode end
+    if startNode.segType ~= segType then print("immediatelimitfind mismatch",segType,startNode.segType) return startNode, startNode end
+
+    local foundChange = false
+    local firstNode = nil
+    local lastNode = nil
+
+    -- Going backwards first
+    while not foundChange do
+        node = startNode.last -- get previous node
+        if node.id == startNode.id then
+            print("change not found backWard",node.id,startNode.id)
+            break
+        end
+
+        if node.segType ~= segType then
+            print("found seg dif bac",node.id,node.segType,node.next.id,node.next.segType,segType)
+            firstNode = node.next -- Grabs next node (keep on prev seg)
+            foundChange = true
+        end
+    end
+
+    -- going forwardNext
+    local foundChange = false
+    while not foundChange do
+        node = startNode.next -- get next node
+        if node.id == startNode.id then
+            print("change not found forward",node.id,startNode.id)
+            break
+        end
+        if node.segType ~= segType then
+            print("found seg dif for",node.id,node.segType,node.last.id,node.last.segType,segType)
+            lastNode = node.last -- Grabs last node (keep on prev seg)
+            foundChange = true
+        end
+    end
+
+    return firstNode,lastNode
+end 
+ 
+end
+
 function Generator.getSegmentLength(self,segID) --Returns a list of nodes that are in a segment, (could be out of order) (altered binary search??)
     local node = self:getSegmentBegin(segID)
     local foundSegment = false
@@ -1182,6 +1227,69 @@ end
 
 
 -- New ALgo? 
+
+-- racifyLine2 Second attempt at getting better entry/exit points
+function Generator.racifyLine2(self)
+    local straightThreshold = 10 -- Minimum length of nodes a straight has to be
+    local nodeOffset = 4 -- number of nodes forward/backwards to pin (cannot be > straightLen/2)
+    local shiftMaxDiv = 20  -- Maximum node pin shiftiging amound (>2)
+
+    local lastSegID = 0 -- start with segId
+    local lastSegType = nil
+    -- Find straight
+    for k=1, #self.nodeChain do local node=self.nodeChain[k]
+        if lastSegID == 0 and lastSegType == nil then -- first segment
+            firstFlag =true
+            lastSegID = node.segID
+            lastSegType = node.segType.TYPE
+            print("Set first seg")
+        end
+        if node.segType.TYPE == "Straight" and lastSegID ~= node.segID then -- If new straight found
+            --print(node.segType.TYPE,node.segID)
+            local segLen = self:getSegmentLength(node.segID)
+            if segLen < straightThreshold then continue end -- skip over stuff too short
+
+            -- offset first and last nodes
+            firstNode,lastNode = self:findTypeLimits(node.segType.TYPE,node.id) -- Gets first and last node that match selected type
+            offsetFirstNode = getNextIndex(self.nodeChain,firstNode.id,nodeOffset)
+            print("got first node offset",firstNode.id,offsetFirstNode.id,nodeOffset)
+            offsetLastNode = getNextIndex(self.nodeChain,lastNode.id,-nodeOffset)
+            print("got last node offset",lastNode.id,offsetLastNode.id,-nodeOffset)
+            -- Move nodes over
+                -- first node
+            local lastTurnDirection = getSegTurn(firstNode.last.segType.TYPE) -- 1 is right, -1 is left ( IF last turn was right turn, exit point should be on left, inverse segTurn)
+            print("LastTurndirection",lastTurnDirection)
+            --if math.abs(lastTurnDirection) > 1 then -- if last turn was a right, offset to left
+                local maxShiftAmmount = node.width/shiftMaxDiv
+                local segDamp = segLen/2
+                local shiftAmmount = maxShiftAmmount - (maxShiftAmmount/segDamp) -- could possibly Dampen/reduce segLen
+                if shiftAmmount > node.width/2 then print("shift ammount too much last",shiftAmmount) end
+                local desiredTrackPos = node.pos + (node.perpVector * (shiftAmmount * -lastTurnDirection))
+                offsetFirstNode.pos = desiredTrackPos
+                node.pinned = true -- pin/weight?
+                --node.weight = 2.5
+            --end
+
+            -- last node
+            local nextTurnDirection = getSegTurn(lastNode.next.segType.TYPE) -- 1 is right, -1 is left ( IF next turn is right turn, entry point should be on left)
+            print("fistTurnDir",nextTurnDirection)
+            --if math.abs(nextTurnDirection) > 1 then -- if next turn is a right, offset to left
+                local maxShiftAmmount = node.width/shiftMaxDiv
+                local segDamp = segLen/2
+                local shiftAmmount = maxShiftAmmount - (maxShiftAmmount/segDamp) -- could possibly Dampen/reduce segLen
+                if shiftAmmount > node.width/2 then print("shift ammount too much first",shiftAmmount) end
+                local desiredTrackPos = node.pos + (node.perpVector * (shiftAmmount * -nextTurnDirection))
+                offsetFirstNode.pos = desiredTrackPos
+                node.pinned = true -- pin/weight?
+                --node.weight = 2.5
+            --end
+        end
+    end
+    print("Finished racifying line")
+end
+
+
+
 -- Racifying -- Pins nodes at entry/exit points for a more raceline feeling TODO:Dothis...
 function Generator.racifyLine(self) -- Add heuristics? Tries to shif entry and exit nodes 
     print(" raceify line")
@@ -1767,7 +1875,7 @@ function Generator.client_onFixedUpdate( self, timeStep )
             self:quickSmooth(self.smoothAmmount)
             self:generateSegments() --original
             --print("Finished Segment Gen, Optimizing Race line")
-            self:racifyLine() --on hold until further noteice
+            self:racifyLine2() --updated algo
             self:startOptimization()
             
             --self:hardUpdateVisual()
@@ -1875,7 +1983,7 @@ function Generator.startTrackScan(self)
                 self:generateSegments()
                 -- if self.optimize then
                 print("Finished Segment Gen, Optimizing Race line")
-                self:racifyLine() -- Will pin nodes at entry/exit points of chain
+                self:racifyLine2() -- Will pin nodes at entry/exit points of chain
                 self:startOptimization()
                 self:hardUpdateVisual()
                 break
