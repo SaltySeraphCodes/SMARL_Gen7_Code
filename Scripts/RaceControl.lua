@@ -199,6 +199,11 @@ function Control.server_init(self)
     self.dataOutputTimer:start(1)
     self.outputRealTime = false
     
+    self.autoCamera = false
+    self.autoCamDelay = 5
+    self.autoCameraTimer = Timer()
+    self.autoCameraTimer:start(self.autoCamDelay) -- Set auto camera time here
+
     self.timeSplitArray = {} -- each node makes rough split
 
     self.handiCapThreshold = 5 -- how far away before handicap starts
@@ -1142,10 +1147,15 @@ function Control.tickClock(self) -- Just tin case
         self.resetCarTimer:tick()
         self.globalTimer = floorCheck
         self.dataOutputTimer:tick()
+        self.autoCameraTimer:tick()
         --print(self.dataOutputTimer:remaining())
         if self.dataOutputTimer:done() and not self.raceFinished then
             self:sv_performTimedFuncts()
             self.dataOutputTimer:start(2)
+        end
+        if self.autoCameraTimer:done() then
+            self:sv_performAutoCam()
+            self.autoCameraTimer:start(self.autoCamDelay) -- Remove this and move into actual function
         end
         
     else
@@ -1163,6 +1173,17 @@ function Control.sv_performTimedFuncts(self)
         self:sv_output_allRaceData()
         --self:manualOutputData()
     end
+end
+
+function Control.sv_performAutoCam(self)
+    print("Checking autocam")
+    local sorted_drivers = getDriversByCameraPoints()
+    print("Drivers",sorted_drivers)
+    if #sorted_drivers < 1 then return end
+    local firstDriver = getDriverFromId(sorted_drivers[1])
+    print("got winning driver",firstDriver.tagText,sorted_drivers[1]['points'])
+    -- If firstdriver is the same as last first driver (current focus, do not reset timer)
+    -- else set driver as focus and reset autocamTimer
 end
 
 

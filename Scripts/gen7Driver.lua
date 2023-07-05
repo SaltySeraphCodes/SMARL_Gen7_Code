@@ -187,6 +187,9 @@ function Driver.server_init( self )
     self.carRadar = { front = 0, rear = 0, left = 0, right = 0 }
     self.carAlongSide = {left = 0, right = 0} -- triggers -1,1 if there is a car directly alongside somewhat closely
     self.opponentFlags = {} -- list of opponents and flags
+    
+    self.cameraPoints = 0 -- points for auto focusing camera
+    
     --self.engine = nil -- gets loaded from engine
 
     -- Car Control attributes
@@ -5072,9 +5075,23 @@ if formationPos then
 
 function Driver.updateCarData(self) -- Updates all metadata car may need (server)
     --print(self.tagText,self.followStrength)
+    self.cameraPoints = 0 -- Reset camera points 
+
+    -- get car pos
+    self.cameraPoints = self.cameraPoints + 1/self.racePosition -- race position (default 1)
+
+    -- get cars in range
+    local carsInRange = getDriversInDistance(self,20)
+    print(self.tagText,#carsInRange)
+    self.cameraPoints = self.cameraPoints + #carsInRange/1 -- cars in range (default 1?)
+
     if self.passing.isPassing then
         --print(self.tagText,"passing")-- get who?
+        self.cameraPoints = self.cameraPoints + 1 -- Set points for passing attempt (default 1)
+        local opp = getDriverFromId(self.passing.carID)
+        self.cameraPoints = self.cameraPoints +  (1/opp.racePosition) -- More points for race positions (multiplier? 2)
     end
+
     if self.shape:getBody():isStatic() then -- car on lift
         self.onLift = true
         self.nodeFindTimeout =0 -- --TODO: I think this may cause issues if car has failed scan while on lift during race reset??
@@ -5171,9 +5188,13 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     self.velocity = sm.shape.getVelocity(self.shape)
     self.angularVelocity = self.body.angularVelocity
     if math.abs(self.speed - self.velocity:length()) > 2 then
-        --print(self.tagText,"crash detected",self.speed,self.velocity:length())
+        self.cameraPoints = self.cameraPoints +  0.2 -- might be too short lived to be seen
+        print(self.tagText,"crash detected",self.speed,self.velocity:length(),self.cameraPoints)
     end
+
     self.speed = self.velocity:length()
+    -- Camera Points for top speed??
+
     self.futureLook = self:calculateFutureTurn()
     --print(self.speed,self.curGear,self.engine.VRPM)
     self.trackPosition = self:calculateTrackPos()
@@ -5187,6 +5208,16 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     if self.speed <= 13 then
         --print(self.id,"slow",self.curGear,self.engine.VRPM,self.speed,self.strategicThrottle)
     end
+
+    -- Camera points for being stuck
+    if self.stuck then
+        self.cameraPoints = self.cameraPoints + 1
+    end
+
+    -- Camera points when reaching finish line
+    -- GEt current lap and total lap, set camera points as ratio of total
+
+    print(self.tagText,"Cps",self.cameraPoints)
     if self.racing then
         self:determineRacePos()
         self:checkLapCross()

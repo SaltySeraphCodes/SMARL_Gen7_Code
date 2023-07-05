@@ -15,6 +15,7 @@ MAX_STEER_VALUE = 50 -- maximum angle car can turn wheels
 ALL_DRIVERS = {} -- contains all constantly updating information of each driver, can be read from anywhere that imports globals.lua (updated dynamically)
 RACE_CONTROL = nil -- Contains race control Object
 ALL_CAMERAS = {}
+CAMERA_LEADERS = {} -- car ids and car points
 -- HARD LIMITS no engine can go past this on acident
 ENGINE_SPEED_LIMIT = 200 -- Car should never get this high anyways but just in case
 
@@ -464,7 +465,20 @@ function getAllDrivers()
     return ALL_DRIVERS
 end
 
-function getDriversFromIdList(idList)
+
+function getDriversByCameraPoints() -- grabs drivers sorted by points
+    driverArr = {}
+    for k=1, #ALL_DRIVERS do local driver=ALL_DRIVERS[k]
+		local camPoints = driver.cameraPoints
+        if driver ~= nil then
+            table.insert(driverArr,{driver=driver.id,points=camPoints})
+        end
+	end
+    outputArr = sortRacersByCameraPoints(driverArr)
+    return outputArr
+end
+
+function getDriversFromIdList(idList) -- game id
     local driverList = {}
     for k=1, #idList do local v=idList[k]
 		local driver = getDriverFromId(v)
@@ -477,7 +491,7 @@ function getDriversFromIdList(idList)
     return driverList
 end
 
-function getDriversFromMetaIdList(idList)
+function getDriversFromMetaIdList(idList) -- car meta
     local driverList = {}
     for k=1, #idList do local v=idList[k]
 		local driver = getDriverFromMetaId(v)
@@ -1186,6 +1200,10 @@ function sortRacersByRacePos(inTable)
 	return table.sort(inTable, racePosCompare)
 end
 
+function sortRacersByCameraPoints(inTable)
+    print("sorting racer by points")
+    return table.sort(inTable,cameraPointCompare)
+
 function racerIDCompare(a,b)
 	return a['id'] < b['id']
 end 
@@ -1194,6 +1212,9 @@ function racePosCompare(a,b)
 	return a['racePosition'] < b['racePosition']
 end 
 
+function cameraPointCompare(a,b)
+    return a['points'] < b['points']
+end
 -- Need a check min or some way to figure out which is which
 -- *See SMARL FRICTION RESEARCH for data chart
 print("loaded globals and helpers")
