@@ -727,6 +727,9 @@ end
 
 -- More node stuff
 function getSegment(nodeChain,first,last) -- Shoves first node and last node into a list Possibly Rename to CollectSegment
+    if first.id > last.id then -- causes issues, but needs to be possible due to finish line crossover
+        print("getSeg possible flipflop",first.id,last.id)
+    end
     local segList = {}
     local node = first
     while node.id ~= last.id do
@@ -809,10 +812,14 @@ function defineSegmentType(segment) -- defines a segment based off of invector a
 end
 
 function setSegmentType(segment,stype,curve,segID) -- Sets all nodes in segment to specified {type}
+    --print("setting seg type global",segID,segment[1].id,segment[#segment].id)
     for k=1, #segment do local node=segment[k]
         node.segType = stype
         node.segCurve = curve
+        --print("setting node ide",node.id,segID)
         node.segID = segID
+        --print("after node ide",node.id,segID)
+
     end
     if #segment == 1 then
         --print("single set seg",segID,segment[1].id,segment[1].segType.TYPE,segment[1].segID)

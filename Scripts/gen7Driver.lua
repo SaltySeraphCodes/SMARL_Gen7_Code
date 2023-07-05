@@ -4131,7 +4131,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local wallSteer = 0
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
-        if dist <= 9 then
+        if dist <= 7 then
             wallSteer = ratioConversion(8,0,0.06,0,dist)  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
         end
@@ -4143,7 +4143,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 9  then
+        if dist <= 7  then
             --print("left",dist)
             wallSteer = ratioConversion(8,0,0.08,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",wallSteer)
@@ -4175,7 +4175,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 10 then
+        if dist <= 7 then
             --print("left",dist)
             wallSteer = wallSteer +  ratioConversion(10,0,0.15,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",walStwallSteereer)
@@ -4190,7 +4190,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local trackAdj = 0
     --if self.trackPosition == nil then return end
     local tDist = sideLimit - math.abs(self.trackPosition)
-    if tDist <10 then
+    if tDist <7 then
         if self.trackPosition > 0 then
             trackAdj = ratioConversion(8,0,0.095,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
         else
