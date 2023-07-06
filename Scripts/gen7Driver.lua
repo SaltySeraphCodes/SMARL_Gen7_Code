@@ -317,7 +317,7 @@ function Driver.server_init( self )
     --print(self.shape.at)
     self.creationId = self.body:getCreationId()
     self.player = nil -- host player
-	print("SMAR Load",self.id,self.carData['metaData'])
+	print("Loading Driver",self.id,self.tagText,self.carData['metaData'])
      -- Insert into global allDrivers so everyone has access Possibly have a public/private section?
 end
 
@@ -5087,7 +5087,9 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
         --print(self.tagText,"passing")-- get who?
         self.cameraPoints = self.cameraPoints + 1 -- Set points for passing attempt (default 1)
         local opp = getDriverFromId(self.passing.carID)
-        self.cameraPoints = self.cameraPoints +  (1/opp.racePosition) -- More points for race positions (multiplier? 2)
+        if opp then
+            self.cameraPoints = self.cameraPoints +  (1/opp.racePosition) -- More points for race positions (multiplier? 2)
+        end
     end
 
     if self.shape:getBody():isStatic() then -- car on lift
@@ -5187,7 +5189,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     self.angularVelocity = self.body.angularVelocity
     if math.abs(self.speed - self.velocity:length()) > 2 then
         self.cameraPoints = self.cameraPoints +  0.2 -- might be too short lived to be seen
-        print(self.tagText,"crash detected",self.cameraPoints)
+        --print(self.tagText,"crash detected",self.cameraPoints)
     end
 
     self.speed = self.velocity:length()

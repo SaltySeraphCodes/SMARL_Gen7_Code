@@ -1155,7 +1155,7 @@ function Control.tickClock(self) -- Just tin case
         end
         if self.autoCameraTimer:done() then
             self:sv_performAutoCam()
-            self.autoCameraTimer:start(self.autoCamDelay) -- Remove this and move into actual function
+            --self.autoCameraTimer:start(self.autoCamDelay) -- Remove this and move into actual function
         end
         
     else
@@ -1175,18 +1175,32 @@ function Control.sv_performTimedFuncts(self)
     end
 end
 
-function Control.sv_performAutoCam(self)
-    print("Checking autocam")
+function Control.sv_performAutoCam(self) -- auto camera focusing
     local sorted_drivers = getDriversByCameraPoints()
-    print("Drivers",sorted_drivers)
     if sorted_drivers == nil then return end
     if #sorted_drivers < 1 then return end
-    local firstDriver = getDriverFromId(sorted_drivers[1])
-    print("got winning driver",firstDriver.tagText,sorted_drivers[1]['points'])
+    local firstDriver = getDriverFromId(sorted_drivers[1].driver)
+    --print("got winning driver",firstDriver.tagText,sorted_drivers[1]['points'])
     -- If firstdriver is the same as last first driver (current focus, do not reset timer)
+    if self.focusedRacerID and self.focusedRacerID == firstDriver.id then
+        --print("repeat driver",firstDriver.tagText) -- does not change focus or reset timer
+    else
+        --print("new driver",firstDriver.tagText)
+        self.network:sendToClients("cl_setCameraFocus",firstDriver.id)
+
+        self.autoCameraTimer:start(self.autoCamDelay)
+    end
     -- else set driver as focus and reset autocamTimer
 end
 
+
+function Control.sv_performAutoSwitch(self) -- auto camera switching to closest or different view
+    if self.currentCamera and self.focusedRacerData then
+        local distFromCamera = getDistance(self.currentCamera.location,self.focusedRacerData.location)
+        print(self.tagText,"Dist from cam",distFromCamera)
+    end
+    -- TODO: Finish this (of all cameras, get closest one to racer, if inbetween, switch to drone or onboard?)
+end
 
 function Control.client_onInteract(self,character,state)
     --sm.camera.setShake(1)
@@ -1549,7 +1563,7 @@ function Control.cl_cycleFocus(self,direction) -- Cycle Which racer to Focus on 
 	self:focusAllCameras(nextRacer) -- TODO: get this
 end
 
-function Control.focusCameraOnPos(self,racePos) -- Grabs Racers from racerData by RacerID, pulls racer
+function Control.focusCameraOnPos(self,racePos) -- CL Grabs Racers from racerData by RacerID, pulls racer
 	--print("finding drive rby pos",racePos)
     local racer = getDriverByPos(racePos) -- Racer Index is just populated as they are added in
 	if racer == nil then
@@ -1580,7 +1594,7 @@ function Control.focusCameraOnPos(self,racePos) -- Grabs Racers from racerData b
 	self:focusAllCameras(racer)
 end
 
-function Control.focusCameraOnRacerIndex(self,id) -- Grabs Racers from racerData by RacerID, pulls racer
+function Control.focusCameraOnRacerIndex(self,id) -- CL Grabs Racers from racerData by RacerID, pulls racer
 	local racer = getDriverFromId(id) -- Racer Index is just populated as they are added in
 	if racer == nil then
 		print("Camera Focus on racer index Error")
@@ -1590,6 +1604,7 @@ function Control.focusCameraOnRacerIndex(self,id) -- Grabs Racers from racerData
 		print("Racer has no RacePos",racer.id)
 		return
 	end
+    self.network:sendToServer("sv_setFocused",self.focusedRacerID)
 	self.focusedRacerData = racer
 	self.focusedRacePos = racer.racePosition
 	self.focusedRacerID = racer.id
@@ -1792,6 +1807,10 @@ end
 
 function Control.sv_cycleCamera(self,direciton) -- calls iterate camera
     self.network:sendToClients("cl_cycleCamera",direciton)
+end
+
+function Control.cl_setCameraFocus(self,id) -- calls to set camera to focus on id
+    self:focusCameraOnRacerIndex(id)
 end
 
 function Control.cl_cycleCamera(self, direction)

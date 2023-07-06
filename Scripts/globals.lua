@@ -467,17 +467,17 @@ end
 
 
 function getDriversByCameraPoints() -- grabs drivers sorted by points
-    driverArr = {}
+    local driverArr = {}
     for k=1, #ALL_DRIVERS do local driver=ALL_DRIVERS[k]
 		local camPoints = driver.cameraPoints
         if driver ~= nil then
-            print("inserting driver",driver.id,camPoints)
+            --print("inserting driver",driver.id,camPoints)
             table.insert(driverArr,{driver=driver.id,points=camPoints})
         end
 	end
-    print("sorting",driverArr)
-    outputArr = sortRacersByCameraPoints(driverArr)
-    print("sorted",outputArr)
+    --print("sorting",driverArr)
+    local outputArr = sortRacersByCameraPoints(driverArr)
+    --print("sorted",outputArr)
     return outputArr
 end
 
@@ -1199,13 +1199,13 @@ end
 
 ---- Racer meta data helps
 function sortRacersByRacePos(inTable)
-	print("Sorting Racers")
-	return table.sort(inTable, racePosCompare)
+    table.sort(inTable, racePosCompare)
+	return inTable
 end
 
 function sortRacersByCameraPoints(inTable)
-    print("sorting racer by points")
-    return table.sort(inTable,cameraPointCompare)
+    table.sort(inTable,cameraPointCompare)
+    return inTable
 end
 
 function racerIDCompare(a,b)
@@ -1216,8 +1216,8 @@ function racePosCompare(a,b)
 	return a['racePosition'] < b['racePosition']
 end 
 
-function cameraPointCompare(a,b)
-    return a['points'] < b['points']
+function cameraPointCompare(a,b) -- sort so biggest is first
+    return a['points'] > b['points']
 end
 -- Need a check min or some way to figure out which is which
 -- *See SMARL FRICTION RESEARCH for data chart

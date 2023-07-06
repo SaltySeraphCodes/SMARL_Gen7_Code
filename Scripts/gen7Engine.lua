@@ -89,7 +89,7 @@ end
 
 function Engine.client_init(self)
     if self.engineNoiseEnabled then 
-        print("loading effect")
+        -- print("loading effect")
         self.effect = sm.effect.createEffect("GasEngine - Level 3", self.interactable )
         self.effect:setParameter("gas", 1 )
         if self.effect then
@@ -363,7 +363,7 @@ function Engine.updateEffect(self) -- TODO: Un comment this when ready
         --print("not playing but racing so reset")
         --print("Reset effect")
        -- self:cl_resetEngine()
-       print("race on and not playing? start")
+       --print("race on and not playing? start")
        self.effect:start()
     end
  
@@ -480,7 +480,7 @@ end
 
 function Engine.cl_setNoDriver(self,param) -- sets no driver to clients -- Separate out between?>
     self.noDriverError = param
-    print( "Driver " .. (param and "Not Detected" or "Detected"))
+    print( "Engine: Driver " .. (param and "Not Detected" or "Detected"))
 end
 
 
