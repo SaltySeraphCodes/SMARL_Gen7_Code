@@ -1509,12 +1509,16 @@ end
 function Control.sv_setFocused(self,last_racerID) -- sv conflicting race condition sometimes??
     if last_racerID ~= nil then
         local racer = getDriverFromId(last_racerID)
-        racer.isFocused = false
+        if racer then
+            racer.isFocused = false
+        end
     end
     
     if self.focusedRacerData ~= nil then
         local racer = getDriverFromId(self.focusedRacerData.id)
-        racer.isFocused = true
+        if racer then
+            racer.isFocused = true
+        end
     end
 end
 

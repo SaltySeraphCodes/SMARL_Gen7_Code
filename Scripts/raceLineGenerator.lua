@@ -93,7 +93,7 @@ function Generator.client_init( self )  -- Only do if server side???
     self.debug =true  -- Debug flag
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
-    self.racifyLineOpt = false -- Makes racing line more "racelike"
+    self.racifyLineOpt = true -- Makes racing line more "racelike"
     self.asyncTimeout = 0-- Scan speed [0 fast, 1 = 1per sec]
     self.asyncTimeout2 = 0 -- optimization speed
     -- error states
@@ -1243,14 +1243,14 @@ end
 -- MainLoop and interaction Functions
 
 
--- New ALgo? 
+-- New ALgo?1
 
 -- Working algorithm that is much better at pinning apex/turn efficient points
 function Generator.racifyLine(self)
     local straightThreshold = 10 -- Minimum length of nodes a straight has to be
-    local nodeOffset = 4 -- number of nodes forward/backwards to pin (cannot be > straightLen/2)
-    local shiftAmmount = 0.1  -- Maximum node pin shiftiging amound (>2)
-
+    local nodeOffset = 5 -- number of nodes forward/backwards to pin (cannot be > straightLen/2)
+    local shiftAmmount = 0.11  -- Maximum node pin shiftiging amound (>2)
+    local lockWeight = 5
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
     -- Find straight
@@ -1283,14 +1283,14 @@ function Generator.racifyLine(self)
                 desiredTrackPos = offsetFirstNode.pos + (offsetFirstNode.perpVector * (shiftAmmount * -getSign(lastTurnDirection)))
                 offsetFirstNode.pos = desiredTrackPos
                 offsetFirstNode.pinned = true -- pin/weight?
-                offsetFirstNode.weight = 3
+                offsetFirstNode.weight = lockWeight
                 
                 local nextTurnDirection = getSegTurn(lastNode.next.segType.TYPE) -- 1 is right, -1 is left ( IF next turn is right turn, entry point should be on left)
                 desiredTrackPos = offsetLastNode.pos
                 desiredTrackPos = offsetLastNode.pos + (offsetLastNode.perpVector * (shiftAmmount * -getSign(nextTurnDirection)))
                 offsetLastNode.pos = desiredTrackPos
                 offsetLastNode.pinned = true -- pin/weight?
-                offsetLastNode.weight = 3
+                offsetLastNode.weight = lockWeight
             end 
             -- else print "too short"
         end
@@ -1548,7 +1548,7 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
 
         -- Calculate two directions to go and check maxVest
         
-        local changeDirection1 = perpV * 1--sumHoz
+        local changeDirection1 = perpV * 1.6--sumHoz
         if v.weight > 1 then
             --print("Moving",self.dampening/v.weight,v.pinned)
         end
@@ -1567,7 +1567,7 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
 
         -- which bigger? -- Do something about straight tyhrehshold??
         if not v.pinned then -- only if point isn't pinned down
-            if maxV1 > maxV2 + 0.02 then 
+            if maxV1 > maxV2 + 0.012 then 
                 --if maxV1 > maxV then
                     if validChange(v.pos,changeDirection1,v) then
                         --print(v.id,"Faster line 1",maxV1)
@@ -1578,7 +1578,7 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
                 --end
             end
 
-            if maxV2 > maxV1 + 0.02 then
+            if maxV2 > maxV1 + 0.012 then
                 --if maxV2 > maxV then
                     if validChange(v.pos,changeDirection2,v) then
                         --print(v.id,"Faster line 2",maxV2)
@@ -1600,14 +1600,14 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
 
     local dif = math.abs(totalForce - self.totalForce)
     local sdif = avgVmax - self.avgSpeed
-    --print(string.format("dif = %.3f , %.5f",dif,math.abs(dif - self.lastDif)))
+    print(string.format("dif = %.3f , %.5f",dif,math.abs(dif - self.lastDif)))
     --self.smoothEqualCount = self.smoothEqualCount + 1
 
     
-    if math.abs(dif - self.lastDif) < 0.002 then
+    if math.abs(dif - self.lastDif) < 0.01 then
         --print("smooth",self.dampening)
         self.dampening = self.dampening/ 1.2
-        self.smoothEqualCount = self.smoothEqualCount + 0.5
+        self.smoothEqualCount = self.smoothEqualCount + 0.4
     end
 
     if self.smoothEqualCount >= 5 then
