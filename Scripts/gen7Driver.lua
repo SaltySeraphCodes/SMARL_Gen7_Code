@@ -5076,15 +5076,13 @@ if formationPos then
 function Driver.updateCarData(self) -- Updates all metadata car may need (server)
     --print(self.tagText,self.followStrength)
     self.cameraPoints = 0 -- Reset camera points 
-
     -- get car pos
-    self.cameraPoints = self.cameraPoints + 1/self.racePosition -- race position (default 1)
-
+    if self.racePosition > 0 then
+        self.cameraPoints = self.cameraPoints + 1/self.racePosition -- race position (default 1)
+    end
     -- get cars in range
     local carsInRange = getDriversInDistance(self,20)
-    print(self.tagText,#carsInRange)
     self.cameraPoints = self.cameraPoints + #carsInRange/1 -- cars in range (default 1?)
-
     if self.passing.isPassing then
         --print(self.tagText,"passing")-- get who?
         self.cameraPoints = self.cameraPoints + 1 -- Set points for passing attempt (default 1)
@@ -5189,7 +5187,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     self.angularVelocity = self.body.angularVelocity
     if math.abs(self.speed - self.velocity:length()) > 2 then
         self.cameraPoints = self.cameraPoints +  0.2 -- might be too short lived to be seen
-        print(self.tagText,"crash detected",self.speed,self.velocity:length(),self.cameraPoints)
+        print(self.tagText,"crash detected",self.cameraPoints)
     end
 
     self.speed = self.velocity:length()
@@ -5217,14 +5215,14 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     -- Camera points when reaching finish line
     -- GEt current lap and total lap, set camera points as ratio of total
 
-    print(self.tagText,"Cps",self.cameraPoints)
     if self.racing then
         self:determineRacePos()
         self:checkLapCross()
     end
     --print(self.mass)
     -- update Current states
-   
+    --print(self.tagText,"End loop",self.cameraPoints)
+
 end
 
 function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead (server)

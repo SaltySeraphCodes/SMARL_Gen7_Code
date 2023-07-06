@@ -471,10 +471,13 @@ function getDriversByCameraPoints() -- grabs drivers sorted by points
     for k=1, #ALL_DRIVERS do local driver=ALL_DRIVERS[k]
 		local camPoints = driver.cameraPoints
         if driver ~= nil then
+            print("inserting driver",driver.id,camPoints)
             table.insert(driverArr,{driver=driver.id,points=camPoints})
         end
 	end
+    print("sorting",driverArr)
     outputArr = sortRacersByCameraPoints(driverArr)
+    print("sorted",outputArr)
     return outputArr
 end
 
@@ -1203,6 +1206,7 @@ end
 function sortRacersByCameraPoints(inTable)
     print("sorting racer by points")
     return table.sort(inTable,cameraPointCompare)
+end
 
 function racerIDCompare(a,b)
 	return a['id'] < b['id']

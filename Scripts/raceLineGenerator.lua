@@ -414,7 +414,6 @@ function Generator.findTypeLimits(segType,startNode) -- similar to get segment b
     return firstNode,lastNode
 end 
  
-end
 
 function Generator.getSegmentLength(self,segID) --Returns a list of nodes that are in a segment, (could be out of order) (altered binary search??)
     local node = self:getSegmentBegin(segID)
@@ -1247,42 +1246,43 @@ function Generator.racifyLine2(self)
         if node.segType.TYPE == "Straight" and lastSegID ~= node.segID then -- If new straight found
             --print(node.segType.TYPE,node.segID)
             local segLen = self:getSegmentLength(node.segID)
-            if segLen < straightThreshold then continue end -- skip over stuff too short
+            if segLen > straightThreshold then --- skip things too short
+                -- offset first and last nodes
+                firstNode,lastNode = self:findTypeLimits(node.segType.TYPE,node.id) -- Gets first and last node that match selected type
+                offsetFirstNode = getNextIndex(self.nodeChain,firstNode.id,nodeOffset)
+                print("got first node offset",firstNode.id,offsetFirstNode.id,nodeOffset)
+                offsetLastNode = getNextIndex(self.nodeChain,lastNode.id,-nodeOffset)
+                print("got last node offset",lastNode.id,offsetLastNode.id,-nodeOffset)
+                -- Move nodes over
+                    -- first node
+                local lastTurnDirection = getSegTurn(firstNode.last.segType.TYPE) -- 1 is right, -1 is left ( IF last turn was right turn, exit point should be on left, inverse segTurn)
+                print("LastTurndirection",lastTurnDirection)
+                --if math.abs(lastTurnDirection) > 1 then -- if last turn was a right, offset to left
+                    local maxShiftAmmount = node.width/shiftMaxDiv
+                    local segDamp = segLen/2
+                    local shiftAmmount = maxShiftAmmount - (maxShiftAmmount/segDamp) -- could possibly Dampen/reduce segLen
+                    if shiftAmmount > node.width/2 then print("shift ammount too much last",shiftAmmount) end
+                    local desiredTrackPos = node.pos + (node.perpVector * (shiftAmmount * -lastTurnDirection))
+                    offsetFirstNode.pos = desiredTrackPos
+                    node.pinned = true -- pin/weight?
+                    --node.weight = 2.5
+                --end
 
-            -- offset first and last nodes
-            firstNode,lastNode = self:findTypeLimits(node.segType.TYPE,node.id) -- Gets first and last node that match selected type
-            offsetFirstNode = getNextIndex(self.nodeChain,firstNode.id,nodeOffset)
-            print("got first node offset",firstNode.id,offsetFirstNode.id,nodeOffset)
-            offsetLastNode = getNextIndex(self.nodeChain,lastNode.id,-nodeOffset)
-            print("got last node offset",lastNode.id,offsetLastNode.id,-nodeOffset)
-            -- Move nodes over
-                -- first node
-            local lastTurnDirection = getSegTurn(firstNode.last.segType.TYPE) -- 1 is right, -1 is left ( IF last turn was right turn, exit point should be on left, inverse segTurn)
-            print("LastTurndirection",lastTurnDirection)
-            --if math.abs(lastTurnDirection) > 1 then -- if last turn was a right, offset to left
-                local maxShiftAmmount = node.width/shiftMaxDiv
-                local segDamp = segLen/2
-                local shiftAmmount = maxShiftAmmount - (maxShiftAmmount/segDamp) -- could possibly Dampen/reduce segLen
-                if shiftAmmount > node.width/2 then print("shift ammount too much last",shiftAmmount) end
-                local desiredTrackPos = node.pos + (node.perpVector * (shiftAmmount * -lastTurnDirection))
-                offsetFirstNode.pos = desiredTrackPos
-                node.pinned = true -- pin/weight?
-                --node.weight = 2.5
-            --end
-
-            -- last node
-            local nextTurnDirection = getSegTurn(lastNode.next.segType.TYPE) -- 1 is right, -1 is left ( IF next turn is right turn, entry point should be on left)
-            print("fistTurnDir",nextTurnDirection)
-            --if math.abs(nextTurnDirection) > 1 then -- if next turn is a right, offset to left
-                local maxShiftAmmount = node.width/shiftMaxDiv
-                local segDamp = segLen/2
-                local shiftAmmount = maxShiftAmmount - (maxShiftAmmount/segDamp) -- could possibly Dampen/reduce segLen
-                if shiftAmmount > node.width/2 then print("shift ammount too much first",shiftAmmount) end
-                local desiredTrackPos = node.pos + (node.perpVector * (shiftAmmount * -nextTurnDirection))
-                offsetFirstNode.pos = desiredTrackPos
-                node.pinned = true -- pin/weight?
-                --node.weight = 2.5
-            --end
+                -- last node
+                local nextTurnDirection = getSegTurn(lastNode.next.segType.TYPE) -- 1 is right, -1 is left ( IF next turn is right turn, entry point should be on left)
+                print("fistTurnDir",nextTurnDirection)
+                --if math.abs(nextTurnDirection) > 1 then -- if next turn is a right, offset to left
+                    local maxShiftAmmount = node.width/shiftMaxDiv
+                    local segDamp = segLen/2
+                    local shiftAmmount = maxShiftAmmount - (maxShiftAmmount/segDamp) -- could possibly Dampen/reduce segLen
+                    if shiftAmmount > node.width/2 then print("shift ammount too much first",shiftAmmount) end
+                    local desiredTrackPos = node.pos + (node.perpVector * (shiftAmmount * -nextTurnDirection))
+                    offsetFirstNode.pos = desiredTrackPos
+                    node.pinned = true -- pin/weight?
+                    --node.weight = 2.5
+                --end
+            end 
+            -- else print "too short"
         end
     end
     print("Finished racifying line")

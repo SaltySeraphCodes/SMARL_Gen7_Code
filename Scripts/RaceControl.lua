@@ -1179,6 +1179,7 @@ function Control.sv_performAutoCam(self)
     print("Checking autocam")
     local sorted_drivers = getDriversByCameraPoints()
     print("Drivers",sorted_drivers)
+    if sorted_drivers == nil then return end
     if #sorted_drivers < 1 then return end
     local firstDriver = getDriverFromId(sorted_drivers[1])
     print("got winning driver",firstDriver.tagText,sorted_drivers[1]['points'])
