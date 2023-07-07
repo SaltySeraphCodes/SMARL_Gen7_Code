@@ -199,10 +199,16 @@ function Control.server_init(self)
     self.dataOutputTimer:start(1)
     self.outputRealTime = false
     
-    self.autoCamera = false
-    self.autoCamDelay = 5
-    self.autoCameraTimer = Timer()
-    self.autoCameraTimer:start(self.autoCamDelay) -- Set auto camera time here
+    -- Camera automation
+    self.autoCameraFocus = false
+    self.autoCameraSwitch = false -- toggle automated camera things
+    self.autoFocusDelay = 15
+    self.autoSwitchDelay = 5
+
+    self.autoFocusTimer = Timer()
+    self.autoFocusTimer:start(self.autoFocusDelay) -- Set auto camera time here
+    self.autoSwitchTimer = Timer()
+    self.autoSwitchTimer:start(self.autoSwitchDelay) -- Set auto camera time here
 
     self.timeSplitArray = {} -- each node makes rough split
 
@@ -940,7 +946,7 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
                 --print("racecam mode",self.currentCamera,#ALL_CAMERAS)
                 if #ALL_CAMERAS > 0 and self.currentCamera == nil then
                     --print("swittchingto camera 1")
-                    self:switchToCamera(1) -- go to first camera
+                    self:switchToCameraIndex(1) -- go to first camera
                 end
             end
         end
@@ -1147,15 +1153,20 @@ function Control.tickClock(self) -- Just tin case
         self.resetCarTimer:tick()
         self.globalTimer = floorCheck
         self.dataOutputTimer:tick()
-        self.autoCameraTimer:tick()
-        --print(self.dataOutputTimer:remaining())
+        self.autoFocusTimer:tick()
+        self.autoSwitchTimer:tick()
+        --print(self.autoFocusTimer:remaining(),self.autoSwitchTimer:remaining())
         if self.dataOutputTimer:done() and not self.raceFinished then
             self:sv_performTimedFuncts()
             self.dataOutputTimer:start(2)
         end
-        if self.autoCameraTimer:done() then
-            self:sv_performAutoCam()
-            --self.autoCameraTimer:start(self.autoCamDelay) -- Remove this and move into actual function
+        if self.autoCameraFocus and self.autoFocusTimer:done() then
+            self:sv_performAutoFocus()
+            self:sv_performAutoSwitch()
+        end
+        if self.autoCameraSwitch and self.autoSwitchTimer:done() then
+            self:sv_performAutoSwitch()
+            -- randomly add or decrease switch time
         end
         
     else
@@ -1175,7 +1186,8 @@ function Control.sv_performTimedFuncts(self)
     end
 end
 
-function Control.sv_performAutoCam(self) -- auto camera focusing
+function Control.sv_performAutoFocus(self) -- auto camera focusing
+    --print("auto focus")
     local sorted_drivers = getDriversByCameraPoints()
     if sorted_drivers == nil then return end
     if #sorted_drivers < 1 then return end
@@ -1187,20 +1199,58 @@ function Control.sv_performAutoCam(self) -- auto camera focusing
     else
         --print("new driver",firstDriver.tagText)
         self.network:sendToClients("cl_setCameraFocus",firstDriver.id)
-
-        self.autoCameraTimer:start(self.autoCamDelay)
+        --print("restart timer",self.autoFocusDelay)
+        self.autoFocusTimer:start(self.autoFocusDelay)
     end
     -- else set driver as focus and reset autocamTimer
 end
 
 
-function Control.sv_performAutoSwitch(self) -- auto camera switching to closest or different view
-    if self.currentCamera and self.focusedRacerData then
-        local distFromCamera = getDistance(self.currentCamera.location,self.focusedRacerData.location)
-        print(self.tagText,"Dist from cam",distFromCamera)
+function Control.sv_performAutoSwitch(self) -- auto camera switching to closest or different view -- TODO: add param of input
+    --print('auto switch')
+    if self.focusedRacerData then
+        local focusRacerPos = self.focusedRacerData.location
+        local camerasInDist = self:getCamerasClose(focusRacerPos) -- returns list of cameras close to specified distance
+        local closestCam = camerasInDist[1]
+        if closestCam == nil then return end
+        local distFromCamera = closestCam.distance
+        local chosenCamera = closestCam.camera
+        --print(self.focusedRacerData.tagText,"Dist from cam",distFromCamera,chosenCamera.cameraID)
+        -- TODO: add filtering here LOS: raycast, if there is no cameras close or have visibility, switch to drone/onboard
+        local distanceCutoff = 60 -- threshold from camera to switch to drone
+        
+        if distFromCamera > distanceCutoff then
+            local mode = math.random(2, 4) -- random for now but can add heuristic to switch
+            --print("random switch",mode)
+            if mode == 2 then mode = 1 end
+            self:sv_toggleCameraMode(mode)
+        end
+
+        if self.currentCamera and self.currentCamera.cameraID == chosenCamera.cameraID then
+            --print("same camera")
+        else
+            --print('switching to')
+            self.network:sendToClients("cl_switchCamera",chosenCamera.cameraID)
+            --print("restarting cam",self.autoSwitchDelay)
+            self.autoFocusTimer:start(self.autoFocusDelay/2) -- restart focus timer but not as long
+        end
+        self.autoSwitchTimer:start(self.autoSwitchDelay) -- re does delay anyways
     end
-    -- TODO: Finish this (of all cameras, get closest one to racer, if inbetween, switch to drone or onboard?)
+    
 end
+
+-- TODO: Create autoZoom that zooms in on "further racers"
+
+function Control.sv_setAutoFocus(self,value)
+    self.autoCameraFocus = value
+    print("Setting auto focus",self.autoCameraFocus)
+end
+
+function Control.sv_setAutoSwitch(self,value)
+    self.autoCameraSwitch = value
+    print("Setting auto switch",self.autoCameraSwitch)
+end
+
 
 function Control.client_onInteract(self,character,state)
     --sm.camera.setShake(1)
@@ -1306,10 +1356,12 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
             if convertedIndex >=4 then shifter = 3 end
             if convertedIndex >=7 then shifter = 7 end
             local racePos = convertedIndex + shifter
+            self.network:sendToServer("sv_setAutoFocus",false)
             self:focusCameraOnPos(racePos)
 		else -- Direct switch to camera number (up to 10)
             self.camTransTimer = 1
-            self:switchToCamera(convertedIndex)
+            self.network:sendToServer("sv_setAutoSwitch",false)
+            self:switchToCameraIndex(convertedIndex)
 		end
 		
 	elseif key == 15 then -- 'E' Pressed
@@ -1372,7 +1424,6 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 	end
 	return true
 end
-
 
 -- JSON 
 function Control.sv_readZoomJson(self) -- BETTER IDEA: only begin reading when keypress unrecognized
@@ -1475,16 +1526,32 @@ function Control.sv_ReadJson(self)
             elseif instruction == "camCycle" then
                 local direction = instructions['value']
                 print("cam cycing",direction)
-                
                 self:sv_cycleCamera(direction)
             elseif instruction == "cMode" then
                 local mode = tonumber(instructions['value'])
-                --print("toggle camera mode")
+                --print("toggle camera mode") 
+                -- turn off auto switch??
                 self:sv_toggleCameraMode(mode)
             elseif instruction == "raceMode" then -- 0 is stop, 1 is go, 2 is caution? 3 is formation
                 local raceMode = tonumber(instructions['value'])
                 --print("changing mraceMode",raceMode,sv_toggleRaceMode)
                 self:sv_toggleRaceMode(raceMode)
+            elseif instruction == "autoFocus" then -- turn on/off auto focus
+                print('set auto focus',instructions)
+                local mode = tonumber(instructions['value'])
+                if mode == 1 then -- turn on auto switch
+                    self.autoCameraFocus = true
+                elseif mode == 2 then -- just run auto focus function once ( or turn off if useless)
+                    self:sv_performAutoFocus()
+                end
+            elseif instruction == "autoSwitch" then
+                print("auto switch",instructions)
+                local mode = tonumber(instructions['value'])
+                if mode == 1 then -- turn on auto switch
+                    self.autoCameraSwitch = true
+                elseif mode == 2 then -- just run auto switch function once ( or turn off if useless)
+                    self:sv_performAutoSwitch()
+                end
             end
             return
         else
@@ -1502,6 +1569,8 @@ end
 
 -- camera and car following stuff
 function Control.sv_cycleFocus(self,direciton) -- calls iterate camera
+    -- turn off automated if on
+    self.autoCameraFocus = false
     self.network:sendToClients("cl_cycleFocus",direciton)
     -- remove isFocused (should be SV)
 end 
@@ -1628,7 +1697,6 @@ function Control.focusCameraOnRacerIndex(self,id) -- CL Grabs Racers from racerD
 	self:focusAllCameras(racer)
 end
 
-
 function Control.setDroneFollowRacerIndex(self,id) -- Tells the drone to follow whatever index it is
 	local racer = getDriverFromId(id) -- Racer Index is just populated as they are added in
 	if racer == nil then
@@ -1707,10 +1775,10 @@ function Control.switchToFinishCam(self) -- Unsure if to make separate cam for t
 end
 
 function Control.toggleDroneCam(self) -- Sets Camera and posistion for drone cam, (no longer toggle, only on)     
-    print("switching to drone")
+    --print("switching to drone")
     --TODO: FAULT, Switching directly from drone mode to Race mode (on sDeck) causes the focus/Goal to be offset. 
     if self.droneLocation == nil then
-        print("Initializing Drone")
+        --print("Initializing Drone")
         if self.focusedRacerID == nil then -- no racer focused
             local driver = getAllDrivers()[1] -- just grab first driver out of all -- TDODOERRORCASE if no drivers will break
             if driver == nil then -- could not find drivers
@@ -1783,9 +1851,27 @@ function Control.toggleOnBoardCam(self) -- Toggles on board for whichever racer 
    
 end
 
-function Control.switchToCamera(self, cameraIndex) -- switches to certain cameras based on  inddex (up to 10) 0-9
+
+function Control.switchToCamera(self,camera) -- Client Switches to camera based on object
+    --print("switching to camera",camera)
+    if camera == nil then 
+		print("Camera not found",camera)
+		return
+	end
+    if camera.cameraID == nil then
+		print("Error when switching to camera",camera)
+		return
+	end
+    self.onBoardActive = false
+	self.droneActive = false
+	self.currentCameraIndex = getCameraIndexFromId(camera.cameraID)
+	--print("switching to camera:",self.currentCameraIndex)
+	self:setNewCamera(camera)
+end
+
+function Control.switchToCameraIndex(self, cameraIndex) -- Client switches to certain cameras based on  inddex (up to 10) 0-9
 	--cameraIndex = cameraIndex + 1 -- Accounts for stupid non zero indexed arrays
-	print("Doing camIndex",cameraIndex)
+	--print("Doing camIndex",cameraIndex)
     local totalCams = #ALL_CAMERAS
 	if cameraIndex > #ALL_CAMERAS or cameraIndex <= 0 then
 		print("Camera Switch Indexing Error",cameraIndex)
@@ -1806,15 +1892,21 @@ function Control.switchToCamera(self, cameraIndex) -- switches to certain camera
 	self.droneActive = false
 	self.currentCameraIndex = cameraIndex - 1
 	print("switching to camera:",cameraIndex,self.currentCameraIndex)
-	self:setNewCamera(cameraIndex - 1)
+	self:setNewCameraIndex(cameraIndex - 1)
 end
 
 function Control.sv_cycleCamera(self,direciton) -- calls iterate camera
+    self.autoCameraSwitch = false -- turn off auto switching
     self.network:sendToClients("cl_cycleCamera",direciton)
 end
 
 function Control.cl_setCameraFocus(self,id) -- calls to set camera to focus on id
     self:focusCameraOnRacerIndex(id)
+end
+
+function Control.cl_switchCamera(self,id)
+    local camera = getCameraFromId(id)
+    self:switchToCamera(camera)
 end
 
 function Control.cl_cycleCamera(self, direction)
@@ -1836,11 +1928,11 @@ function Control.cl_cycleCamera(self, direction)
 		print("Camera Index Error")
 		return
 	end
-	self:setNewCamera(nextIndex)
+	self:setNewCameraIndex(nextIndex)
 	
 end
 
-function Control.setNewCamera(self, cameraIndex) -- Switches to roadside camera based off of its index
+function Control.setNewCameraIndex(self, cameraIndex) -- Switches to roadside camera based off of its index
     --print(self.currentCameraIndex,cameraIndex)D
     --print("\n\n'")
     local avg_dt = 0.016666
@@ -1867,6 +1959,41 @@ function Control.setNewCamera(self, cameraIndex) -- Switches to roadside camera 
 	self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
 end
 
+function Control.setNewCamera(self, camera) -- Switches to roadside camera directly
+    local avg_dt = 0.016666 -- ???
+	if camera == nil then
+		print("Error connecting to road Cam",self.currentCameraIndex,camera)
+		return
+	end
+	self.currentCamera = camera
+	local camLoc = camera.location
+	--camLoc.z = camLoc.z + 2.1 -- Offsets it to be above cam
+    goalOffset = self:getFutureGoal(camLoc)
+    goalSet1 = self:getGoal()
+
+    local camDir = sm.camera.getDirection()
+    dirMovement1 = sm.vec3.lerp(camDir,goalOffset,self.camTransTimer) -- COuld probably just hard code as 1
+    self:cl_sendCameraCommand({command="setPos",value=camLoc})
+	self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
+end
+
+
+function Control.getCamerasClose(self,position) -- returns cameras in position
+    if ALL_CAMERAS == nil or #ALL_CAMERAS == 0 then
+		print("No Cameras Found")
+		return {}
+	end
+    local sortedCameras = {}
+    for k=1, #ALL_CAMERAS do local v=ALL_CAMERAS[k]-- Foreach camera, set their individual focus/power
+		local dis = getDistance(position,v.location)
+        table.insert(sortedCameras,{camera=v,distance=dis})
+    end
+    --print("sorting cameras close",sortedCameras)
+    sortedCameras = sortCamerasByDistance(sortedCameras)
+    --print("sorted cameras",sortedCameras)
+    return sortedCameras
+end
+
 
 -- CameraMovement functions
 function Control.sv_toggleCameraMode(self,mode) -- toggles between race and free cam - Drone cam will be separate toggle
@@ -1885,7 +2012,7 @@ function Control.cl_toggleCameraMode(self,mode) -- client side toggles it
         self.camTransTimer = 1 -- Change this to be on toggle anyways?
         self.frameCountTime = 0
         --print("setting to race cam",self.currentCameraIndex)
-        self:switchToCamera((self.currentCameraIndex or 1))
+        self:switchToCameraIndex((self.currentCameraIndex or 1))
     elseif mode == 1 then -- Drone cam
         self.droneActive = true
         self.onBoardActive = false 
@@ -1900,7 +2027,7 @@ function Control.cl_toggleCameraMode(self,mode) -- client side toggles it
         self.camTransTimer = 1 -- Change this to be on toggle anyways?
         self.frameCountTime = 0
     elseif mode == 3 then -- Onboard cam
-        print("Activate dash cam")
+        --print("Activate dash cam")
         self.onBoardActive = true
         self.droneActive = false
         self.cameraMode = 1

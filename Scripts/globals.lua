@@ -437,6 +437,23 @@ function getRotationIndexFromVector(vector,precision) -- Precision fraction 0-1
 	return -1
 end
 
+--camera things
+function getCameraIndexFromId(id) -- returns position in cam array
+    for k=1, #ALL_CAMERAS do local v=ALL_CAMERAS[k]
+		if v.cameraID == id then 
+			return k
+		end
+	end
+end
+
+function getCameraFromId(id) -- returns position in cam array
+    for k=1, #ALL_CAMERAS do local v=ALL_CAMERAS[k]
+		if v.cameraID == id then 
+			return v
+		end
+	end
+end
+
 -- Driver things
 
 
@@ -1208,6 +1225,11 @@ function sortRacersByCameraPoints(inTable)
     return inTable
 end
 
+function sortCamerasByDistance(inTable)
+    table.sort(inTable,camerasDistanceCompare)
+    return inTable
+end
+
 function racerIDCompare(a,b)
 	return a['id'] < b['id']
 end 
@@ -1218,6 +1240,10 @@ end
 
 function cameraPointCompare(a,b) -- sort so biggest is first
     return a['points'] > b['points']
+end
+
+function camerasDistanceCompare(a,b)
+    return a['distance'] < b['distance']
 end
 -- Need a check min or some way to figure out which is which
 -- *See SMARL FRICTION RESEARCH for data chart

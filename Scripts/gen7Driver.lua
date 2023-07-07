@@ -284,7 +284,7 @@ function Driver.server_init( self )
     self.overSteerTolerance = -2 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
     self.underSteerTolerance = -0.4 -- Smaller (more negative [fractional]) the more tolerance to understeer-- USED TO BE:THe bigger (positive) more tolerance to understeer (will not slow down as early, DEFAULT -0.3)
     self.passAggression = -2 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
-    self.skillLevel = 10 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
+    self.skillLevel = 5 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
     
     -- testing states
     self.maxSpeed = nil
@@ -5031,7 +5031,7 @@ function Driver.checkCautionPos(self) -- goes through and makes sure theres no d
         local curPos = self.cautionPos
         if v.id ~= self.id then -- not same
             if v.cautionPos == curPos then
-                print("caution collision")
+                --print("caution collision")
                 self:sv_sendCommand({car = {self.id}, type = "set_caution_pos", value = 1})
             end
         end

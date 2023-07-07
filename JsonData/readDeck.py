@@ -93,12 +93,40 @@ def on_press(key):
             with open('cameraInput.json', 'w') as outfile: # TODO: Can techincally have all this just be called to one output/writing command to save space
                 outfile.write(output)
 
+        
+
     except:
         #print(key)
         if key == Key.end:
             print("Exiting")
             _Running = False
             return False
+        
+
+        if key == Key.f1: # Toggle auto focus
+            output =  "{\"command\": \"autoFocus\", \"value\": \"1\"}"
+            print("Writing  "+" - " +output)
+            with open('cameraInput.json', 'w') as outfile: #
+                outfile.write(output)
+        
+        if key == Key.f2: # Toggle auto switch
+            output =  "{\"command\": \"autoFocus\", \"value\": \"2\"}"
+            print("Writing  "+" - " +output)
+            with open('cameraInput.json', 'w') as outfile: #
+                outfile.write(output)
+
+        if key == Key.f3: # auto focus once
+            output =  "{\"command\": \"autoSwitch\", \"value\": \"1\"}"
+            print("Writing  "+" - " +output)
+            with open('cameraInput.json', 'w') as outfile: #
+                outfile.write(output)
+        
+        if key == Key.f4: # auto switch once
+            output =  "{\"command\": \"autoSwitch\", \"value\": \"2\"}"
+            print("Writing  "+" - " +output)
+            with open('cameraInput.json', 'w') as outfile: #
+                outfile.write(output)
+
         if key == Key.f5:
             output =  "{\"command\": \"raceMode\", \"value\": \"0\"}"
             print("Writing  "+" - " +output)
@@ -122,6 +150,8 @@ def on_press(key):
             print("Writing  "+" - " +output)
             with open('cameraInput.json', 'w') as outfile: #TODO: rename cmaerainput to just control input to unify terms
                 outfile.write(output)
+        
+       
 
         pass
    
