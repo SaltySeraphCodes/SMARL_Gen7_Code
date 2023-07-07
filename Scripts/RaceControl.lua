@@ -1217,6 +1217,8 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
         local chosenCamera = closestCam.camera
         --print(self.focusedRacerData.tagText,"Dist from cam",distFromCamera,chosenCamera.cameraID)
         -- TODO: add filtering here LOS: raycast, if there is no cameras close or have visibility, switch to drone/onboard
+        -- Get more race like camera:
+        -- Get closest node to camera, filter if camera is in front of car by having larger node value
         local distanceCutoff = 60 -- threshold from camera to switch to drone
         
         if distFromCamera > distanceCutoff then

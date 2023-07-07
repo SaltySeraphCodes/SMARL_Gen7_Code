@@ -84,6 +84,8 @@ function RaceCamera.client_onInteract(self, char, state)
 	--end
 end
 
+-- TODO: function for determining and storing nearest node
+
 function RaceCamera.server_onFixedUpdate(self,dt)
 	--if not sm.isHost then -- Just avoid anythign that isnt the host for now
 	--	return

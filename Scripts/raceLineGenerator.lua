@@ -1248,11 +1248,12 @@ end
 -- Working algorithm that is much better at pinning apex/turn efficient points
 function Generator.racifyLine(self)
     local straightThreshold = 10 -- Minimum length of nodes a straight has to be
-    local nodeOffset = 5 -- number of nodes forward/backwards to pin (cannot be > straightLen/2)
+    local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2)
     local shiftAmmount = 0.11  -- Maximum node pin shiftiging amound (>2)
     local lockWeight = 5
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
+    -- TODO: only racify when there curve is a medium or more
     -- Find straight
     for k=1, #self.nodeChain do local node=self.nodeChain[k]
         if lastSegID == 0 and lastSegType == nil then -- first segment
@@ -1276,21 +1277,22 @@ function Generator.racifyLine(self)
                 if shiftAmmount > node.width/2 then print("shift ammount too much last",shiftAmmount,node.width) end
                 -- actual setting node positions
                 local lastTurnDirection = getSegTurn(firstNode.last.segType.TYPE) -- 1 is right, -1 is left ( IF last turn was right turn, exit point should be on left, inverse segTurn)
-                local desiredTrackPos = offsetFirstNode.pos
-                --print(segLen,shiftAmmount,node.width/2,shiftAmmount * -getSign(lastTurnDirection))
-
-                --print("dir",lastTurnDirection,getSign(lastTurnDirection))
-                desiredTrackPos = offsetFirstNode.pos + (offsetFirstNode.perpVector * (shiftAmmount * -getSign(lastTurnDirection)))
-                offsetFirstNode.pos = desiredTrackPos
-                offsetFirstNode.pinned = true -- pin/weight?
-                offsetFirstNode.weight = lockWeight
+                if math.abs(lastTurnDirection) >= 2 then
+                    local desiredTrackPos = offsetFirstNode.pos
+                    desiredTrackPos = offsetFirstNode.pos + (offsetFirstNode.perpVector * (shiftAmmount * -getSign(lastTurnDirection)))
+                    offsetFirstNode.pos = desiredTrackPos
+                    offsetFirstNode.pinned = true -- pin/weight?
+                    offsetFirstNode.weight = lockWeight
+                end
                 
                 local nextTurnDirection = getSegTurn(lastNode.next.segType.TYPE) -- 1 is right, -1 is left ( IF next turn is right turn, entry point should be on left)
-                desiredTrackPos = offsetLastNode.pos
-                desiredTrackPos = offsetLastNode.pos + (offsetLastNode.perpVector * (shiftAmmount * -getSign(nextTurnDirection)))
-                offsetLastNode.pos = desiredTrackPos
-                offsetLastNode.pinned = true -- pin/weight?
-                offsetLastNode.weight = lockWeight
+                if math.abs(nextTurnDirection) >=2 then
+                    desiredTrackPos = offsetLastNode.pos
+                    desiredTrackPos = offsetLastNode.pos + (offsetLastNode.perpVector * (shiftAmmount * -getSign(nextTurnDirection)))
+                    offsetLastNode.pos = desiredTrackPos
+                    offsetLastNode.pinned = true -- pin/weight?
+                    offsetLastNode.weight = lockWeight
+                end
             end 
             -- else print "too short"
         end
@@ -1600,14 +1602,14 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
 
     local dif = math.abs(totalForce - self.totalForce)
     local sdif = avgVmax - self.avgSpeed
-    print(string.format("dif = %.3f , %.5f",dif,math.abs(dif - self.lastDif)))
+    --print(string.format("dif = %.3f , %.5f",dif,math.abs(dif - self.lastDif)))
     --self.smoothEqualCount = self.smoothEqualCount + 1
 
     
     if math.abs(dif - self.lastDif) < 0.01 then
         --print("smooth",self.dampening)
-        self.dampening = self.dampening/ 1.2
-        self.smoothEqualCount = self.smoothEqualCount + 0.4
+        self.dampening = self.dampening/ 1.1
+        self.smoothEqualCount = self.smoothEqualCount + 0.5
     end
 
     if self.smoothEqualCount >= 5 then

@@ -284,7 +284,7 @@ function Driver.server_init( self )
     self.overSteerTolerance = -2 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
     self.underSteerTolerance = -0.4 -- Smaller (more negative [fractional]) the more tolerance to understeer-- USED TO BE:THe bigger (positive) more tolerance to understeer (will not slow down as early, DEFAULT -0.3)
     self.passAggression = -2 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
-    self.skillLevel = 5 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
+    self.skillLevel = 100 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
     
     -- testing states
     self.maxSpeed = nil
@@ -1410,7 +1410,7 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     if self.lost then return end
     if self.currentNode == nil then return end
     local lookAheadConst = 5 -- play around until perfect -- SHould be dynamic depending on downforce?
-    local lookAheadHeur = 0.51 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    local lookAheadHeur = 0.6 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 9
         lookAheadHeur = 0.8
@@ -1427,7 +1427,7 @@ function Driver.updateGoalNodeMid(self) -- Updates self.goalNode to mid node (ov
     if self.lost then return end
     if self.currentNode == nil then return end
     local lookAheadConst = 5 -- play around until perfect -- SHould be dynamic depending on downforce?
-    local lookAheadHeur = 0.4 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    local lookAheadHeur = 0.6 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 8
         lookAheadHeur = 1
@@ -4061,14 +4061,14 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         --print(self.id,"oversteer correct",offset,self.speed,self.curGear)
         --self.pathGoal = "mid"
         if self.strategicThrottle >= 0 then  
-            self.strategicThrottle = 0.1 -- begin coast
+            self.strategicThrottle = 0.5 -- begin coast
             -- reduce steering?
             if math.abs(offset) > 14 or self.speed > 23 then
                 --print(self.speed)
                 self.strategicThrottle = ratioConversion(10,35,-0.7,0,self.speed) -- Convert x to a ratio from a,b to  c,d
                 --print("ovrsteer thrott",self.speed,self.strategicThrottle)
             else
-                self.strategicThrottle = 0.1 -- coast
+                self.strategicThrottle = 0.4 -- coast
             end
         end
     end
@@ -4078,17 +4078,17 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         --print(self.id,"understeer correct",offset,self.speed,self.curGear)
         self.rotationCorrect = true
         if self.strategicThrottle >= 0 then  -- Do this when not "braking"
-            self.strategicThrottle = 0.1
+            self.strategicThrottle = 0.5
             if math.abs(offset) > 13 or self.speed > 24 then
                 --print(self.id,"understeerCorrect",self.curGear,self.engine.VRPM,self.speed)
                 self.strategicThrottle = ratioConversion(10,35,-0.8,0,self.speed) -- Convert x to a ratio from a,b to  c,d
                 if self.speed <= 10 then
-                    self.strategicThrottle = 0.1
+                    self.strategicThrottle = 0.4
                     self.strategicSteering = self.strategicSteering/2
                     --print("half steer")
                 end
             else
-                self.strategicThrottle = 0.1 -- coast
+                self.strategicThrottle = 0.4 -- coast
                 self.strategicSteering = self.strategicSteering *0.95
             end
         else
@@ -4139,26 +4139,26 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local wallSteer = 0
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
-        if dist <= 7 then
-            wallSteer = ratioConversion(8,0,0.06,0,dist)  -- Convert x to a ratio from a,b to  c,d
+        if dist <= 6 then
+            wallSteer = ratioConversion(6,0,0.06,0,dist)  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
         end
         if dist < 1 then
-            self.strategicThrottle = 0.1
+            self.strategicThrottle = self.strategicThrottle - 0.05
         end
     end
 
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 7  then
+        if dist <= 6  then
             --print("left",dist)
-            wallSteer = ratioConversion(8,0,0.08,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = ratioConversion(6,0,0.07,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",wallSteer)
         end
         if dist < 1 then
             --print(self.tagText,"wallSlowfront")
-            self.strategicThrottle = self.strategicThrottle - 0.1
+            self.strategicThrottle = self.strategicThrottle - 0.01
         end
     end
 
@@ -4170,22 +4170,22 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
-        if dist <= 8 then
-            wallSteer = wallSteer + ratioConversion(10,0,0.07,0,dist)  -- Convert x to a ratio from a,b to  c,d
+        if dist <= 6 then
+            wallSteer = wallSteer + ratioConversion(6,0,0.07,0,dist)  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
 
         end
         if dist < 1 then
-            self.strategicThrottle = 0.5
+            self.strategicThrottle = self.strategicThrottle - 0.01
         end
     end
 
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 7 then
+        if dist <= 6 then
             --print("left",dist)
-            wallSteer = wallSteer +  ratioConversion(10,0,0.15,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = wallSteer +  ratioConversion(6,0,0.10,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",walStwallSteereer)
         end
         if dist < 1 then
