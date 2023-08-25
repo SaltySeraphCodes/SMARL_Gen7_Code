@@ -40,7 +40,7 @@ DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- stee
 -- Track generation options -- possibly move to track piece?
 FORCE_SENSITIVIY = 4 -- How much angle differences affect total force on node chain
 FORCE_THRESHOLD = 0.01 -- when nodes accept where they are
-WALL_PADDING = 6
+WALL_PADDING = 7
 TRACK_DATA = 1 -- Location to save world storage for the racing line
 
 TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
@@ -120,11 +120,11 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
     {
         TYPE = "insane", -- Insane -- add custom later?
         COLOR = "eeeeeeff", -- white
-        MAX_SPEED = 160,
-        MAX_ACCEL = 2,
+        MAX_SPEED = 200,
+        MAX_ACCEL = 3,
         MAX_BRAKE = 1.5,
-        GEARING = {0.8,0.99,0.75,0.6,0.5}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 160/5
+        GEARING = {0.8,0.99,0.75,0.7,0.7}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 200/5
     }
 }
 -- Data managment
@@ -207,7 +207,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMAp, 
     local searchDistance = 0 -- how far away to search
     
     --print("getting nearest node",approxRow,approxCol)
-    local searchLimit = 50
+    local searchLimit = 150
     local possibleRow = nodeMap[approxRow]
     if possibleRow ~= nil then
         local possibleCol = nodeMap[approxRow][approxCol]
@@ -1213,6 +1213,24 @@ function getNextIndex(totalIndexes,currentIndex,direction) -- Gets {direction} i
     return nextIndex    
 end
 
+
+function get_los(camera,racer)  -- returns true if camera can see racer
+    if not sm.exists(racer.body) then
+        return false
+    end
+    if not camera then
+        return false
+    end
+    hit, data = sm.physics.raycastTarget(camera.location,racer.location,racer.body)
+    --print(hit,data)
+    if hit then
+        --print("losvalid")
+        return true
+    else
+        --print('invcalid!!!!!!!')
+        return false
+    end
+end
 
 ---- Racer meta data helps
 function sortRacersByRacePos(inTable)

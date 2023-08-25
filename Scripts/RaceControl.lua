@@ -11,8 +11,10 @@ dofile "Timer.lua"
 
 ZOOM_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/zoomControls.json"
 CAMERA_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/cameraInput.json"
-QUALIFYING_DATA = MOD_FOLDER .. "/JsonData/qualifyingData.json" -- Data structure with id, place, and split, formed by python
-QUALIFYING_FLIGHT_DATA = MOD_FOLDER .. "/JsonData/qualifying_flight_"
+QUALIFYING_DATA = MOD_FOLDER .. "/JsonData/raceOutput/qualifyingData.json" --
+OUTPUT_DATA = MOD_FOLDER .. "/JsonData/RaceOutput/raceData.json" -- All race data
+FINISH_DATA = MOD_FOLDER .. "/JsonData/raceOutput/finishData.json"
+QUALIFYING_FLIGHT_DATA = MOD_FOLDER .. "/JsonData/qualifying_flight_" -- depreciated?
 Control = class( nil )
 Control.maxChildCount = -1
 Control.maxParentCount = -11
@@ -22,6 +24,42 @@ Control.colorNormal = sm.color.new( 0xffc0cbff )
 Control.colorHighlight = sm.color.new( 0xffb6c1ff )
 local clock = os.clock --global clock to benchmark various functional speeds ( for fun)
 
+
+--[[
+    Pre Race: (SM)
+    1. Create track tile (save two versions, Raw and Final)
+    2. Create new World with Final Tile inside (decorate accordingly)
+    3. Load new Creative Game with new Track World
+    4. Scan Track with RaceLineGenerator (ensure no errors and racing line makes sense with crouch interaction)
+    5. Edit Final Tile with decorations as needed (changes show up in save)
+    6. Load back into Creative game and place race cameras
+    7. Test track with cars (place down race control)
+    Race Steps (SM,Discord,Putty)
+    1. Create Race in discord: `-!-createrace {track_name} {league_id}`
+    2. Set self.qualifying = true (RaceControl.lua) -- For qualifying
+    3. Open sharedData.py in overlay folder
+    4.  Edit RaceTitle, RaceLocation, SeasonID, RaceID,league_id To current race info (sharedData.py)
+    5. SSH into Abberhub and screen -ls to check both SMARLBOT and SMARLAPI are running
+    6. Go into Mod folder's JsonData and run startScript.bat (python key reader for streamdeck)
+    7. Start Game and load into Creative Game Track Save
+    8. Place all Cars in according to Race's league (no easy way to do this yet)
+    9. Run SMAR Overlay and reader with startOverlay.bat
+    Qualifying: 
+    1. (Ensure Qualifying = true & outputRealtime = true in racecontrol) Set laps = 3 and handicap = 2? in race control through normal interaction
+    2. Pull in SMAR Camera tool and crouch interact to load into camera
+    3. Start Race and auto camera switching (go to finish results before all cars finish)
+    4. Commentate
+    Race:
+    1. Reset by Stopping race ( DO NOT STOP RACE BEFORE GETTING BROLL of Qualifying)
+    2. Make sure race control is at 10 laps and 1.5? handicap
+    3. Load Smar Camera tool and enter camera
+    4. Record and Commentate (load finish overlay before all cars finish)
+    5. If yellow flags then do so
+    Post Race:
+    1. Finalize Points in discord `-!-finalizerace`
+    2. Record and display season Status 
+    3. Remux, Edit Upload Premiere
+]]
 
 
 -- Local helper functions utilities
@@ -180,14 +218,14 @@ function Control.server_init(self)
     self.controllerSwitch = nil -- interactable that is connected to swtcgh
 
     -------------------- QUALIFYING SETUP -----------------
-    self.qualifying = false -- whether we are qualifying or not -- dynamic
+    self.qualifying = true -- whether we are qualifying or not -- dynamic
     self.qualifyingFlight = 1 -- which flight to store data as
     self.totalFlights = 1 -- choose how many flights there are (can automate but eh)
     -----------------------------------------------------
-
+    -- Exportables
     self.finishResults = {}
-    self.qualifyingResults = {} -- list of results per flight
-
+    self.qualifyingResults = {}
+    self.raceMetaData = {["status"]=0, ["lapsLeft"]=10, ['qualifying'] = string.format("%s",self.qualifying)}
     self.leaderID = nil -- race leader id
     self.leaderTime = 0 -- takes splits from leader
     self.leaderNode = 0 -- ? keeps track of which node leader is on
@@ -197,13 +235,13 @@ function Control.server_init(self)
 
     self.dataOutputTimer = Timer()
     self.dataOutputTimer:start(1)
-    self.outputRealTime = false
+    self.outputRealTime = true -- USE TO OUTPUT DATA TO SERVERS
     
     -- Camera automation
     self.autoCameraFocus = false
     self.autoCameraSwitch = false -- toggle automated camera things
     self.autoFocusDelay = 15
-    self.autoSwitchDelay = 5
+    self.autoSwitchDelay = 9
 
     self.autoFocusTimer = Timer()
     self.autoFocusTimer:start(self.autoFocusDelay) -- Set auto camera time here
@@ -218,7 +256,6 @@ function Control.server_init(self)
     self.draftStrength = 100 -- TODO: implement
     self.handiCapStrength = 100
     self.handiCapMultiplier = 1.5 -- multiplies handicap by ammount
-    print("Race Control V2.0 Initialized SV")
     RACE_CONTROL = self 
     -- TODO: Make lap count based off of totalNodes too, not just crossing line 
     self.sortedDrivers = {} -- Sorted list by race position of drivers, necessary? for printing?
@@ -229,7 +266,6 @@ function Control.server_init(self)
     self.smarCamLoaded = false
     self.externalControlsEnabled = true -- TODO: check if this
     self.viewIngCamera = false -- whether camera is being viewed
-    
     
 end
 
@@ -324,7 +360,7 @@ function Control.loadTrackData(self) -- loads in any track data from the world
 end
 
 function Control.sv_loadData(self,channel)
-    --print("svb_loadData")
+    print("svb_loadData")
     local data = sm.storage.load(channel)
     if data == nil then
         --print("Server did not find track data") 
@@ -352,7 +388,7 @@ function Control.on_trackLoaded(self,data) -- Callback for when track data is ac
     else
         self.trackLoaded = true
         self.nodeChain = data
-        --print(self.nodeChain[1])
+        print(self.nodeChain[1])
         if self.nodeMap == nil then
             --print("generating NodeMap")
             self.nodeMap = generateNodeMap(self.nodeChain)
@@ -560,8 +596,8 @@ function Control.sv_toggleRaceMode(self,mode) -- starts
     if lapsLeft == nil then
         lapsLeft = "--"
     end
-    local output = 'race_status= {"status": "'.. mode..'", "lapsLeft": "'.. lapsLeft..'"}'
-    self:sv_output_data(output)
+    self.raceMetaData = {["status"]=mode, ["lapsLeft"]=lapsLeft,['qualifying'] = string.format("%s",self.qualifying)}
+    --self:sv_output_data(output)
 end
 
 function Control.sv_startRace(self) -- race status 1
@@ -750,8 +786,8 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
         if self.raceStatus == nil then
             self.raceStatus = 1
         end
-        local output = 'race_status= {"status": "'.. self.raceStatus ..'", "lapsLeft": "'.. lapsLeft..'"}'
-        self:sv_output_data(output)
+        self.raceMetaData = {["status"]= self.raceStatus, ["lapsLeft"] = lapsLeft, ['qualifying'] = string.format("%s",self.qualifying)}
+        --self:sv_output_data(output)
     end
 
     if self.currentLap <= self.targetLaps  then -- race on going -- or qualifying
@@ -762,65 +798,39 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
 
         if self.currentLap  == self.targetLaps - 1 then -- last laps
             driver.passAggression = -0.2 -- more agggressive passes?
+            driver.skillLevel = driver.skillLevel + 2
         end
             --TODO: Investigate why car tied with 10th of second between them theoretically
         self.raceFinished = false
     else
-        self.raceFinished = true
-        if driver.carData['metaData'] == nil then return end
-        local finishData = {
-            ['position'] = driver.racePosition,
-            ['racer_id'] = driver.carData['metaData']["ID"],
-            ['racer_name'] = driver.carData['metaData']["Car_Name"],
-            ['best_lap'] = driver.bestLap,
-            ['split'] = driver.raceSplit
-        }
-        if self.qualifying then
-            --print("Qualifyind data inserted",finishData)
-            table.insert(self.qualifyingResults,finishData)
+        if self.currentLap == self.targetLaps + 1 then -- only run when car has reached one lap over
+            self.raceFinished = true
+            if driver.carData['metaData'] == nil then return end
+            local time_split = string.format("%.3f",driver.raceSplit)
+            local finishData = {
+                ['position'] = driver.racePosition,
+                ['racer_id'] = driver.carData['metaData']["ID"],
+                ['racer_name'] = driver.carData['metaData']["Car_Name"],
+                ['best_lap'] = driver.bestLap,
+                ['split'] = time_split
+            }
+            if self.qualifying then -- insert qualifyingData
+                --print("Qualifyind data inserted",finishData)
+                table.insert(self.qualifyingResults,finishData)
+                if self.qualifyingResults ~= {} then
+                    sm.json.save(self.qualifyingResults,QUALIFYING_DATA)
+                end
+            else -- store in finish results 
+                table.insert(self.finishResults,finishData) -- also store in finishResults
+            end
+            --print("Finished:",#self.finishResults, #ALL_DRIVERS)
+            
         end
-        table.insert(self.finishResults,finishData) -- also store in finishResults
-        --print("Finished:",#self.finishResults, #ALL_DRIVERS)
     end
     
     if driver.raceFinished ~= self.raceFinished then -- send message to driver to slow? variable slow speeds?
         driver.raceFinished = self.raceFinished
-    
-
-    --if #self.finishResults == #ALL_DRIVERS then -- TODO: deciding on whether to output all at once or one at a time, will need to adjust log parse if all at once
-        if #self.qualifyingResults == #ALL_DRIVERS then
-            if self.qualifying then --  qualifying round
-                local flightNum = string.format("%s",self.qualifyingFlight) -- May need to string format
-                sm.json.save(self.qualifyingResults, QUALIFYING_FLIGHT_DATA .. flightNum .. ".json")
-                if self.totalFlights == 1 then -- If only one flight, just push results straight to final file
-                    print("Saving single flight qual data",self.qualifyingResults)
-                    sm.json.save(self.qualifyingResults, QUALIFYING_DATA)
-                end
-            end
-        end
-
-        --print("driver finished!",self.finishResults)
-        local outputString = ''
-        if self.qualifying then 
-            outputString = 'qualifying_data= [ ' -- 
-        else
-            outputString = 'finish_data= [ ' -- 
-        end
-        
-        for k=1, #self.finishResults do local v=self.finishResults[k] -- Output finish data for live board
-            --print("Finished race, outputting")
-            if v ~= nil then
-                local time_split = string.format("%.3f",v.split)
-                local output = '{"id": "'.. v.racer_id ..'", "bestLap": "'..v.best_lap ..'", "place": "'.. v.position..'", "split": "'.. time_split..'"},'
-                outputString = outputString .. output
-            end
-        end
-        local noCommaEnding = string.sub(outputString,1,-2)
-        local endString = ']'
-        outputString = noCommaEnding .. endString
-        --print("Outputting finish",outputString)
-        self:sv_output_data(outputString)
-    --end
+        --self:sv_output_data(outputString) export here too?
     end
 
 end
@@ -922,6 +932,7 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
    -- MOve
    -- If freeCam on then
     --print("RC cl fixedBefore")
+    --print(self.smarCamLoaded,self.viewIngCamera,self.cameraMode)
     if self.smarCamLoaded then
         if self.viewIngCamera then
             self:cl_setZoom()
@@ -943,7 +954,37 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
                     self:cl_sendCameraCommand({command = "MoveCamera", value=movement})
                 end
             elseif self.cameraMode == 1 then -- raceCamMode -- TODO: probably just remove all of thie
-                --print("racecam mode",self.currentCamera,#ALL_CAMERAS)
+
+                if self.raceMetaData['lapsLeft']  == 0 then
+                    --print("Final Lap")
+                    local firstCar = getDriverByPos(1)
+                    if firstCar then
+                        local totalNodes = #firstCar.nodeChain
+                        --print(totalNodes - firstCar.currentNode.id)
+                        if totalNodes - firstCar.currentNode.id < 25 then
+                            print("reaching Finish line")
+                            chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
+                            local focusSpot = firstCar.nodeChain[1].mid
+                            local camSpot = chosenCamera.location
+                            local goalOffset = focusSpot - camSpot
+                            self:cl_switchCamera(chosenCamera.cameraID)
+                            self:cl_sendCameraCommand({command="forceDir",value=goalOffset}) -- TODO: get this to get focus on car and send directions to cam
+                            self.autoCameraFocus = false
+                            self.autoCameraSwitch = false
+                        end
+                    end
+                end
+                if self.autoSwitchTimer:remaining() < self.autoSwitchDelay/1.4 then -- if enough time has passed then
+                    local dis = getDistance(self.currentCamera.location,self.focusedRacerData.location)
+                    local los = get_los(self.currentCamera,self.focusedRacerData)
+                    if dis > 80 or not los then -- if nolonger LOS TODO: maker more efficient using just location (less data passed)
+                        --print('car no sseeee?',dis,los)
+                        self.network:sendToServer("sv_performAutoSwitch")
+                    end
+                end
+                              
+                    
+                
                 if #ALL_CAMERAS > 0 and self.currentCamera == nil then
                     --print("swittchingto camera 1")
                     self:switchToCameraIndex(1) -- go to first camera
@@ -1156,9 +1197,9 @@ function Control.tickClock(self) -- Just tin case
         self.autoFocusTimer:tick()
         self.autoSwitchTimer:tick()
         --print(self.autoFocusTimer:remaining(),self.autoSwitchTimer:remaining())
-        if self.dataOutputTimer:done() and not self.raceFinished then
+        if self.dataOutputTimer:done()then
             self:sv_performTimedFuncts()
-            self.dataOutputTimer:start(2)
+            self.dataOutputTimer:start(2) -- TODO: set to 1
         end
         if self.autoCameraFocus and self.autoFocusTimer:done() then
             self:sv_performAutoFocus()
@@ -1197,9 +1238,10 @@ function Control.sv_performAutoFocus(self) -- auto camera focusing
     if self.focusedRacerID and self.focusedRacerID == firstDriver.id then
         --print("repeat driver",firstDriver.tagText) -- does not change focus or reset timer
     else
-        --print("new driver",firstDriver.tagText)
+        --print("Auto Focus",firstDriver.tagText)
         self.network:sendToClients("cl_setCameraFocus",firstDriver.id)
         --print("restart timer",self.autoFocusDelay)
+        --self.autoSwitchTimer:start(9) -- restart switch timer but not as long
         self.autoFocusTimer:start(self.autoFocusDelay)
     end
     -- else set driver as focus and reset autocamTimer
@@ -1211,32 +1253,78 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
     if self.focusedRacerData then
         local focusRacerPos = self.focusedRacerData.location
         local camerasInDist = self:getCamerasClose(focusRacerPos) -- returns list of cameras close to specified distance
-        local closestCam = camerasInDist[1]
+       
+        local camIndex = 1
+        local closestCam = camerasInDist[camIndex]
         if closestCam == nil then return end
+        local carNode = self.focusedRacerData.currentNode
+        local minNode = getNextItem(self.focusedRacerData.nodeChain,carNode.id,8) -- finds cams at least nodes ahead
+        local distError = false
+        for i = 1, #camerasInDist do local cam = camerasInDist[i]
+            local camera = cam.camera
+            local closestNode = camera.nearestNode
+            --print('closestNode',closestNode.id,carNode.id,minNode.id)
+            --local hasLos = sm.raycast. raycast and if can se thing thn
+            if closestNode.id >= minNode.id and get_los(camera,self.focusedRacerData) then 
+                camIndex = i
+                --print('found close and eaheat',i,closestNode.id,minNode.id)
+                break
+            end
+            if i >= #camerasInDist - 1 then
+                --print('save to assume no closecam',i)
+                distError = true
+            end
+        end
+        closestCam = camerasInDist[camIndex]
+        --print('found closest',camIndex,closestCam.id)
         local distFromCamera = closestCam.distance
         local chosenCamera = closestCam.camera
         --print(self.focusedRacerData.tagText,"Dist from cam",distFromCamera,chosenCamera.cameraID)
-        -- TODO: add filtering here LOS: raycast, if there is no cameras close or have visibility, switch to drone/onboard
         -- Get more race like camera:
-        -- Get closest node to camera, filter if camera is in front of car by having larger node value
-        local distanceCutoff = 60 -- threshold from camera to switch to drone
+        -- auto zoom
+        local distanceCutoff = 30 -- threshold from camera to switch to drone
         
-        if distFromCamera > distanceCutoff then
-            local mode = math.random(2, 4) -- random for now but can add heuristic to switch
+        if distFromCamera > distanceCutoff or distError then
+            local mode = math.random(0, 4) -- random for now but can add heuristic to switch
             --print("random switch",mode)
-            if mode == 2 then mode = 1 end
+            if mode <= 2 then mode = 1 end
             self:sv_toggleCameraMode(mode)
+        end
+
+       if self.raceMetaData['lapsLeft']  == 0 then
+            --print("Final Lap")
+            local firstCar = getDriverByPos(1)
+            if firstCar then
+                local totalNodes = #firstCar.nodeChain
+                --print(totalNodes - firstCar.currentNode.id)
+                if totalNodes - firstCar.currentNode.id < 20 then
+                    --print("reaching Finish line")
+                    chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
+                    local focusSpot = firstCar.nodeChain[1].mid
+                    local camSpot = chosenCamera.location
+                    --print('focus on',focusSpot)
+                    local goalOffset = focusSpot - camSpot
+                    --local camDir = sm.camera.getDirection() --client ontly??
+                    --dirMovement1 = sm.vec3.lerp(camDir,goalOffset,1)
+                    --print('focusing',goalOffset)
+                    self.network:sendToClients("cl_switchCamera",chosenCamera.cameraID)
+                    self.network:sendToClients('cl_sendCameraCommand',{command="forceDir",value=goalOffset}) -- TODO: get this to get focus on car and send directions to cam
+
+                    self.autoCameraFocus = false
+                    self.autoCameraSwitch = false
+                end
+            end
         end
 
         if self.currentCamera and self.currentCamera.cameraID == chosenCamera.cameraID then
             --print("same camera")
         else
-            --print('switching to')
+            --print('switching cam')
             self.network:sendToClients("cl_switchCamera",chosenCamera.cameraID)
             --print("restarting cam",self.autoSwitchDelay)
-            self.autoFocusTimer:start(self.autoFocusDelay/2) -- restart focus timer but not as long
+            self.autoFocusTimer:start(6) -- restart focus timer but not as long
         end
-        self.autoSwitchTimer:start(self.autoSwitchDelay) -- re does delay anyways
+        self.autoSwitchTimer:start(self.autoSwitchDelay + math.random(-1,1)) -- re does delay anyways
     end
     
 end
@@ -1381,6 +1469,7 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 		self.spacePressed = state
 	elseif key == 18 and state then -- Right Click,
 		if self.spacePressed and self.shiftPressed then
+            self.network:sendToServer('sv_exitCamera')
 		elseif self.spacePressed then
 		elseif self.shiftPressed then
 		else
@@ -1462,29 +1551,69 @@ function Control.sv_readZoomJson(self) -- BETTER IDEA: only begin reading when k
     --print("RC read zoomJSON after")
 end
 
-
-
-function Control.sv_output_allRaceData(self) -- Outputs race data into a  big list
-    local outputString = 'realtime_data= [ '
-	for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
+-- Data exporting 
+function Control.sv_exportRealTime(self) -- Returns all data necessary for realtime information
+    -- data format:
+    --[[
+        {
+            id,
+            locx,
+            locy,
+            lastLap,
+            bestLap,
+            lapNum,
+            place,
+            timeSplit,
+            isFocused,
+            speed
+        }
+    ]]
+    local realtimeOutput = {}
+    for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
 		if v ~= nil then
             if v.carData == nil then return end
             if v.carData['metaData'] == nil then return end
-            --print(v.carData['metaData']["ID"],v.carData['metaData']["Car_Name"])
             v:determineRacePosBySplit()
             local time_split = string.format("%.3f",v.raceSplit)
             local isFocused = string.format("%s",v.isFocused)
-			local output = '{"id": "'.. v.carData['metaData']["ID"] ..'", "locX": "'..v.location.x..'", "locY": "'.. v.location.y..
-            '", "lastLap": "'..v.lastLap..'", "bestLap": "'..v.bestLap ..'", "lapNum": "'.. v.currentLap..'", "place": "'.. v.racePosition..
-            '", "timeSplit": "'.. time_split ..'", "isFocused": "'.. isFocused ..'", "speed": "'..v.speed..'"},'
-			outputString = outputString .. output
+			local data = {["id"]= v.carData['metaData']["ID"] , ["locX"]= v.location.x, [ "locY"]=v.location.y,
+            ["lastLap"]= v.lastLap, ["bestLap"]=v.bestLap, ["lapNum"]=v.currentLap, ["place"]=v.racePosition,
+            ["timeSplit"]= time_split, ["isFocused"]=isFocused, ["speed"]=v.speed}
+			table.insert(realtimeOutput,data)
 		end
-        
 	end
-	local noCommaEnding = string.sub(outputString,1,-2)
-	local endString = ']'
-	outputString = noCommaEnding .. endString 
-	self:sv_output_data(outputString)
+    return realtimeOutput
+end
+
+function Control.sv_exportQualifyingData(self)
+     return self.qualifyingResults -- should just return whatever exists
+end
+
+function Control.sv_exportFinishData(self)
+    return self.finishResults -- should just return whatever exists can format iif mneeded
+end
+
+function Control.sv_exportRaceMetaData(self)
+    return self.raceMetaData
+
+end
+
+function Control.sv_output_allRaceData(self) -- Outputs race data into a  big list
+    local realtimeData = self:sv_exportRealTime() -- minimized realtime data?
+    local qualifyingData = self:sv_exportQualifyingData() -- minimized quali data
+    local finishData = self:sv_exportFinishData() -- minimized race finish data
+    local metaData = self:sv_exportRaceMetaData() -- minimized race metaData
+    local outputData = {
+        ["rt"]=realtimeData,
+        ["qd"]=qualifyingData,
+        ["fd"]=finishData,
+        ["md"]=metaData
+    }
+
+    if outputData ~= {} then
+        sm.json.save(outputData,OUTPUT_DATA)
+    end
+
 end
 
 
@@ -1501,8 +1630,11 @@ function Control.sv_ReadQualJson(self)
         print("Got error reading qualifying JSON") -- try again?
         return nil
     else
-        print("Got Qual data",data)
+        --print("Got Qual data",data)
         -- send data to cars
+        if data == nil then
+            print("qualifying data not found")
+        end
         return data
     end
 end
@@ -1532,7 +1664,8 @@ function Control.sv_ReadJson(self)
             elseif instruction == "cMode" then
                 local mode = tonumber(instructions['value'])
                 --print("toggle camera mode") 
-                -- turn off auto switch??
+                self.autoCameraFocus = false
+                self.autoCameraSwitch = false
                 self:sv_toggleCameraMode(mode)
             elseif instruction == "raceMode" then -- 0 is stop, 1 is go, 2 is caution? 3 is formation
                 local raceMode = tonumber(instructions['value'])
@@ -1908,6 +2041,7 @@ end
 
 function Control.cl_switchCamera(self,id)
     local camera = getCameraFromId(id)
+    
     self:switchToCamera(camera)
 end
 

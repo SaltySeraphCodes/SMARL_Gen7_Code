@@ -90,7 +90,7 @@ function Generator.client_init( self )  -- Only do if server side???
     self.segSearch = 0
     self.segSearchTimeout = 100
 
-    self.debug =true  -- Debug flag
+    self.debug =false  -- Debug flag
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
     self.racifyLineOpt = true -- Makes racing line more "racelike"
@@ -360,7 +360,7 @@ function Generator.getSegmentBegin(self,segID) -- parameratize by passing in nod
         print("no node chain")
         return
     end
-    --print("segbegin",self.nodeChain[1].segID)
+    print("segbegin",self.nodeChain[1].segID)
     for i=1, #self.nodeChain do local node = self.nodeChain[i]
         if node ~= nil then
             if node.segID == segID then
@@ -1277,7 +1277,7 @@ function Generator.racifyLine(self)
                 if shiftAmmount > node.width/2 then print("shift ammount too much last",shiftAmmount,node.width) end
                 -- actual setting node positions
                 local lastTurnDirection = getSegTurn(firstNode.last.segType.TYPE) -- 1 is right, -1 is left ( IF last turn was right turn, exit point should be on left, inverse segTurn)
-                if math.abs(lastTurnDirection) >= 2 then
+                if math.abs(lastTurnDirection) >= 1 then
                     local desiredTrackPos = offsetFirstNode.pos
                     desiredTrackPos = offsetFirstNode.pos + (offsetFirstNode.perpVector * (shiftAmmount * -getSign(lastTurnDirection)))
                     offsetFirstNode.pos = desiredTrackPos
@@ -1286,7 +1286,7 @@ function Generator.racifyLine(self)
                 end
                 
                 local nextTurnDirection = getSegTurn(lastNode.next.segType.TYPE) -- 1 is right, -1 is left ( IF next turn is right turn, entry point should be on left)
-                if math.abs(nextTurnDirection) >=2 then
+                if math.abs(nextTurnDirection) >=1 then
                     desiredTrackPos = offsetLastNode.pos
                     desiredTrackPos = offsetLastNode.pos + (offsetLastNode.perpVector * (shiftAmmount * -getSign(nextTurnDirection)))
                     offsetLastNode.pos = desiredTrackPos

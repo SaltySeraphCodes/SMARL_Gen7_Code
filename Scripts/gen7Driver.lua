@@ -1,7 +1,7 @@
 
 -- SMARL CAR AI V3 (Gen 7) Driver
+-- july 12
 -- Created by Seraph -- Should be much faster and smarter than Gen 6
-
 -- This is Gen7 SM AR (Scrap Mechanic Auto Racers) AI Driver class, All logic is performed here for both steering and engine, connect to gen7Engine and steering bearings
 -- All setups can be changed in the globals.lua file, not much here
 -- driver will send steering values of -1..1 which should be comverted between max angle as degrees and vice versa
@@ -284,7 +284,7 @@ function Driver.server_init( self )
     self.overSteerTolerance = -2 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
     self.underSteerTolerance = -0.4 -- Smaller (more negative [fractional]) the more tolerance to understeer-- USED TO BE:THe bigger (positive) more tolerance to understeer (will not slow down as early, DEFAULT -0.3)
     self.passAggression = -2 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
-    self.skillLevel = 100 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
+    self.skillLevel = 30 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
     
     -- testing states
     self.maxSpeed = nil
@@ -511,7 +511,8 @@ function Driver.sv_softReset(self)
 
     self.futureLook =  {segID = 0, direction = 0, length = 0, distance = 0} 
     -- Tolerances and Thresholds
-   
+    self.isFocused = false
+
     -- errorTimeouts
     self.RCE_timeout = 0
     self.nodeFindTimeout = 0
@@ -533,6 +534,7 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     self.raceControlError = false
     self.validError = false
     self.scanningError = false
+    self.isFocused = false
 
 	--self.id = self.shape.id
     -- Car Attributes
@@ -1409,7 +1411,7 @@ end
 function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heuristic (lookahead factor) -- MAy be checking enginesspeed and not current speed on restarts
     if self.lost then return end
     if self.currentNode == nil then return end
-    local lookAheadConst = 5 -- play around until perfect -- SHould be dynamic depending on downforce?
+    local lookAheadConst = 4 -- play around until perfect -- SHould be dynamic depending on downforce?
     local lookAheadHeur = 0.6 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 9
@@ -1426,7 +1428,7 @@ end
 function Driver.updateGoalNodeMid(self) -- Updates self.goalNode to mid node (overtyped duplicate of goalNode
     if self.lost then return end
     if self.currentNode == nil then return end
-    local lookAheadConst = 5 -- play around until perfect -- SHould be dynamic depending on downforce?
+    local lookAheadConst = 4 -- play around until perfect -- SHould be dynamic depending on downforce?
     local lookAheadHeur = 0.6 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 8
@@ -2420,6 +2422,9 @@ function Driver.getAccel(self) -- GEts acceleration flag
     
     local segLen = self:getSegmentLength(segID)
     local segEnd = self:getSegmentEnd(segID)
+    if segEnd == nil or segLen == nil then 
+        print('no seg end')
+    end
     local vMax = calculateMaximumVelocity(self.goalNode,segEnd,segLen)
     --self:debugOutput(1,{"accelMax:"})
     vMax = self:refineBrakeSpeed(vMax,segEnd)
@@ -4039,17 +4044,17 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 		local stopDir = self.velocity * -1.1
         if sm.vec3.closestAxis(upDir).z == -1 then
             local weight =self.mass * DEFAULT_GRAVITY
-		    stopDir.z = self.mass/2.3
+		    stopDir.z = self.mass/2.5
             --print(self.mass/3)
             --print("flip")
         else
             
-            stopDir.z = self.mass/10
+            stopDir.z = self.mass/11
         end
 		
 		offset = upDir * 4
 		if self.shape:getWorldPosition().z >= self.currentNode.location.z + 3 then 
-			stopDir.z = -500 -- maybe anti self.weight?
+			stopDir.z = -450 -- maybe anti self.weight?
 			--offset = 
 		end
 		sm.physics.applyImpulse( self.shape.body, stopDir,true,offset)
@@ -4170,8 +4175,8 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
-        if dist <= 6 then
-            wallSteer = wallSteer + ratioConversion(6,0,0.07,0,dist)  -- Convert x to a ratio from a,b to  c,d
+        if dist <= 5 then
+            wallSteer = wallSteer + ratioConversion(6,0,0.07,0,dist) *1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
 
         end
@@ -4183,9 +4188,9 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 6 then
+        if dist <= 5 then
             --print("left",dist)
-            wallSteer = wallSteer +  ratioConversion(6,0,0.10,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = wallSteer +  ratioConversion(6,0,0.07,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",walStwallSteereer)
         end
         if dist < 1 then
@@ -4198,11 +4203,11 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local trackAdj = 0
     --if self.trackPosition == nil then return end
     local tDist = sideLimit - math.abs(self.trackPosition)
-    if tDist <7 then
+    if tDist <10 then
         if self.trackPosition > 0 then
-            trackAdj = ratioConversion(8,0,0.095,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
+            trackAdj = ratioConversion(10,0,0.1,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
         else
-            trackAdj = ratioConversion(8,0,0.095,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
+            trackAdj = ratioConversion(10,0,0.1,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
         end
         --print(self.tagText, "track limit",trackAdj,tDist)
     
@@ -4575,7 +4580,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
                 --print("reducing followstrenght for pass",self.followStrength)
                 return self.followStrength - 0.01
             else
-                return 4
+                return 3
             end
         else
             if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~=0 then -- TODO: investigate effects of this
@@ -4584,7 +4589,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
                     return self.followStrength - 0.02 
                 else
                     --print('rando 3')
-                    return 4
+                    return 3
                 end
             end                 
         end
@@ -4607,7 +4612,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
                 return self.followStrength - 0.5 
             else
                 --print("reducde",self.followStrength)
-                return 4
+                return 3
             end
           
         else
@@ -4628,7 +4633,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
                     end
                     return self.followStrength + 0.1-- Slower?
                 else
-                    return 7
+                    return 5
                 end
             else -- if on long striahgt, can loosen more
                 --print("long strencght",self.followStrength)
@@ -4651,7 +4656,7 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
                         --print("Stright increase",self.followStrength)
                         return self.followStrength + 0.07
                     else
-                        return 12
+                        return 9
                     end
                 end
             end
@@ -5087,13 +5092,13 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     end
     -- get cars in range
     local carsInRange = getDriversInDistance(self,20)
-    self.cameraPoints = self.cameraPoints + #carsInRange/1 -- cars in range (default 1?)
+    self.cameraPoints = self.cameraPoints + #carsInRange/1.5 -- cars in range (default 1?)
     if self.passing.isPassing then
         --print(self.tagText,"passing")-- get who?
         self.cameraPoints = self.cameraPoints + 1 -- Set points for passing attempt (default 1)
         local opp = getDriverFromId(self.passing.carID)
         if opp then
-            self.cameraPoints = self.cameraPoints +  (1/opp.racePosition) -- More points for race positions (multiplier? 2)
+            self.cameraPoints = self.cameraPoints +  (1.5/opp.racePosition) -- More points for race positions (multiplier? 2)
         end
     end
 
@@ -5218,6 +5223,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     if self.stuck then
         self.cameraPoints = self.cameraPoints + 1
     end
+    if self.raceFinished then self.cameraPoints = 0 end -- stop looking if not there
 
     -- Camera points when reaching finish line
     -- GEt current lap and total lap, set camera points as ratio of total
@@ -5519,10 +5525,10 @@ function Driver.client_onInteract(self,character,state)
                 end
             end
             local metaData = {   
-            ['ID'] = -1,
-            ['Car_Name'] = "Drivable Mustang",
+            ['ID'] = 24,
+            ['Car_Name'] = "Red Racer",
             ['Car_Type'] = "Custom",
-            ['Body_Style'] = "Mustang",
+            ['Body_Style'] = "Gt40",
             }
             self.network:sendToServer("sv_add_metaData",metaData) --TODO: MAKE SURE THIS IS On/off appropriately
        else

@@ -143,8 +143,8 @@ function Engine.setRPM(self,value)
                 rotationstrength = 240
             end
 
-            if rotationstrength > 1000 then
-                rotationstrength = 1000
+            if rotationstrength > 5000 then
+                rotationstrength = 5000
             end
             -- Standardize this shit
             --print(self.driver.body.mass,rotationstrength)

@@ -2,130 +2,106 @@
 [
 	
 	{
-		"best_lap" : 63.91899999999987,
+		"best_lap" : 61.7020,
 		"position" : 1.0,
-		"racer_id" : 11.0,
-		"racer_name" : "A comically long car name",
+		"racer_id" : 16.0,
+		"racer_name" : "Super Fury",
 		"split" : 0.0
 	},
 	
 	{
-		"best_lap" : 66.11799999999994,
+		"best_lap" : 60.36799999999994,
 		"position" : 2.0,
-		"racer_id" : 9.0,
-		"racer_name" : "NetherRacing",
-		"split" : 1.099000000000160
-	},
-	
-	{
-		"best_lap" : 66.56700000000001,
-		"position" : 3.0,
-		"racer_id" : 1.0,
-		"racer_name" : "Torque Master",
-		"split" : 1.849000000000160
-	},
-	
-	{
-		"best_lap" : 64.28599999999960,
-		"position" : 4.0,
-		"racer_id" : 2.0,
-		"racer_name" : "Prototype 01- propulsion",
-		"split" : 2.465999999999894
-	},
-	
-	{
-		"best_lap" : 65.60000000000036,
-		"position" : 5.0,
-		"racer_id" : 7.0,
-		"racer_name" : "Gunnolf",
-		"split" : 2.930000000000291
-	},
-	
-	{
-		"best_lap" : 64.85300000000029,
-		"position" : 6.0,
-		"racer_id" : 15.0,
-		"racer_name" : "Jitterful Motorsports",
-		"split" : 3.332000000000335
-	},
-	
-	{
-		"best_lap" : 64.78600000000006,
-		"position" : 7.0,
-		"racer_id" : 17.0,
-		"racer_name" : "bill gate",
-		"split" : 3.334000000000287
-	},
-	
-	{
-		"best_lap" : 64.21900000000005,
-		"position" : 8.0,
-		"racer_id" : 16.0,
-		"racer_name" : "Super Fury",
-		"split" : 3.601000000000113
-	},
-	
-	{
-		"best_lap" : 63.01800000000003,
-		"position" : 9.0,
-		"racer_id" : 8.0,
-		"racer_name" : "LaZyKnight",
-		"split" : 3.800000000000182
-	},
-	
-	{
-		"best_lap" : 62.26800000000003,
-		"position" : 10.0,
-		"racer_id" : 3.0,
-		"racer_name" : "LAMB-O",
-		"split" : 4.448000000000320
-	},
-	
-	{
-		"best_lap" : 63.27099999999973,
-		"position" : 11.0,
-		"racer_id" : 18.0,
-		"racer_name" : "Cain",
-		"split" : 5.300999999999931
-	},
-	
-	{
-		"best_lap" : 65.29000000000019,
-		"position" : 12.0,
 		"racer_id" : 5.0,
 		"racer_name" : "Coffey-Mobile",
-		"split" : 5.349999999999909
+		"split" : 2.990000000000009
 	},
 	
 	{
-		"best_lap" : 62.26900000000023,
-		"position" : 13.0,
-		"racer_id" : 12.0,
-		"racer_name" : "FieryDragon",
-		"split" : 11.09900000000016
+		"best_lap" : 58.22299999999996,
+		"position" : 3.0,
+		"racer_id" : 7.0,
+		"racer_name" : "Gunnolf",
+		"split" : 3.920000000000073
 	},
 	
 	{
-		"best_lap" : 61.05099999999993,
-		"position" : 14.0,
-		"racer_id" : 10.0,
-		"racer_name" : "Mateo SMARL GT3 M",
-		"split" : 12.79899999999998
+		"best_lap" : 61.40199999999982,
+		"position" : 4.0,
+		"racer_id" : 8.0,
+		"racer_name" : "LaZyKnight",
+		"split" : 5.519999999999982
 	},
 	
 	{
-		"best_lap" : 66.31899999999996,
-		"position" : 15.0,
+		"best_lap" : 59.28900000000021,
+		"position" : 5.0,
+		"racer_id" : 19.0,
+		"racer_name" : "Ford Hoonicorn V2 Ai",
+		"split" : 6.519000000000005
+	},
+	
+	{
+		"best_lap" : 59.06999999999994,
+		"position" : 6.0,
+		"racer_id" : 1.0,
+		"racer_name" : "Torque Master",
+		"split" : 6.721999999999980
+	},
+	
+	{
+		"best_lap" : 59.02800000000002,
+		"position" : 7.0,
+		"racer_id" : 3.0,
+		"racer_name" : "LAMB-O",
+		"split" : 6.884999999999991
+	},
+	
+	{
+		"best_lap" : 60.75600000000009,
+		"position" : 8.0,
+		"racer_id" : 9.0,
+		"racer_name" : "NetherRacing",
+		"split" : 7.039999999999964
+	},
+	
+	{
+		"best_lap" : 60.48899999999981,
+		"position" : 9.0,
 		"racer_id" : 6.0,
 		"racer_name" : "Oswald",
-		"split" : 13.76600000000008
+		"split" : 7.090999999999894
 	},
 	
 	{
-		"best_lap" : 66.77099999999996,
-		"position" : 16.0,
-		"racer_id" : 13.0,
-		"racer_name" : "Dirty Drafter",
-		"split" : 15.47499999999991
+		"best_lap" : 59.18299999999999,
+		"position" : 10.0,
+		"racer_id" : 6.0,
+		"racer_name" : "Oswald",
+		"split" : 7.735999999999876
+	},
+	
+	{
+		"best_lap" : 59.74499999999989,
+		"position" : 11.0,
+		"racer_id" : 5.0,
+		"racer_name" : "Coffey-Mobile",
+		"split" : 12.96199999999999
+	},
+	
+	{
+		"best_lap" : 60.55199999999991,
+		"position" : 12.0,
+		"racer_id" : 7.0,
+		"racer_name" : "Gunnolf",
+		"split" : 13.03800000000001
+	},
+	
+	{
+		"best_lap" : 59.46700000000010,
+		"position" : 13.0,
+		"racer_id" : 3.0,
+		"racer_name" : "LAMB-O",
+		"split" : 31.94499999999994
 	}
 ]

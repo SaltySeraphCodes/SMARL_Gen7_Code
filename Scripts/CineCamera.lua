@@ -81,7 +81,7 @@ function SmarlCamera.client_init( self )
 		rBumpZ = 0.01,
 
 	}
-
+	self.feezeCam = false
 	self.moveDir = sm.vec3.new(0,0,0)
 	self.moveSpeed = 15 -- 1 is default, 0 is none, can increment by 0.01?
 	self.moveAccel = sm.vec3.new(0,0,0) -- rate of movement
@@ -152,6 +152,9 @@ function SmarlCamera.cl_recieveCommand(self,com) -- takes in string commands and
 	elseif com.command == "setDir" then
 		--print("setting dir",com.value)
 		self:cl_setDirection(com.value)
+	elseif com.command == "forceDir" then
+		--print("forcing dir",com.value)
+		self:cl_forceDirection(com.value) -- Freezes camera in state??
 	end
 
 
@@ -204,18 +207,30 @@ function SmarlCamera.cl_setMoveDir(self,move) -- normalized vector to indicate m
 end
 
 function SmarlCamera.cl_setPosition(self,position) -- sets race camera to specified -position, resets zoom to 70
-	sm.camera.setPosition(position) -- sets position immediately was commented out for some reason (possibly for camera shake reasons)
-	self.raceCamLocation = position
+	if not self.feezeCam then
+		sm.camera.setPosition(position) -- sets position immediately was commented out for some reason (possibly for camera shake reasons)
+		self.raceCamLocation = position
+	end
 	--print("setPosR",self.raceCamLocation,self.raceCamDirection)
 	--print("setPosA",sm.camera.getPosition(),sm.camera.getDirection())
 end
 
 function SmarlCamera.cl_setDirection(self,direciton) -- sets race camera to specified -position, resets zoom to 70
-	self.raceCamDirection = direciton
-	sm.camera.setDirection(direciton)
+	if not self.feezeCam then 
+		self.raceCamDirection = direciton
+		sm.camera.setDirection(direciton)
+	end
 	--print("setDirR",self.raceCamLocation,self.raceCamDirection)
 	--print("setDirA",sm.camera.getPosition(),sm.camera.getDirection())
 end
+
+function SmarlCamera.cl_forceDirection(self,direciton)-- Freezes cam in direction and disables all other movement until sent to freecam
+	--print('forcing cl direction',direciton)
+	self.feezeCam = true
+	self.raceCamDirection = direciton
+	sm.camera.setDirection(direciton)
+end
+
 
 function SmarlCamera.cl_setMoveSpeed(self,speed) -- int that sets movement speed
 	self.moveSpeed = speed
@@ -349,6 +364,7 @@ function SmarlCamera.client_onReload(self)
 end
 
 function SmarlCamera.client_onFixedUpdate( self, timeStep )
+	
 	--print(sm.tool.interactState)
 end
 
@@ -459,6 +475,7 @@ function SmarlCamera.server_onFixedUpdate( self, timeStep )
 		self:load_camera()
 	end
 	
+	
 	--print("rc_server FIxed update after")
 
 end
@@ -493,6 +510,7 @@ end
 function SmarlCamera.activateFreecam(self)
 	print("freecam Activated")
 	--print("activate1",self.freeCamDirection,sm.localPlayer.getDirection())
+	self.feezeCam = false -- disable freezecam in case
 	self.debugCounter = 0
 	self.freeCamLocation = sm.camera.getPosition()
 	self.freeCamDirection = sm.camera.getDirection() -- Free cam should activate wherever it is
@@ -530,6 +548,7 @@ end
 
 function SmarlCamera.exitFreecam(self)
 	print("freecam exited")
+	self.freezecam = false
 	self.character:setLockingInteractable(nil)
 	self.tool:updateFpCamera( 70.0, sm.vec3.new( 0.0, 0.0, 0.0 ), 1, 1 ) -- aimwaiit?
 	sm.camera.setCameraState(1)
