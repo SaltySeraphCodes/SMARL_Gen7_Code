@@ -1067,11 +1067,22 @@ function posAngleDif3(location,vec,target) -- Same as above but probably more pr
     return VangleDif * 9-- Dampen from force sensitivity?
 end
 
-function angleDiff(vector1,vector2) -- gets the angle difference between vectors
+function angleDiff(vector1,vector2) -- gets the angle difference between vectors TODO, usevactual formula
     local directionalOffset = sm.vec3.dot(vector2,vector1)
 	local directionalCross = sm.vec3.cross(vector2,vector1)
     dif = (directionalCross.z) * FORCE_SENSITIVIY
     return dif
+end
+
+
+function vectorAngleDiff(vector1,vector2) -- gets the angle difference between vectors (Actuall proper math)
+    -- Only care about 2d ange for now, 
+    vector1.z =0
+    vector2.z =0
+    local dotProduct = sm.vec3.dot(vector1,vector2)
+    local lengthProduct = vector1:length() * vector2:length()
+    local rads = math.acos(dotProduct / lengthProduct)   
+    return rads -- returns radians, degrees = math.deg()
 end
 
 function generatePerpVector(direction) -- SiteEffect! Z will always be 0, Nomatter what
