@@ -45,7 +45,7 @@ local clock = os.clock --global clock to benchmark various functional speeds ( f
     8. Place all Cars in according to Race's league (no easy way to do this yet)
     9. Run SMAR Overlay and reader with startOverlay.bat
     Qualifying: 
-    1. (Ensure Qualifying = true & outputRealtime = true in racecontrol) Set laps = 3 and handicap = 2? in race control through normal interaction
+    1. (Ensure Qualifying = true & outputRealTime = true in racecontrol) Set laps = 3 and handicap = 2? in race control through normal interaction
     2. Pull in SMAR Camera tool and crouch interact to load into camera
     3. Start Race and auto camera switching (go to finish results before all cars finish)
     4. Commentate
@@ -80,6 +80,11 @@ end
 function Control.client_onDestroy(self)
     --print("Race control destroyed")
     --self:stopVisualization() -- Necessary?
+    if self.RaceMenu then
+		self.RaceMenu:close()
+		self.RaceMenu:destroy()
+	end
+
     if self.smarCamLoaded then
         self:client_exitCamera()
     end
@@ -202,7 +207,7 @@ function Control.client_init( self )
 end
 
 function Control.server_init(self)
-    self.debug = true
+    self.debug = false
     self.raceStatus = 0 -- 0 is stopped, 1 is formation? 2 is race 3 is caution?, -1 is reset to posStart
     self.timers = {}
     self.powered = false
@@ -235,13 +240,13 @@ function Control.server_init(self)
 
     self.dataOutputTimer = Timer()
     self.dataOutputTimer:start(1)
-    self.outputRealTime = true -- USE TO OUTPUT DATA TO SERVERS
+    self.outputRealTime = true  -- USE TO OUTPUT DATA TO SERVERS
     
     -- Camera automation
     self.autoCameraFocus = false
     self.autoCameraSwitch = false -- toggle automated camera things
     self.autoFocusDelay = 15
-    self.autoSwitchDelay = 9
+    self.autoSwitchDelay = 10
 
     self.autoFocusTimer = Timer()
     self.autoFocusTimer:start(self.autoFocusDelay) -- Set auto camera time here
@@ -267,6 +272,9 @@ function Control.server_init(self)
     self.externalControlsEnabled = true -- TODO: check if this
     self.viewIngCamera = false -- whether camera is being viewed
     
+
+    -- Load previous quaifying data
+    self.qualifyingResults = self:sv_ReadQualJson()
 end
 
 function Control.client_onRefresh( self )
@@ -576,7 +584,7 @@ end
 
 
 function Control.sv_toggleRaceMode(self,mode) -- starts 
-    print("toggling race mode")
+    --print("toggling race mode")
     
     if mode == 0 then --
         print("stopping race")
@@ -601,22 +609,21 @@ function Control.sv_toggleRaceMode(self,mode) -- starts
 end
 
 function Control.sv_startRace(self) -- race status 1
-    print("Race Start!") -- introduce delay?
+    --print("Race Start!") -- introduce delay?
     self:sv_sendAlert("Race Started")
-    self.powered = true
     self.raceStatus = 1
     -- check if active or not first
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 1 })
+    self:sv_sendCameraCommand({command ="setRaceMode", value = 1 })
     --self.controllerSwitch:setActive(true) TODO: find proper workaround otherwise just remove the switch
 end
 
 
 function Control.sv_stopRace(self) -- race status 0
-    print("stoprace")
     self:sv_sendAlert("Race Stopped")
     self.raceStatus = 0
-    self.powered = false
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 0 })
+    self:sv_sendCameraCommand({command ="setRaceMode", value = 0 })
     -- check if active or not
     --self.controllerSwitch:setActive(false)
     if self.raceFinished then
@@ -632,7 +639,8 @@ function Control.sv_startFormation(self) -- race status 3
     self:sv_sendAlert("Starting Formation Lap")
     self.raceStatus = 3
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 3 })
-    
+    --self:sv_sendCameraCommand({command ="setRaceMode", value = 3 }) TODO: uncomment when white box added
+
 end
 
 
@@ -640,8 +648,7 @@ function Control.sv_cautionFormation(self) -- race status 2
     self:sv_sendAlert("#FFFF00Caution Flag")
     self.raceStatus = 2
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 2 })
-    -- store position
-
+    self:sv_sendCameraCommand({command ="setRaceMode", value = 2 })
 end
 
 function Control.setCautionPositions(self) -- sv sets all driver caution positions to their current positions
@@ -654,7 +661,9 @@ end
 
 
 function Control.setFormationPositions(self) -- sv sets all driver caution positions to their current positions
-    qualData = self:sv_ReadQualJson()
+    qualData = self.qualifyingResults --self:sv_ReadQualJson()
+
+    -- Properly update driver positions
     if qualData and #qualData == #ALL_DRIVERS then 
         for k=1, #qualData do local v=qualData[k] -- sets driver formation position based on data
             local id = v.racer_id
@@ -699,7 +708,6 @@ function Control.cl_ChangeDraft(self,mode) -- adjusts metaData to switch game mo
     end
 end
 
-
 function Control.sv_changeLapCount(self,ammount) -- changes the game time by ammount
     if ammount == nil then return end
     self.targetLaps = self.targetLaps + ammount
@@ -708,7 +716,6 @@ function Control.sv_changeLapCount(self,ammount) -- changes the game time by amm
     end
     self.network:setClientData(self.targetLaps) -- send tagetLaps to clients
 end
-
 
 function Control.sv_changeHandiCap(self,ammount) -- changes the game time by ammount
     if ammount == nil then return end
@@ -723,7 +730,6 @@ function Control.sv_changeHandiCap(self,ammount) -- changes the game time by amm
     end
     self.network:setClientData(self.handiCapMultiplier) -- send tagetLaps to clients
 end
-
 
 function Control.findSplitNode(self,nodeNum) -- finds node id out of timesplit node (Need to have better way to find to prevent for loops, Could use a constantly updating nodeID offset)
     for k, v in pairs(self.timeSplitArray) do
@@ -890,21 +896,23 @@ function Control.server_onFixedUpdate(self)
             self.controllerSwitch = switch
         end
         local power = switch:isActive() -- Lets have switch control but also not cont
-        if power == nil then -- assume off
+        
+        if power == nil and self.powered == true then -- turn off
             if self.powered or self.raceStatus ~= 0 then
                 self:sv_stopRace()
             end
-        elseif power then -- switch on
+        elseif power and self.powered == false then -- switch on
             if self.raceStatus == 0 or self.powered == false then
                 self:sv_startRace()
             end
-        elseif power == false then
+        elseif power == false and self.powered == true then
             if self.powered or self.raceStatus ~= 0 then
                 self:sv_stopRace()
             end
-        else
-            print("HUH?")
+        else -- Do nothing
+            --print("HUH?",self.powered,power)
         end
+        self.powered = power -- update after checks (TODO: only run when discrepancy)
     end
     if self.handiCapOn then
         self:sv_setHandicaps()
@@ -961,8 +969,7 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
                     if firstCar then
                         local totalNodes = #firstCar.nodeChain
                         --print(totalNodes - firstCar.currentNode.id)
-                        if totalNodes - firstCar.currentNode.id < 25 then
-                            print("reaching Finish line")
+                        if totalNodes - firstCar.currentNode.id < 20 and totalNodes - firstCar.currentNode.id > 5 then
                             chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
                             local focusSpot = firstCar.nodeChain[1].mid
                             local camSpot = chosenCamera.location
@@ -975,11 +982,13 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
                     end
                 end
                 if self.autoSwitchTimer:remaining() < self.autoSwitchDelay/1.4 then -- if enough time has passed then
-                    local dis = getDistance(self.currentCamera.location,self.focusedRacerData.location)
-                    local los = get_los(self.currentCamera,self.focusedRacerData)
-                    if dis > 80 or not los then -- if nolonger LOS TODO: maker more efficient using just location (less data passed)
-                        --print('car no sseeee?',dis,los)
-                        self.network:sendToServer("sv_performAutoSwitch")
+                    if self.currentCamera then
+                        local dis = getDistance(self.currentCamera.location,self.focusedRacerData.location)
+                        local los = get_los(self.currentCamera,self.focusedRacerData)
+                        if dis > 150 or not los then -- if nolonger LOS TODO: maker more efficient using just location (less data passed)
+                            --print('car no sseeee?',dis,los)
+                            self.network:sendToServer("sv_performAutoSwitch")
+                        end
                     end
                 end
                               
@@ -1203,7 +1212,7 @@ function Control.tickClock(self) -- Just tin case
         end
         if self.autoCameraFocus and self.autoFocusTimer:done() then
             self:sv_performAutoFocus()
-            self:sv_performAutoSwitch()
+            --self:sv_performAutoSwitch()
         end
         if self.autoCameraSwitch and self.autoSwitchTimer:done() then
             self:sv_performAutoSwitch()
@@ -1324,7 +1333,7 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
             --print("restarting cam",self.autoSwitchDelay)
             self.autoFocusTimer:start(6) -- restart focus timer but not as long
         end
-        self.autoSwitchTimer:start(self.autoSwitchDelay + math.random(-1,1)) -- re does delay anyways
+        self.autoSwitchTimer:start(self.autoSwitchDelay + math.random(-2,2)) -- re does delay anyways
     end
     
 end
@@ -1630,7 +1639,7 @@ function Control.sv_ReadQualJson(self)
         print("Got error reading qualifying JSON") -- try again?
         return nil
     else
-        --print("Got Qual data",data)
+        print("Got Qual data",data)
         -- send data to cars
         if data == nil then
             print("qualifying data not found")
@@ -1883,6 +1892,7 @@ function Control.droneExecuteFollowRacer(self) -- runs onfixedupdate and focuses
 		return
 	end
     -- If self.droneFollowRacer vs pos?
+    --print(self.droneLocation.x,racer.location.x,self.droneOffset.x)
     self.droneLocation = racer.location + self.droneOffset -- puts initial location a bit off and higher than racer`
 	
 end
@@ -2297,7 +2307,7 @@ function Control.updateCameraPos(self,goal,dt)
     
     elseif self.onBoardActive then
         if self.focusedRacerData == nil then 
-            print("No focus racer")
+            --print("No focus racer") TODO: Figure out how to fix this
             return 
         end
         local racer = self.focusedRacerData

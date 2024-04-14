@@ -1,6 +1,6 @@
 {
    "011818d5-aead-49d8-aca6-50a33cb88e96" : {
-      "description" : "Connect any logic input to this block to start and stop the racers remotely. \n Interact with this object to view various race settings",
+      "description" : "Connect any logic input to this block to start and stop the racers remotely. \n Press 'E' (interact) on object to view various race settings",
       "title" : "SMAR Race Control"
    },
    "42dd8836-3cbb-495c-86b4-44fb9c9916b3" : {
@@ -8,23 +8,23 @@
       "title" : "SMAR Engine"
    },
    "5d8f2445-31bb-4079-94ab-dc1df1e6e3ed" : {
-      "description" : "Scans and attempts to generate a racing line for Auto Racers. Place at start/finish line with target/screen facing the desired circut direciton (BETA)",
+      "description" : "Scans and attempts to generate a racing line for Auto Racers. Place at start/finish line with target/screen facing the desired circut direciton",
       "title" : "SMAR Track Generator"
    },
    "645fe8aa-2c33-43c9-8859-f6a03374c62a" : {
-      "description" : "Crouch and press E to Open Camera, Pres space and shift + right click to close camera",
-      "title" : "SMAR Camera"
+      "description" : "BETA: \n  Press 'Q' While holding to open up Race Control UI. \n Press 'E' or 'ESC' to exit (Race Control must be placed down)",
+      "title" : "SMAR Race Controller Tool"
    },
    "b20d3826-3235-459c-a4c9-ef1438caaed9" : {
-      "description" : "Attatch Driver block to this and then connect this to tail lights (only braking)",
-      "title" : "Brake Unit"
+      "description" : "Connect Driver block to this and then connect this to brake lights (only braking)",
+      "title" : "Brake Light Control Unit"
    },
    "e80d963c-3af2-47aa-99d8-365e1569a568" : {
-      "description" : "[NOT READY, PLEASE IGNORE]",
+      "description" : "[NOT FUNCTIONAL, DO NOT USE]",
       "title" : "SMAR CheckPoint"
    },
    "fbc31377-6081-426d-b518-f676840c407c" : {
-      "description" : "SMAR Driver - Car AI Driver, connect to steering bearings and SMAR Engine. Place anywhere on ca with steering wheel facing the front. \n MUST BE PLACED WHILE CAR IS ON LIFT IN ORDER FOR CAR TO BE SCANNED CORRECTLY.",
+      "description" : "Car AI Driver, connect to steering bearings and SMAR Engine. Place anywhere on car with steering wheel (smooth face) facing the front. \n MUST BE PLACED WHILE CAR IS ON LIFT IN ORDER FOR CAR TO BE SCANNED CORRECTLY.",
       "title" : "SMAR Driver"
    }
 }

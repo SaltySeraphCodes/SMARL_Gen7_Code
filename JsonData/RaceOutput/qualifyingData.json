@@ -2,130 +2,114 @@
 [
 	
 	{
-		"best_lap" : 58.73000000000320,
+		"best_lap" : 60.31100000000015,
 		"position" : 1.0,
-		"racer_id" : 5.0,
-		"racer_name" : "Coffey-Mobile",
+		"racer_id" : 31.0,
+		"racer_name" : "Police Racer",
 		"split" : "0.000"
 	},
 	
 	{
-		"best_lap" : 58.03399999999965,
-		"position" : 3.0,
-		"racer_id" : 11.0,
-		"racer_name" : "A comically long car name",
-		"split" : "60.486"
-	},
-	
-	{
-		"best_lap" : 57.06599999999889,
+		"best_lap" : 60.14499999999998,
 		"position" : 2.0,
-		"racer_id" : 7.0,
-		"racer_name" : "Gunnolf",
-		"split" : "4.033"
+		"racer_id" : 27.0,
+		"racer_name" : "Jellyfish",
+		"split" : "0.158"
 	},
 	
 	{
-		"best_lap" : 56.63399999999820,
+		"best_lap" : 59.22700000000009,
+		"position" : 3.0,
+		"racer_id" : 33.0,
+		"racer_name" : "Gotta DooDoo",
+		"split" : "0.223"
+	},
+	
+	{
+		"best_lap" : 58.82799999999997,
 		"position" : 4.0,
-		"racer_id" : 6.0,
-		"racer_name" : "Oswald",
-		"split" : "5.231"
+		"racer_id" : 25.0,
+		"racer_name" : "Dallas Dominator",
+		"split" : "0.640"
 	},
 	
 	{
-		"best_lap" : 54.74899999999616,
+		"best_lap" : 58.52099999999996,
 		"position" : 5.0,
-		"racer_id" : 3.0,
-		"racer_name" : "LAMB-O",
-		"split" : "8.783"
+		"racer_id" : 21.0,
+		"racer_name" : "CoffeyMobile: The Sequel",
+		"split" : "1.275"
 	},
 	
 	{
-		"best_lap" : 55.90100000000530,
+		"best_lap" : 60.10999999999990,
 		"position" : 6.0,
-		"racer_id" : 16.0,
-		"racer_name" : "Super Fury",
-		"split" : "9.004"
+		"racer_id" : 28.0,
+		"racer_name" : "Prototype 02: Drag",
+		"split" : "1.639"
 	},
 	
 	{
-		"best_lap" : 54.18500000000495,
+		"best_lap" : 59.24399999999991,
 		"position" : 7.0,
-		"racer_id" : 9.0,
-		"racer_name" : "NetherRacing",
-		"split" : "14.885"
+		"racer_id" : 26.0,
+		"racer_name" : "BK Racing",
+		"split" : "3.117"
 	},
 	
 	{
-		"best_lap" : 54.20099999999366,
+		"best_lap" : 60.29299999999989,
 		"position" : 8.0,
-		"racer_id" : 1.0,
-		"racer_name" : "Torque Master",
-		"split" : "15.551"
+		"racer_id" : 23.0,
+		"racer_name" : "No Clue",
+		"split" : "3.597"
 	},
 	
 	{
-		"best_lap" : 56.36699999999837,
+		"best_lap" : 59.15000000000009,
 		"position" : 9.0,
-		"racer_id" : 13.0,
-		"racer_name" : "Dirty Drafter",
-		"split" : "15.784"
+		"racer_id" : 14.0,
+		"racer_name" : "LaZyKnight2",
+		"split" : "3.987"
 	},
 	
 	{
-		"best_lap" : 56.21800000000076,
+		"best_lap" : 60.60500000000002,
 		"position" : 10.0,
-		"racer_id" : 10.0,
-		"racer_name" : "Mateo SMARL GT3 M",
-		"split" : "19.518"
+		"racer_id" : 19.0,
+		"racer_name" : "Ford Hoonicorn V2 Ai",
+		"split" : "4.925"
 	},
 	
 	{
-		"best_lap" : 55.78600000000006,
+		"best_lap" : 59.80899999999997,
 		"position" : 11.0,
-		"racer_id" : 12.0,
-		"racer_name" : "FieryDragon",
-		"split" : "24.887"
+		"racer_id" : 20.0,
+		"racer_name" : "Bah-tomobile",
+		"split" : "5.172"
 	},
 	
 	{
-		"best_lap" : 56.78300000000309,
+		"best_lap" : 59.99600000000009,
 		"position" : 12.0,
-		"racer_id" : 2.0,
-		"racer_name" : "Prototype 01- propulsion",
-		"split" : "25.716"
+		"racer_id" : 30.0,
+		"racer_name" : "Redline",
+		"split" : "5.675"
 	},
 	
 	{
-		"best_lap" : 56.88400000000547,
+		"best_lap" : 60.97699999999986,
 		"position" : 13.0,
-		"racer_id" : 15.0,
-		"racer_name" : "Jitterful Motorsports",
-		"split" : "30.570"
+		"racer_id" : 24.0,
+		"racer_name" : "Red Racer",
+		"split" : "9.866"
 	},
 	
 	{
-		"best_lap" : 55.38599999999860,
+		"best_lap" : 61.88599999999997,
 		"position" : 14.0,
-		"racer_id" : 17.0,
-		"racer_name" : "bill gate",
-		"split" : "32.886"
-	},
-	
-	{
-		"best_lap" : 55.36799999999494,
-		"position" : 15.0,
-		"racer_id" : 8.0,
-		"racer_name" : "LaZyKnight",
-		"split" : "33.036"
-	},
-	
-	{
-		"best_lap" : 54.88700000000244,
-		"position" : 16.0,
-		"racer_id" : 18.0,
-		"racer_name" : "Cain",
-		"split" : "35.536"
+		"racer_id" : 22.0,
+		"racer_name" : "Porsche 962 Ai Car",
+		"split" : "13.464"
 	}
 ]

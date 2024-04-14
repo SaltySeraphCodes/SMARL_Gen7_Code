@@ -17,7 +17,7 @@ RACE_CONTROL = nil -- Contains race control Object
 ALL_CAMERAS = {}
 CAMERA_LEADERS = {} -- car ids and car points
 -- HARD LIMITS no engine can go past this on acident
-ENGINE_SPEED_LIMIT = 200 -- Car should never get this high anyways but just in case
+ENGINE_SPEED_LIMIT = 250 -- Car should never get this high anyways but just in case
 
 --
 
@@ -93,39 +93,49 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
    {
         TYPE = "road", -- slowest
         COLOR = "222222ff", -- black
-        MAX_SPEED = 75, -- 73.5 engine
+        MAX_SPEED = 78, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.4,
-        MAX_BRAKE = 0.7,
-        GEARING = {0.6,0.5,0.4,0.25,0.2}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 75/5 -- LImit for VRPM TODO: adjust properly
+        MAX_BRAKE = 0.6,
+        GEARING = {0.4,0.45,0.35,0.3}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 78/5 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "sports", -- medium -- dark gray
         COLOR = "4a4a4aff",
-        MAX_SPEED = 90, -- 80
+        MAX_SPEED = 95, -- 80
         MAX_ACCEL = 0.5,
-        MAX_BRAKE = 0.7, -- 1?
-        GEARING = {0.7,0.6,0.5,0.3,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 90/5 -- LImit for VRPM TODO: adjust properly
+        MAX_BRAKE = 0.65, -- 1?
+        GEARING = {0.45,0.4,0.45,0.3,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 95/5 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "formula", -- Fast
         COLOR = "7f7f7fff", -- Light gray
-        MAX_SPEED = 120,
-        MAX_ACCEL = 1.1,
-        MAX_BRAKE = 1,
-        GEARING = {0.7,0.8,0.6,0.4,0.3}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 120/5
+        MAX_SPEED = 130,
+        MAX_ACCEL = 0.7,
+        MAX_BRAKE = 0.75,
+        GEARING = {0.46,0.45,0.5,0.4,0.20}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 130/5
     },
     {
         TYPE = "insane", -- Insane -- add custom later?
         COLOR = "eeeeeeff", -- white
-        MAX_SPEED = 200,
-        MAX_ACCEL = 3,
-        MAX_BRAKE = 1.5,
-        GEARING = {0.8,0.99,0.75,0.7,0.7}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 200/5
+        MAX_SPEED = 250,
+        MAX_ACCEL = 1,
+        MAX_BRAKE = 0.85,
+        GEARING = {0.48,0.45,0.50,0.5,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 250/5
+    },
+    {
+        TYPE = "custom", -- custom
+        COLOR = "aaaa2f", -- todo
+        MAX_SPEED = 250,
+        MAX_ACCEL = 1,
+        MAX_BRAKE = 0.85,
+        GEARING = {0.48,0.45,0.50,0.5,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 250/5
     }
+
 }
 -- Data managment
 function saveData(data,channel) -- gather more params
@@ -196,10 +206,44 @@ function generateNodeMap(nodeChain) -- Creates a mapped 2d array of nodes based 
 end
 
 
+function displayNodeMap(nodeMap,location) -- attempts to display nodemap
+    mapString = "\n"
+    mapXSize = 100
+    mapYSize = 40
+    local approxRow = round(location.y)
+    local approxCol = round(location.x)
+    for row = -mapYSize/2, mapYSize/2 do
+        for col = -mapXSize/2, mapXSize/2 do
+            if nodeMap[approxRow + row] ~= nil then -- Row contains something
+                if nodeMap[approxRow + row][approxCol + col] ~= nil then -- Column contains something
+                    if col ==0 and row == 0 then 
+                        mapString = mapString .. "@" -- Self Pos
+                    else
+                        mapString = mapString .. "O" -- Node Pos
+                    end
+                else -- Column contains nothing
+                    if col ==0 and row == 0 then 
+                        mapString = mapString .. "@"
+                    else  
+                        mapString = mapString .. "-" 
+                    end
+                end
+            else -- Row doesnt contain anything
+                if col ==0 and row == 0 then 
+                    mapString = mapString .. "@" 
+                else  
+                    mapString = mapString .. "-" 
+                end
+            end
+        end
+        mapString = mapString .. "\n"
+    end
+    print(mapString)
+end
+
 -- possibly use areaTrigger?
 -- Get closest nodes to the nearest location?
-function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMAp, detect if outside, instead of searching all, just search for nearest node in general direction
-    --print(nodeMap)
+function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, detect if outside, instead of searching all, just search for nearest node in general direction
     local availibleNodes = {}
     local approxRow = round(location.y)
     local approxCol = round(location.x)
@@ -365,14 +409,14 @@ function calculateMaximumVelocity(segBegin,segEnd,segLen) -- gets maximumSpeed b
     local angle2 = angleDiff(segBegin.outVector,segEnd.outVector) -- depreciated
     if  segType == "Straight" then -- sometimes things go wrong
         
-        return getVmax(angle) * 2.2
+        return getVmax(angle) * 1.8
     elseif segType == "Fast_Right" or segType == "Fast_Left" then -- reduce ang
         --print("fastSeg",segLen)
-        if segLen >= 20 then -- Long turn
+        if segLen >= 10 then -- Long turn
             --print("maxWideTurn",segLen)
-            return getVmax(angle)+ segLen - 20 -- Adjustable to engineVel?
+            return getVmax(angle) -- Adjustable to engineVel?
         end
-        angleMultiplier = 1.5
+        angleMultiplier = 2
     elseif segType == "Medium_Right" or segType == "Medium_Left" then -- increase ang?
         if segLen >= 20 then -- Long turn
             --print("Medium long Turn",segLen)
@@ -394,7 +438,8 @@ function calculateMaximumVelocity(segBegin,segEnd,segLen) -- gets maximumSpeed b
 end
 
 
-function getBrakingDistance(speed,brakePower,targetSpeed) -- Get distance needed to go from speed {target}
+function getBrakingDistance(speed,mass,brakePower,targetSpeed) -- Get distance needed to go from speed {target}
+    --print(speed,targetSpeed)
     if speed <= targetSpeed then -- already there
         return 0
     end
@@ -402,12 +447,17 @@ function getBrakingDistance(speed,brakePower,targetSpeed) -- Get distance needed
     -- Ignoring the effects of negative acceleration, calculate distance
     --print("ticks",ticksToTarget)
     --return speed * ticksToTarget-- D = S*T -- Old dist formula
-    if speed > 20 then -- make longer brake dist?
-        brakePower = brakePower - 0.2
+    local BPADJ = brakePower
+    if speed > 5 then -- make longer brake dist?
+        local massAdj = mass-5000 -- Default weight will be 5000 TODO: Set Global --ratioConversion(4300,1500,brakePower,0.01,mass)
+        BPADJ = brakePower - massAdj/1000
+        if BPADJ <= 0 then BPADJ = 0.05 end-- minimum brakePower end
+        if BPADJ >= brakePower then BPADJ = brakePower end -- maximum brakePower (TODO: COnver Global brakePower to mass based and not engine based)
     end
     local top = targetSpeed^2 - speed^2
-    local bottom = 2*(brakePower*DECELERATION_RATE)
+    local bottom = 2*(BPADJ*DECELERATION_RATE)
     local distance = top/bottom
+    --print("M:",mass,BPADJ,targetSpeed,speed,distance)
     return distance
 
 end
@@ -598,7 +648,7 @@ end
 
 function getLapsLeft()
 	for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
-		if v.racePosition <= 1 then
+		if v and v.racePosition and v.racePosition <= 1 then
             if getRaceControl() ~= nil then
 			    return ( getRaceControl().targetLaps - v.currentLap)
             end
