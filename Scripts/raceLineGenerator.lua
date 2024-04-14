@@ -90,8 +90,8 @@ function Generator.client_init( self )  -- Only do if server side???
     self.segSearch = 0
     self.segSearchTimeout = 100
 
-    self.debug =false  -- Debug flag
-    self.instantScan = true
+    self.debug =false  -- Debug flag -- REMEMBER TO TURN THIS OFF
+    self.instantScan = false
     self.instantOptimize = false -- Scans and optimizes in one loop
     self.racifyLineOpt = true -- Makes racing line more "racelike"
     self.asyncTimeout = 0-- Scan speed [0 fast, 1 = 1per sec]
@@ -100,7 +100,7 @@ function Generator.client_init( self )  -- Only do if server side???
     self.scanError = false
     self.errorLocation = nil
 
-    self.showWalls = false -- show wall effects (reduces total allowed effects)
+    self.showWalls = true -- show wall effects (reduces total allowed effects)
 	print("Track Generator V2.0 Initialized at ",self.location,self.shape.at)
 end
 
@@ -360,7 +360,6 @@ function Generator.getSegmentBegin(self,segID) -- parameratize by passing in nod
         print("no node chain")
         return
     end
-    print("segbegin",self.nodeChain[1].segID)
     for i=1, #self.nodeChain do local node = self.nodeChain[i]
         if node ~= nil then
             if node.segID == segID then
@@ -428,7 +427,11 @@ function Generator.findTypeLimits(self,segType,startNode) -- similar to get segm
         end
         node = node.next -- get next node
     end
-
+    if firstNode == nil and lastNode == nil then
+        print("Track all straight segments")
+        firstNode = startNode 
+        lastNode = startNode
+    end
     return firstNode,lastNode
 end 
  
@@ -554,14 +557,14 @@ function Generator.getWallAngleDown(self,location,perp,cycle) -- finds wall from
         searchLocation.z =  zOffsetStart + k -- gives old offset and adds(subs) k to scan from top down
         hit,data = sm.physics.raycast(location,searchLocation)
         if cycle == 1 then
-            --table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
-            --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
+            table.insert(self.debugEffects,self:generateEffect(location,sm.color.new('ff0000ff'))) -- red dot at start locationi
+            table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
         end
         if data.valid == false then --or (hitL and lData.type ~= 'terrainAsset') then -- could not find wall
-            --print("L Wallfailed",k)
+            print("L Wallfailed",k)
         else -- we found a wall, create debug effect line
             if cycle == 1 then
-                --self:createEfectLine(location,data.pointWorld,sm.color.new('ee127fff')) -- red ish line
+                self:createEfectLine(location,data.pointWorld,sm.color.new('ee127fff')) -- red ish line
             end
             return data.pointWorld
         end
@@ -569,13 +572,67 @@ function Generator.getWallAngleDown(self,location,perp,cycle) -- finds wall from
     
 end
 
+-- Wider scan to find the initial wall from the top down
+function Generator.findWallTopDown(self,location,direction,cycle,threshold) -- scans walls from the top down and across the perp axis (BEST)
+    -- Scans from location to another location from top down 
+    -- original location is estimated position based off of last wall
+    -- stores floor location and if floor height threshold is passed then will return wall location
+   local scanHeight = 5 -- how high from location to start scan
+   local perpOffset = 3 -- start loc
+   local perpLimit = 30  -- end scan dist
+   local floorValue = nil
+   local scanGrain = 0.45 -- Sweeet spot may need adjustment [0.25]
+   local scanStart = location + (direction * perpOffset)
+   scanStart.z = location.z + scanHeight
+   local scanEnd = scanStart + sm.vec3.new(0,0,-25) -- scan down
+   local foundWall = nil
+
+   for k= perpOffset, perpLimit, scanGrain do -- scans from pre direction, to post direction
+           hit,data = sm.physics.raycast(scanStart,scanEnd) -- shoot raycast down
+           if cycle == 1 then
+                --table.insert(self.debugEffects,self:generateEffect(scanStart,sm.color.new('1111ffff'))) -- blue dot at start location
+                --table.insert(self.debugEffects,self:generateEffect(scanEnd,sm.color.new('11ff11ff'))) -- green dot at end location
+           end
+
+           if hit then -- found floor
+               if cycle == 1 then
+                    --table.insert(self.debugEffects,self:generateEffect(scanStart,sm.color.new('1111ffff'))) -- blue dot at start location
+                    --table.insert(self.debugEffects,self:generateEffect(data.pointWorld,sm.color.new('11ff11ff'))) -- green dot at end location
+               end
+
+               floorLoc = data.pointWorld.z
+               if floorValue then
+                    --print( "floorDif",floorValue,floorLoc, math.abs((floorLoc - floorValue)),threshold)
+               end
+               if floorValue and math.abs((floorLoc - floorValue))  > threshold then -- if there is a large change in floorthreshold
+                   --print("found potential wall",math.abs(floorLoc - floorValue),threshold)
+                   --self:createEfectLine(scanStart,data.pointWorld,sm.color.new('aaaaff')) -- white ish line
+                   foundWall = data.pointWorld
+                   break -- stop looping here
+               else
+                   floorValue = floorLoc -- adjust floor location in case uneven terrain?
+                   -- TODO to debug: Might miss smooth walls, changing it to floorlocation 
+               end
+           end
+           
+           -- Set new location 
+           scanStart = location + (direction * k)
+           scanStart.z = location.z + scanHeight
+           scanEnd = scanStart + sm.vec3.new(0,0,-25) -- scan down
+   end
+
+   return foundWall
+end
+
+
+
 function Generator.getWallTopDown(self,location,direction,cycle,threshold) -- scans walls from the top down and across the perp axis (BEST)
     -- Scans from location to another location from top down 
     -- original location is estimated position based off of last wall
     -- stores floor location and if floor height threshold is passed then will return wall location
    local scanHeight = 4 -- how high from location to start scan
    local perpOffset = -5 -- start loc
-   local perpLimit = 5 -- end scan dist
+   local perpLimit = 5  -- end scan dist
    local floorValue = nil
    local scanGrain = 0.25 -- Sweeet spot may need adjustment [0.25]
    local scanStart = location + (direction * perpOffset)
@@ -642,6 +699,7 @@ function Generator.checkForSharpEdge(self,midPoint,newWall,cycle)
    return false
 end
 
+-- Only used at startTrack Sacn
 function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is new, determines which time it is ran to prevent annoying overlay on debug draw
     --print("originalZ",location.z)
     --print("scaning perp",direction)
@@ -663,6 +721,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
     if cycle == 1 then
         --table.insert(self.debugEffects,self:generateEffect(location + self.shape.up *3.5 ,sm.color.new('ffff00ff'))) -- oarnge dot at start locationi
     end
+    -- TODO: Check which object has been hit (for all raycasts) and alert player if player has been hit
     local floor = location.z
     if floorHeight then
         --print("local normie",floorData.normalLocal,floorData.normalWorld)
@@ -685,7 +744,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
         
         local floorDif = frontData.pointWorld.z - floor
         if floorDif < -.3 then
-            --print("Road is sloping up")
+            print("Road is sloping up")
             floor = frontData.pointWorld.z + 0.5 -- may need to adjust?
             location.z = floor 
             --print(floor)
@@ -693,7 +752,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
     else
         --print(location.z - floor) -- bug, it sees going gdown but doesnt determine flat
         if location.z - floor > 0.3 then
-            --print("Road going down")
+            print("Road going down")
             location.z = frontData.pointWorld.z
         end
     end
@@ -716,7 +775,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
         rightWallDist = getDistance(lastRightWall,lastCenter)
     end
 
-    leftWall = self:getWallFlatUp(location,-perp2,cycle) -- find left wall
+    leftWall = self:findWallTopDown(location,-perp2,1,0.2) --self:getWallFlatUp(location,-perp2,cycle) -- find left wall
     if leftWall == nil then
         print("L Wallfailed",leftWall,location,cycle)
         -- switch scan methods
@@ -724,7 +783,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
         self:checkForSharpEdge(location,leftWall,cycle) -- returns truefalse for failsafes
     end
 
-    rightWall = self:getWallFlatUp(location,perp2,cycle) -- find right wall
+    rightWall = self:findWallTopDown(location,perp2,1,0.2)--self:getWallFlatUp(location,perp2,cycle) -- find right wall
     if rightWall == nil then
         print("R Wallfailed",rightWall,location,cycle)
         -- switch scan methods
@@ -759,6 +818,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
     elseif rightWall.z - leftWall.z > bankThresh then -- if right wall is 3? hgihter than left wall, it is banked left
         bank = -1
     end -- else bank is 0
+    print("bank",bank)
     return midPoint, width,leftWall,rightWall,bank
 end
 
@@ -1189,7 +1249,9 @@ function Generator.sv_saveData(self,data)
     data = self.simpNodeChain -- was data.raceLine --{hello = 1,hey = 2,  happy = 3, hopa = "hdjk"}
     print("saving Track")
     sm.storage.save(channel,data) -- track was channel
+    --sm.terrainData.save(data) -- saves as terrain??
     saveData(data,channel) -- worldID?
+
     print("Track Saved")
 end
 
@@ -1208,6 +1270,12 @@ function Generator.sv_loadData(self,channel)
     print("Loading data")
     local data = sm.storage.load(channel)
     print("finished Loading",data)
+    local exists = sm.terrainData.exists()
+    print("data exists?",exists)
+    if exists then 
+        local data2 = sm.terrainData.load()
+        print("finished loading terrain2",data2)
+    end
     return data
 end
 
@@ -1247,10 +1315,10 @@ end
 
 -- Working algorithm that is much better at pinning apex/turn efficient points
 function Generator.racifyLine(self)
-    local straightThreshold = 10 -- Minimum length of nodes a straight has to be
-    local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2)
-    local shiftAmmount = 0.11  -- Maximum node pin shiftiging amound (>2)
-    local lockWeight = 5
+    local straightThreshold = 12 -- Minimum length of nodes a straight has to be
+    local nodeOffset = 5 -- number of nodes forward/backwards to pin (cannot be > straightLen/2)
+    local shiftAmmount = 0.05  -- Maximum node pin shiftiging amound (>2)
+    local lockWeight = 8
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
     -- TODO: only racify when there curve is a medium or more
@@ -1269,6 +1337,9 @@ function Generator.racifyLine(self)
                 -- offset first and last nodes
                 --print("eligible for typelimits",node.id,node.segType.TYPE,segLen)
                 local firstNode,lastNode = self:findTypeLimits(node.segType.TYPE,node) -- Gets first and last node that match selected type
+                if (firstNode.id == lastNode.id) then -- track has no turns
+                    break
+                end
                 local offsetFirstNode = getNextItem(self.nodeChain,firstNode.id,nodeOffset)
                 --print("got first node offset",firstNode.id,offsetFirstNode.id,nodeOffset)
                 local offsetLastNode = getNextItem(self.nodeChain,lastNode.id,-nodeOffset)
@@ -1281,7 +1352,7 @@ function Generator.racifyLine(self)
                     local desiredTrackPos = offsetFirstNode.pos
                     desiredTrackPos = offsetFirstNode.pos + (offsetFirstNode.perpVector * (shiftAmmount * -getSign(lastTurnDirection)))
                     offsetFirstNode.pos = desiredTrackPos
-                    offsetFirstNode.pinned = true -- pin/weight?
+                    offsetFirstNode.pinned = false -- pin/weight?
                     offsetFirstNode.weight = lockWeight
                 end
                 
@@ -1290,7 +1361,7 @@ function Generator.racifyLine(self)
                     desiredTrackPos = offsetLastNode.pos
                     desiredTrackPos = offsetLastNode.pos + (offsetLastNode.perpVector * (shiftAmmount * -getSign(nextTurnDirection)))
                     offsetLastNode.pos = desiredTrackPos
-                    offsetLastNode.pinned = true -- pin/weight?
+                    offsetLastNode.pinned = false -- pin/weight?
                     offsetLastNode.weight = lockWeight
                 end
             end 
@@ -1606,19 +1677,17 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
     --self.smoothEqualCount = self.smoothEqualCount + 1
 
     
-    if math.abs(dif - self.lastDif) < 0.01 then
+    if math.abs(dif - self.lastDif) < 0.015 then
         --print("smooth",self.dampening)
-        self.dampening = self.dampening/ 1.1
-        self.smoothEqualCount = self.smoothEqualCount + 0.5
+        self.dampening = self.dampening/ 1.2
+        self.smoothEqualCount = self.smoothEqualCount + 0.6
     end
 
-    if self.smoothEqualCount >= 5 then
-        --debugPrint(self.debug,"Three equalinro")
-        return true
-    end
+
     self.lastDif = dif
     self.totalForce = totalForce
-    if self.smoothEqualCount >= 3 then
+
+    if self.smoothEqualCount >= 4 then
         --debugPrint(self.debug,"Three equalinro")
         return true
     end
@@ -1973,7 +2042,7 @@ function Generator.startTrackScan(self)
     print("Starting SCAN",#self.nodeChain,self.nodeIndex,width)
    
     local startingNode = self:generateMidNode(self.nodeIndex,nil,startPoint,self.trackStartDirection,self.totalDistance,width,leftWall,rightWall,bank)
-
+  
     table.insert(self.nodeChain, startingNode)
     if self.instantScan then -- instant game freezing scan
         while self.scanClock < self.scanLength do

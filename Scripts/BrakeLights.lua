@@ -47,7 +47,7 @@ function BrakeLights.calculateBrakeStatus(self,power)
 	--print("checking",power)
 	--local brakes = getBrakes(self.racerID)
 	--local status = getStatus(self.racerID)
-	if power <0.3 then
+	if power <0 then
 		if self.active ~= true then
 			self.active = true
 			--print("breaking")

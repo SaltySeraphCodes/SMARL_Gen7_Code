@@ -1,5 +1,4 @@
 An AI Racing System that connects to any creation!
-OUTDATED FOR NOW
 [h1]Introduction[/h1]
 Have you ever wanted to race against your own creations but have no one to race with?
 Now you can! With this racing system, you can make any creation race around any specially designed track!
@@ -50,17 +49,14 @@ Interact with race control terminal to view interface
 
 [b](Beta) User Control:[/b] Connect any driving seat to the SMAR Driver block: Press 1 toggle human control!
 
-[b](Beta) Camera Control Control:[/b]
- Keybinds:
- 	=
-	-
-	end
-	*
-	\
-	`
-	+
-	
-        
+[b]SMAR Race Control Tool[/b]
+- Press 'q' to open a very crude GUI that will let you set the race flags of Red, Yellow and Green
+- Current Race status is also shown
+CURRENTLY IN BETA, may not always work
+
+[b]Race Status Logic Output [/b]
+- Connect driver block to a vanilla logic gate
+- Driver will output 1, true, on, etc. whenever the racing flag is green and 0, false, off, etc. when flag is not green
 
 [b]Extras:[/b][list]
 [*]View Debug information for a driver by pressing 'E' on the Driver block
@@ -76,9 +72,6 @@ search "SMAR official"  or check out the SMAR Official Collection for tracks, ca
 https://steamcommunity.com/sharedfiles/filedetails/?id=2588724119
 
 [b]Upcoming Features[/b]:
-- Tail Light Module that will turn on brake lights when car is slowing down!
-- Wireless Starter switch to start and stop the race from anywhere!
 - Custom Race Checkpoints
-- Custom engine speeds through race control
+- Custom engine speeds via race control
 - Bug fix for multiplayer AI takeover
-- Improved Track Scanning ability

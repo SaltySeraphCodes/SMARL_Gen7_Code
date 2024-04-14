@@ -91,12 +91,37 @@ function SmarlCamera.client_init( self )
 
 	self.externalControlsEnabled = false -- whether kepyress reader is active
 
+
+	-- GUI 
+	--print("loading gui")
+	self.guiOpen = false
+	self.RaceControlGUI = sm.gui.createGuiFromLayout( MOD_FOLDER.."Gui/Layouts/RaceControl.layout",false )
+	
+	if self.selectedColorButton == nil then
+		self.selectedColorButton = "ColorButtonRed"
+	end
+
+	--self.RaceControlGUI:setButtonCallback( "StopRaceBtn", "client_buttonPress" )
+	--self.RaceControlGUI:setButtonCallback( "StartRaceBtn", "client_buttonPress" )
+	--self.RaceControlGUI:setButtonCallback( "CautionRaceBtn", "client_buttonPress" )
+
+	self.RaceControlGUI:setButtonCallback( "ColorButtonRed", "cl_onColorButtonClick" )
+	self.RaceControlGUI:setButtonCallback( "ColorButtonYellow", "cl_onColorButtonClick" )
+	self.RaceControlGUI:setButtonCallback( "ColorButtonGreen", "cl_onColorButtonClick" )
+
+
+	-- etc...
+	self.RaceControlGUI:setButtonCallback( "ResetRace", "client_buttonPress" )
+	self.RaceControlGUI:setButtonCallback("PopUpYNYes", "client_buttonPress")
+	self.RaceControlGUI:setButtonCallback("PopUpYNNo", "client_buttonPress")
+	self.RaceControlGUI:setOnCloseCallback( "client_onRaceControlGUIClose" )
+
 end 
 
 function SmarlCamera.server_init(self)
 	self.cameraLoaded = false -- whether tool is loaded into global
 	self.externalControlsEnabled = false -- whether kepyress reader is active
-
+	self.sv_dataUpdated = false -- Flag for if data gets updated
 end
 
 function SmarlCamera.load_camera(self) -- attatches camera to smar globals
@@ -108,6 +133,13 @@ function SmarlCamera.load_camera(self) -- attatches camera to smar globals
 	else
 		print("globals not loaded")
 		-- set globals load error true
+	end
+end
+
+function SmarlCamera.client_onDestroy(self)
+	if self.RaceControlGUI then
+		self.RaceControlGUI:close()
+		self.RaceControlGUI:destroy()
 	end
 end
 
@@ -161,9 +193,13 @@ function SmarlCamera.cl_recieveCommand(self,com) -- takes in string commands and
 end
 
 function SmarlCamera.sv_recieveCommand(self,com)
-	print("cam sv_recieved",com,com.command,com.value)
+	--print("cam sv_recieved",com,com.command,com.value)
 	if com.command == "test" then -- switch??
 		print("foff")
+	elseif com.command == "setRaceMode" then
+		--print("star update race mode icon")
+		self.sv_colorIndex = com.value
+		self.sv_dataUpdated = true;
 	end
 end
 
@@ -274,14 +310,15 @@ function SmarlCamera.client_onEvent( self, world )
 	print("OnEvenr",world)
 end
 
-function SmarlCamera.client_onToggle(self, backwards)
+--[[
+function SmarlCamera.client_onToggle(self, backwards) check this
 	local dir = 1
 	if backwards then
 		dir = -1
 	end
 	self:toggleCamera(dir)
 	
-end
+end]]
 
 function SmarlCamera.switchCam(self,cam) -- Actually does the teleporting
 	local player = self.player
@@ -368,6 +405,26 @@ function SmarlCamera.client_onFixedUpdate( self, timeStep )
 	--print(sm.tool.interactState)
 end
 
+function SmarlCamera.client_onClientDataUpdate(self,clientData)
+	local selectedColor -- Set default as self.selectedColorButton
+	if clientData.colorIndex then
+		if clientData.colorIndex == 0 then -- red
+			selectedColor = "ColorButtonRed"
+		elseif clientData.colorIndex == 2 then -- yellow
+			selectedColor = "ColorButtonYellow"
+		elseif clientData.colorIndex == 1 then -- Green
+			selectedColor = "ColorButtonGreen"
+		else -- White flag
+			selectedColor = "ColorButtonRed" -- TODO: add white
+		end
+	end
+
+	if self.RaceControlGUI then
+		self:cl_updateColorButton( selectedColor )
+	else
+		self.selectedColorButton = selectedColorButton
+	end
+end
 
 function SmarlCamera.client_onUpdate( self, timeStep )
 	--print("Actual",sm.camera.getPosition(),sm.camera.getDirection())
@@ -466,6 +523,37 @@ function SmarlCamera.client_onUpdate( self, timeStep )
 	sm.camera.setFov(self.fovValue) -- TODO: clean this up into fewer functions
 	self.debugCounter = self.debugCounter + 1
 	--print("Cinecamera cl Update After")
+
+	-- GUIL Setting
+	if RACE_CONTROL then -- Need better connector for RACE_CONTROL
+		local raceStat = " - "
+		local lapStat = " - "
+		local statusText = ""
+		if RACE_CONTROL.raceStatus == 1 then
+			raceStat = "Race Status: #11ee11Racing"
+		elseif RACE_CONTROL.raceStatus == 0 then
+			raceStat = "Race Status: #ff2222Stopped"
+		elseif RACE_CONTROL.raceStatus == 2 then
+			raceStat = "Race Status: #ffff11Caution"
+		
+		elseif RACE_CONTROL.raceStatus == 3 then
+			raceStat = "Race Status: #fafafaFormation"
+		
+		end
+		if RACE_CONTROL.raceFinished then
+			raceStat = "Race Status: #99FF99Finished"
+		end    
+
+		if RACE_CONTROL.currentLap ~= nil then
+			lapStat = "Lap ".. RACE_CONTROL.currentLap .. " of " .. RACE_CONTROL.targetLaps
+		end
+
+		if self.RaceControlGUI then
+			self.RaceControlGUI:setText("StatusText", raceStat )
+			self.RaceControlGUI:setText("LapStat", lapStat )
+		end
+	end
+
 end
 
 function SmarlCamera.server_onFixedUpdate( self, timeStep )
@@ -473,13 +561,17 @@ function SmarlCamera.server_onFixedUpdate( self, timeStep )
 	--print("rc_server FIxed update before")
 	if not self.cameraLoaded then
 		self:load_camera()
+	else
+		-- Check for data update flag?
+	if	self.sv_dataUpdated then
+		self:sv_updateIcon({colorIndex = self.sv_colorIndex})
+		self.sv_dataUpdated = false
 	end
-	
-	
+
+	end
 	--print("rc_server FIxed update after")
 
 end
-
 
 function SmarlCamera.client_onEquippedUpdate( self, primaryState, secondaryState )
 	--print(primaryState,secondaryState)
@@ -500,6 +592,13 @@ function SmarlCamera.client_onEquippedUpdate( self, primaryState, secondaryState
 	end
 
 	return true, true
+end
+
+function SmarlCamera.client_onToggle( self)
+	--print("toggle",self.guiOpen)
+	self.RaceControlGUI:open()
+	self.guiOpen = true
+	-- TODO: Make a switch that opens and closes on toggle
 end
 
 function SmarlCamera.client_onAction(self, input, active)
@@ -570,7 +669,6 @@ end
 
 -- Json and keypress reader
 function SmarlCamera.sv_ReadJson(self)
-	
     local jsonData = sm.json.open(MOD_FOLDER.."JsonData/cameraInput.json")
    
     if jsonData == nil or jsonData == {} or not jsonData or #jsonData == 0 or jsonData == "{}" then
@@ -585,4 +683,132 @@ end
 
 function SmarlCamera.parseJsonData(self)
 	
+end
+
+
+
+-- GUI Functions
+
+function SmarlCamera.sv_updateIcon( self, params ) -- Up[dates colors]
+	if params.colorIndex then
+		self.colorIndex = params.colorIndex
+	end
+	self.network:setClientData( {colorIndex = self.colorIndex } )
+end
+
+function SmarlCamera.client_buttonPress( self, buttonName )
+    --print("clButton",buttonName)
+    -- if not self.cl and cl2 then self.cl = cl2 end -- Verify if game data exits
+	if buttonName == "StartRaceBtn" then
+		print("yes")
+		-- Trigger btn
+	
+    elseif buttonName == "ResetRace" then
+        if (self.raceStatus == 1 or self.raceStatus == 2 or self.raceStatus == 3 )and not self.raceFinished then -- Mid race
+            self.RaceControlGUI:setText("PopUpYNMessage", "Still Racing, Reset?")
+            self.RaceControlGUI:setVisible("PopUpYNMainPanel", true)
+		    self.RaceControlGUI:setVisible("CreateRacePanel", false)
+            self.PopUpYNOpen = true
+        else
+            --self.RaceMenu:setText("PopUpYNMessage", "Start Game?")
+            --self.RaceMenu:setVisible("CreateRacePanel", false)
+            self.RaceControlGUI:close()
+            self:cl_send_resetRace()
+        end
+		
+    
+    elseif buttonName == "PopUpYNYes" then
+            --print("resetting race match")
+            self.RaceControlGUI:setVisible("CreateRacePanel", true)
+            self.RaceControlGUI:setVisible("PopUpYNMainPanel", false)
+            self.RaceControlGUI:close()
+            self:cl_send_resetRace() -- reset race
+            self.PopUpYNOpen = false
+            --print("Resetting mid race")    
+	elseif buttonName == "PopUpYNNo" then
+		self.RaceControlGUI:setVisible("CreateRacePanel", true)
+		self.RaceControlGUI:setVisible("PopUpYNMainPanel", false)
+		self.PopUpYNOpen = false
+    else
+        print("buton not recognized")
+    end
+end
+
+function SmarlCamera.client_OnOffButton( self, buttonName, state )
+	self.RaceMenu:setButtonState(buttonName.. "On", state)
+	self.RaceMenu:setButtonState(buttonName.. "Off", not state)
+end
+
+
+
+function SmarlCamera.cl_updateColorButton( self, colorButtonName )
+	if self.selectedColorButton ~= colorButtonName then
+		self.RaceControlGUI:setButtonState( self.selectedColorButton, false )
+		self.selectedColorButton = colorButtonName
+	end
+	self.RaceControlGUI:setButtonState( self.selectedColorButton, true )
+end
+
+
+function SmarlCamera.cl_onColorButtonClick( self, name )
+	local colorIndex = 0 -- Race State
+	if name == "ColorButtonRed" then 
+		colorIndex = 0
+	elseif name == "ColorButtonYellow" then
+		colorIndex = 2
+	elseif name == "ColorButtonGreen" then
+		colorIndex = 1
+	end
+	self:cl_set_RaceMode(colorIndex) -- Sends Racemode update to Race Control (if exists)
+	self.network:sendToServer( "sv_updateIcon", { colorIndex = colorIndex } )
+end
+
+
+-- Race Control control from GUI press
+function SmarlCamera.cl_send_resetRace(self)
+	if RACE_CONTROL then
+		self.network:sendToServer("sv_setResetRace")
+	else
+		print("no race control")
+		--TODO: GUI alert
+	end
+end
+
+function SmarlCamera.sv_setResetRace(self)
+	if RACE_CONTROL then
+		RACE_CONTROL:sv_resetRace()
+	else
+		print("No server Race Control")
+	end
+end
+
+function SmarlCamera.cl_set_RaceMode(self,status)
+	if RACE_CONTROL then
+		self.network:sendToServer("sv_setRaceMode",status)
+	else
+		print("No Race Control Detected")
+		--TODO GUI alert?
+	end
+end
+
+function SmarlCamera.sv_setRaceMode(self,status)
+	if RACE_CONTROL then
+        RACE_CONTROL:sv_toggleRaceMode(status)
+	else
+		print("No Server Race control")
+	end
+end
+
+
+function SmarlCamera.client_onRaceControlGUIClose( self )
+    --print("MenuOnclose")
+    if PopUpYNOpen then
+		self.RaceControlGUI:open()
+		self.RaceControlGUI:setVisible("ControlRacePanel", true)
+		self.RaceControlGUI:setVisible("PopUpYNMainPanel", false)
+		PopUpYNOpen = false
+    end
+    --self.RaceMenu:destroy()
+    --self.RaceMenu = sm.gui.createGuiFromLayout( "$CONTENT_"..MOD_UUID.."/Gui/Layouts/RaceMenu.layout",false )
+
 end

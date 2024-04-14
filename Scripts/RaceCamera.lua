@@ -83,7 +83,7 @@ end
 function RaceCamera.client_onDestroy(self)
 	for k, v in pairs(ALL_CAMERAS) do
 		if v.cameraID == self.cameraID then
-			--print("removed")
+			print("Camera removed")
 			table.remove(ALL_CAMERAS, k)
 			return
 		end
@@ -147,6 +147,7 @@ function RaceCamera.client_onInteract(self, char, state)
 	print("raceCameraInteract",char,state)
 	sm.localPlayer.getPlayer():getCharacter():setLockingInteractable(nil)
 	sm.camera.setCameraState(1)
+	-- TODO: Make Interaction change camera ID
 	--sm.localPlayer.getPlayer():getCharacter():setLockingInteractable(nil)
 	--sm.camera.setCameraState(1)
 	--self.active = false

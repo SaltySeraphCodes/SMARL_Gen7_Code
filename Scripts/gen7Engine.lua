@@ -13,8 +13,8 @@ dofile "globals.lua" -- Or json.load?
 Engine = class( nil )
 Engine.maxChildCount = 20
 Engine.maxParentCount = 2
-Engine.connectionInput = sm.interactable.connectionType.power + sm.interactable.connectionType.logic
-Engine.connectionOutput = sm.interactable.connectionType.bearing
+Engine.connectionInput = sm.interactable.connectionType.power
+Engine.connectionOutput = sm.interactable.connectionType.bearing + sm.interactable.connectionType.logic
 Engine.colorNormal = sm.color.new( 0xe6a14dff )
 Engine.colorHighlight = sm.color.new( 0xF6a268ff )
 
@@ -103,6 +103,7 @@ end
 function Engine.cl_resetEngine(self) -- resets the engine (noise effect primarily)
     
     if self.engineNoiseEnabled then
+
         self.effect = sm.effect.createEffect("GasEngine - Level 3", self.interactable )
         if self.effect then
             if self.effect:isPlaying() then 
@@ -143,8 +144,8 @@ function Engine.setRPM(self,value)
                 rotationstrength = 240
             end
 
-            if rotationstrength > 5000 then
-                rotationstrength = 5000
+            if rotationstrength > 7000 then
+                rotationstrength = 7000
             end
             -- Standardize this shit
             --print(self.driver.body.mass,rotationstrength)
@@ -330,8 +331,8 @@ end
 function Engine.updateEffect(self) -- TODO: Un comment this when ready
 	
     if self.effect == nil then
-        print("reset effect")
-        self:cl_resetEngine()
+        print("reset create")
+        self.effect = sm.effect.createEffect("GasEngine - Level 3", self.interactable )
     end
     if self.driver == nil or self.noDriverError == true then
        
@@ -351,32 +352,34 @@ function Engine.updateEffect(self) -- TODO: Un comment this when ready
         end
     end
     
-    if not self.effect:isPlaying() and not self.driver.racing then
-        print("start effect",self.driver.racing,self.effect:isPlaying())
+    
+    if self.effect and not self.effect:isPlaying() and not self.driver.racing then
+        --print("start effect",self.driver.racing,self.effect:isPlaying())
 		self.effect:start()
-	elseif self.effect:isPlaying() and self.driver.racing == false then
+	elseif self.effect and self.effect:isPlaying() and self.driver.racing == false then
         --print("idle")
 		self.effect:setParameter( "load", 0 )
 		self.effect:setParameter( "rpm", 0 )
 		--self.effect:stop()
-    elseif not self.effect:isPlaying() and self.driver.racing then
+    elseif self.effect and not self.effect:isPlaying() and self.driver.racing then
         --print("not playing but racing so reset")
         --print("Reset effect")
        -- self:cl_resetEngine()
        --print("race on and not playing? start")
        self.effect:start()
     end
- 
-	local engineConversion = ratioConversion(0,self.engineStats.REV_LIMIT,1,0.2,self.curVRPM)
-    local loadConvert = 5 - self.curGear
-    local loadConversion = ratioConversion(0,5,0.4,0.7,loadConvert)
+    local highestGear = #self.engineStats.GEARING
+	local engineConversion = ratioConversion(0,self.engineStats.REV_LIMIT,1,0 + (self.curGear/9),self.curVRPM)
+    local loadConvert = highestGear - self.curGear
+    local loadConversion = ratioConversion(0,highestGear,0.8,0.6,loadConvert)
     --print(self.curVRPM,engineConversion,self.curGear,loadConversion)
+    --print(engineConversion,self.curGear/10)
 
 	--local brakingConversion = ratioConversion(0,1600,0,1,self.brakePower) --2000 means more breaking coolown sound
 	
 	--print(self.curVRPM,engineConversion,loadConversion,self.curGear)
 	
-	if self.effect:isPlaying() then
+	if self.effect and self.effect:isPlaying() then
 		self.effect:setParameter( "rpm", engineConversion )
 		self.effect:setParameter( "load", loadConversion ) --?
 	end

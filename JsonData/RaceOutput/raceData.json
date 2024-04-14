@@ -3,7 +3,7 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : -1.0,
+		"lapsLeft" : 9.0,
 		"qualifying" : "true",
 		"status" : 1.0
 	},
@@ -11,363 +11,131 @@
 	[
 		
 		{
-			"best_lap" : 58.73000000000320,
+			"best_lap" : 60.31100000000015,
 			"position" : 1.0,
-			"racer_id" : 5.0,
-			"racer_name" : "Coffey-Mobile",
+			"racer_id" : 31.0,
+			"racer_name" : "Police Racer",
 			"split" : "0.000"
 		},
 		
 		{
-			"best_lap" : 58.03399999999965,
-			"position" : 17.0,
-			"racer_id" : 11.0,
-			"racer_name" : "A comically long car name",
-			"split" : "60.486"
-		},
-		
-		{
-			"best_lap" : 57.06599999999889,
+			"best_lap" : 60.14499999999998,
 			"position" : 2.0,
-			"racer_id" : 7.0,
-			"racer_name" : "Gunnolf",
-			"split" : "4.033"
+			"racer_id" : 27.0,
+			"racer_name" : "Jellyfish",
+			"split" : "0.158"
 		},
 		
 		{
-			"best_lap" : 52.48300000000017,
+			"best_lap" : 59.22700000000009,
 			"position" : 3.0,
-			"racer_id" : -1.0,
-			"racer_name" : "Drivable Mustang",
-			"split" : "4.187"
+			"racer_id" : 33.0,
+			"racer_name" : "Gotta DooDoo",
+			"split" : "0.223"
 		},
 		
 		{
-			"best_lap" : 56.63399999999820,
+			"best_lap" : 58.82799999999997,
 			"position" : 4.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "5.231"
+			"racer_id" : 25.0,
+			"racer_name" : "Dallas Dominator",
+			"split" : "0.640"
 		},
 		
 		{
-			"best_lap" : 54.74899999999616,
+			"best_lap" : 58.52099999999996,
 			"position" : 5.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "8.783"
+			"racer_id" : 21.0,
+			"racer_name" : "CoffeyMobile: The Sequel",
+			"split" : "1.275"
 		},
 		
 		{
-			"best_lap" : 55.90100000000530,
+			"best_lap" : 60.10999999999990,
 			"position" : 6.0,
-			"racer_id" : 16.0,
-			"racer_name" : "Super Fury",
-			"split" : "9.004"
+			"racer_id" : 28.0,
+			"racer_name" : "Prototype 02: Drag",
+			"split" : "1.639"
 		},
 		
 		{
-			"best_lap" : 54.18500000000495,
+			"best_lap" : 59.24399999999991,
 			"position" : 7.0,
-			"racer_id" : 9.0,
-			"racer_name" : "NetherRacing",
-			"split" : "14.885"
+			"racer_id" : 26.0,
+			"racer_name" : "BK Racing",
+			"split" : "3.117"
 		},
 		
 		{
-			"best_lap" : 54.20099999999366,
+			"best_lap" : 60.29299999999989,
 			"position" : 8.0,
-			"racer_id" : 1.0,
-			"racer_name" : "Torque Master",
-			"split" : "15.551"
+			"racer_id" : 23.0,
+			"racer_name" : "No Clue",
+			"split" : "3.597"
 		},
 		
 		{
-			"best_lap" : 56.36699999999837,
+			"best_lap" : 59.15000000000009,
 			"position" : 9.0,
-			"racer_id" : 13.0,
-			"racer_name" : "Dirty Drafter",
-			"split" : "15.784"
+			"racer_id" : 14.0,
+			"racer_name" : "LaZyKnight2",
+			"split" : "3.987"
 		},
 		
 		{
-			"best_lap" : 56.21800000000076,
+			"best_lap" : 60.60500000000002,
 			"position" : 10.0,
-			"racer_id" : 10.0,
-			"racer_name" : "Mateo SMARL GT3 M",
-			"split" : "19.518"
+			"racer_id" : 19.0,
+			"racer_name" : "Ford Hoonicorn V2 Ai",
+			"split" : "4.925"
 		},
 		
 		{
-			"best_lap" : 55.78600000000006,
+			"best_lap" : 59.80899999999997,
 			"position" : 11.0,
-			"racer_id" : 12.0,
-			"racer_name" : "FieryDragon",
-			"split" : "24.887"
+			"racer_id" : 20.0,
+			"racer_name" : "Bah-tomobile",
+			"split" : "5.172"
 		},
 		
 		{
-			"best_lap" : 56.78300000000309,
+			"best_lap" : 59.99600000000009,
 			"position" : 12.0,
-			"racer_id" : 2.0,
-			"racer_name" : "Prototype 01- propulsion",
-			"split" : "25.716"
+			"racer_id" : 30.0,
+			"racer_name" : "Redline",
+			"split" : "5.675"
 		},
 		
 		{
-			"best_lap" : 56.88400000000547,
+			"best_lap" : 60.97699999999986,
 			"position" : 13.0,
-			"racer_id" : 15.0,
-			"racer_name" : "Jitterful Motorsports",
-			"split" : "30.570"
+			"racer_id" : 24.0,
+			"racer_name" : "Red Racer",
+			"split" : "9.866"
 		},
 		
 		{
-			"best_lap" : 55.38599999999860,
+			"best_lap" : 61.88599999999997,
 			"position" : 14.0,
-			"racer_id" : 17.0,
-			"racer_name" : "bill gate",
-			"split" : "32.886"
-		},
-		
-		{
-			"best_lap" : 55.36799999999494,
-			"position" : 15.0,
-			"racer_id" : 8.0,
-			"racer_name" : "LaZyKnight",
-			"split" : "33.036"
-		},
-		
-		{
-			"best_lap" : 54.88700000000244,
-			"position" : 16.0,
-			"racer_id" : 18.0,
-			"racer_name" : "Cain",
-			"split" : "35.536"
+			"racer_id" : 22.0,
+			"racer_name" : "Porsche 962 Ai Car",
+			"split" : "13.464"
 		}
 	],
 	"rt" : 
 	[
 		
 		{
-			"bestLap" : 56.63399999999820,
-			"id" : 6.0,
+			"bestLap" : 0.0,
+			"id" : 20.0,
 			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 57.68300000000454,
-			"locX" : -91.05963897705078,
-			"locY" : -270.4014282226562,
-			"place" : 4.0,
-			"speed" : 18.16231155395508,
-			"timeSplit" : "4.867"
-		},
-		
-		{
-			"bestLap" : 54.20099999999366,
-			"id" : 1.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 57.06900000000314,
-			"locX" : 101.4103393554688,
-			"locY" : -265.4478149414062,
-			"place" : 9.0,
-			"speed" : 18.87751960754395,
-			"timeSplit" : "15.450"
-		},
-		
-		{
-			"bestLap" : 56.78300000000309,
-			"id" : 2.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 57.46700000000419,
-			"locX" : 143.2759246826172,
-			"locY" : -118.9308090209961,
-			"place" : 12.0,
-			"speed" : 18.25111007690430,
-			"timeSplit" : "24.718"
-		},
-		
-		{
-			"bestLap" : 54.74899999999616,
-			"id" : 3.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 56.55099999999948,
-			"locX" : -22.18624305725098,
-			"locY" : -271.0093078613281,
-			"place" : 6.0,
-			"speed" : 18.09660530090332,
-			"timeSplit" : "8.650"
-		},
-		
-		{
-			"bestLap" : 58.73000000000320,
-			"id" : 5.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 59.15099999999802,
-			"locX" : -179.7552795410156,
-			"locY" : -269.0786437988281,
+			"lapNum" : 1.0,
+			"lastLap" : 65.29699999999957,
+			"locX" : -60.21111297607422,
+			"locY" : -505.3175354003906,
 			"place" : 1.0,
-			"speed" : 18.19147872924805,
+			"speed" : 0.06859669834375381,
 			"timeSplit" : "0.000"
-		},
-		
-		{
-			"bestLap" : 55.36799999999494,
-			"id" : 8.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 57.73600000000442,
-			"locX" : 72.95127868652344,
-			"locY" : -21.88813209533691,
-			"place" : 15.0,
-			"speed" : 18.13950347900391,
-			"timeSplit" : "32.801"
-		},
-		
-		{
-			"bestLap" : 57.06599999999889,
-			"id" : 7.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 59.90099999999802,
-			"locX" : -104.8951797485352,
-			"locY" : -270.4180908203125,
-			"place" : 3.0,
-			"speed" : 18.46674156188965,
-			"timeSplit" : "4.132"
-		},
-		
-		{
-			"bestLap" : 54.18500000000495,
-			"id" : 9.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 55.30200000000332,
-			"locX" : 83.52207183837891,
-			"locY" : -271.7497863769531,
-			"place" : 7.0,
-			"speed" : 18.20977592468262,
-			"timeSplit" : "14.483"
-		},
-		
-		{
-			"bestLap" : 56.21800000000076,
-			"id" : 10.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 58.53499999999622,
-			"locX" : 135.1450500488281,
-			"locY" : -219.7441711425781,
-			"place" : 10.0,
-			"speed" : 18.42179298400879,
-			"timeSplit" : "18.568"
-		},
-		
-		{
-			"bestLap" : 58.03399999999965,
-			"id" : 11.0,
-			"isFocused" : "false",
-			"lapNum" : 10.0,
-			"lastLap" : 60.11800000000221,
-			"locX" : -192.5516052246094,
-			"locY" : -268.9624633789062,
-			"place" : 17.0,
-			"speed" : 18.19087791442871,
-			"timeSplit" : "75.083"
-		},
-		
-		{
-			"bestLap" : 55.78600000000006,
-			"id" : 12.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 57.23400000000402,
-			"locX" : 142.9712829589844,
-			"locY" : -134.5081787109375,
-			"place" : 11.0,
-			"speed" : 18.12878417968750,
-			"timeSplit" : "23.885"
-		},
-		
-		{
-			"bestLap" : 56.36699999999837,
-			"id" : 13.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 56.88399999999820,
-			"locX" : 93.62527465820312,
-			"locY" : -265.5901184082031,
-			"place" : 8.0,
-			"speed" : 18.46939849853516,
-			"timeSplit" : "15.119"
-		},
-		
-		{
-			"bestLap" : 56.88400000000547,
-			"id" : 15.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 59.13599999999860,
-			"locX" : 118.8733596801758,
-			"locY" : -37.76613616943359,
-			"place" : 13.0,
-			"speed" : 18.27512168884277,
-			"timeSplit" : "30.136"
-		},
-		
-		{
-			"bestLap" : 55.90100000000530,
-			"id" : 16.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 57.10300000000279,
-			"locX" : -30.88449859619141,
-			"locY" : -271.1731872558594,
-			"place" : 5.0,
-			"speed" : 18.04533576965332,
-			"timeSplit" : "8.169"
-		},
-		
-		{
-			"bestLap" : 55.38599999999860,
-			"id" : 17.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 58.03300000000309,
-			"locX" : 82.28488922119141,
-			"locY" : -22.61098289489746,
-			"place" : 14.0,
-			"speed" : 17.98456382751465,
-			"timeSplit" : "32.337"
-		},
-		
-		{
-			"bestLap" : 54.88700000000244,
-			"id" : 18.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 60.09799999999814,
-			"locX" : 41.26867294311523,
-			"locY" : 7.826961517333984,
-			"place" : 16.0,
-			"speed" : 18.11093902587891,
-			"timeSplit" : "35.286"
-		},
-		
-		{
-			"bestLap" : 52.48300000000017,
-			"id" : -1.0,
-			"isFocused" : "false",
-			"lapNum" : 11.0,
-			"lastLap" : 64.60300000000279,
-			"locX" : -113.7547912597656,
-			"locY" : -270.0358581542969,
-			"place" : 2.0,
-			"speed" : 18.14217567443848,
-			"timeSplit" : "3.653"
 		}
 	]
 }

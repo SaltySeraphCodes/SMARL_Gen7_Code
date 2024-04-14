@@ -1,8 +1,8 @@
 {
    "toolList" : [
       {
-         "name" : "SMARL Camera",
-         "previewRenderable" : "$CONTENT_DATA/Tools/char_spudgun_sniper_preview.rend",
+         "name" : "SMARL Controller Tool",
+         "previewRenderable" : "$CONTENT_DATA/Tools/Base_sniper/char_spudgun_base_basic.rend",
          "previewRotation" : [ 1, 0, 0, 0, 0, -1, 0, 1, 0 ],
          "script" : {
             "class" : "SmarlCamera",
