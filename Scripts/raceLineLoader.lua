@@ -153,11 +153,8 @@ function Loader.sv_loadTrack(self) -- Validates and saves track to world
     end
     -- Set sself nodechain
     self.nodeChain = self.trackData.C
-    -- Calculate offsets direction
-    local res = calculateOffset(self.trackData.O,self.location, self.trackData.D,self.direction) -- gets offset x,y,z location and rotation from origin
-    local offset = res[1]
-    local radians = res[2]
-    self:applyNodeChainOffset(offset,radians) -- Should mutate sv nodeChain
+    -- Calculate offset and mutates nodechaing
+    self:applyNodeChainOffset() -- Should mutate sv nodeChain
     local simpChain = self:simplifyNodeChain(self.nodeChain)
     --print("setting clientdata",simpChain)
     self.network:sendToClients("cl_receiveTrackData",{nodeChain = simpChain})
@@ -234,18 +231,21 @@ end
 
 -- Helpers
 --TODO: move these to global
-function calculateOffset(pos1,pos2, dir1, dir2) -- calculate full offset between two vectors, will need original and new rotations?
+function calculateRotation(dir1,dir2)
     local radDif = vectorAngleDiff(dir1,dir2)
-    local offset = pos2 - pos1 -- Might have to do a pi/2 or /180
-    print("rotationDif", radDif, "offset",offset)
-    return {offset,radDif}
+    return radDif -- TODO: just remove and use raw function, no need to wrap
 end
 
-function Loader.getNewCoordinates(self,point,origin,offset,angle) -- tak
+function calculateOffset(pos1,pos2) -- calculate full offset between two vectors, will need original and new rotations?
+    local offset = (pos2 - pos1)/20 -- Might have to do a pi/2 or /180
+    return offset
+end
+
+function Loader.getNewCoordinates(self,point,offset,angle) -- tak
     -- apply rotation (and pos offset?)
     local rotatedPoint = sm.vec3.new(0,0,0);
-    rotatedPoint.x = math.cos(angle) * (offset.x) - math.sin(angle) * (offset.y) + (origin.x);
-    rotatedPoint.y = math.sin(angle) * (offset.x) + math.cos(angle) * (offset.y) + (origin.y);
+    rotatedPoint.x = (point.x) + math.cos(angle) * (offset.x) - math.sin(angle) * (offset.y) 
+    rotatedPoint.y = (point.y) + math.sin(angle) * (offset.x) + math.cos(angle) * (offset.y) 
     rotatedPoint.z = point.z -- Set back original z value
     --print("old",point)
     --print("new",rotatedPoint)
@@ -253,22 +253,24 @@ function Loader.getNewCoordinates(self,point,origin,offset,angle) -- tak
     return rotatedPoint; 
 end
 
-function Loader.applyNodeChainOffset(self,offset,rads) -- Applys tranform to all chains in offset
+function Loader.applyNodeChainOffset(self,offset) -- Applys tranform to all chains in offset
     if self.nodeChain == nil or #self.nodeChain <=1 then
         print("ApplyNCO: No node chain")
         return 
     end
-    --print("applying offset to new coords",offset,rads)
+    local radians = calculateRotation(self.trackData.D,self.direction)
+
+    print("applying offset to new coords",radians)
     for k=1, #self.nodeChain do local node=self.nodeChain[k]
-        -- move points around origin
-        local newLocation = self:getNewCoordinates(node.location,self.trackData.O,offset,rads)
-        local newMid = self:getNewCoordinates(node.mid,offset,rads)
+        local offset = calculateOffset(self.location, node.location) 
+        local newLocation = self:getNewCoordinates(node.location,offset,radians)
+        local newMid = self:getNewCoordinates(node.mid,offset,radians)
         node.location =newLocation
         node.mid = newMid
 
         -- rotate out vector, in vector and perp vector
-        node.perp = node.perp:rotateZ(rads)
-        node.outVector = node.outVector:rotateZ(rads)
+        node.perp = node.perp:rotateZ(radians)
+        node.outVector = node.outVector:rotateZ(radians)
     end 
 end
 

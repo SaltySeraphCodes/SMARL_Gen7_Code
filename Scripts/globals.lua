@@ -1127,12 +1127,22 @@ end
 
 function vectorAngleDiff(vector1,vector2) -- gets the angle difference between vectors (Actuall proper math)
     -- Only care about 2d ange for now, 
+    -- PROBlem, pi/2 and 3pi/2 are the same (no negative or positive) TODO: fix formula to get full radians of 2pi /2
     vector1.z =0
     vector2.z =0
     local dotProduct = sm.vec3.dot(vector1,vector2)
+    local directionalCross = sm.vec3.cross(vector2,vector1)
+
     local lengthProduct = vector1:length() * vector2:length()
-    local rads = math.acos(dotProduct / lengthProduct)   
+    local rads = math.acos(dotProduct / lengthProduct) * getSignReal(directionalCross.z)
+    --print("d",dotProduct,directionalCross.z,vector2,rads)
     return rads -- returns radians, degrees = math.deg()
+end
+
+function determineAngle(vector1,vector2)
+   local dot = x1*x2 + y1*y2      -- dot product
+    det = x1*y2 - y1*x2      -- determinant
+    angle = atan2(det, dot)  -- atan2(y, x) or atan2(sin, cos)
 end
 
 function generatePerpVector(direction) -- SiteEffect! Z will always be 0, Nomatter what
@@ -1173,7 +1183,7 @@ function getSpeedColorScale(minColor,maxColor,value) -- Returns A scaled color G
     return sm.color.new(2.0 * scaledColor, 2.0 * (1 - scaledColor), 0)
 end
     -- Math
-function getSign(x) -- helper function until they get addes separtgely
+function getSign(x) -- helper function until they get addes separtgely Bug, Zero returns zero TODO: search where this is used
     if x<0 then
       return -1
     elseif x>0 then
@@ -1182,6 +1192,16 @@ function getSign(x) -- helper function until they get addes separtgely
       return 0
     end
  end
+
+ function getSignReal(x) -- helper function until they get addes separtgely Bug, Zero returns zero TODO: search where this is used
+ if x<0 then
+   return -1
+ elseif x>=0 then
+   return 1
+ else
+   return 0
+ end
+end
 
  function round( value )
 	return math.floor( value + 0.5 )
