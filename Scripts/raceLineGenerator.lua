@@ -91,7 +91,7 @@ function Generator.client_init( self )  -- Only do if server side???
     self.segSearchTimeout = 100
 
     self.debug =false  -- Debug flag -- REMEMBER TO TURN THIS OFF
-    self.instantScan = false
+    self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
     self.racifyLineOpt = true -- Makes racing line more "racelike"
     self.asyncTimeout = 0-- Scan speed [0 fast, 1 = 1per sec]
@@ -2090,6 +2090,7 @@ function Generator.startOptimization(self)
     if self.instantOptimize then -- Game freezing optimization loop
         while self.scanClock < self.scanLength do -- Have seperate optimize clock?
             local finished = self:iterateSmoothing()
+            print("smooth")
             if finished then
                 self:generateSegments()
                 self.smoothing = false

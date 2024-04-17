@@ -38,7 +38,7 @@ function Loader.client_onDestroy(self)
 end
 
 function Loader.client_init( self )  -- Only do if server side???
-    self.trackData = nil -- Will be loaded and set on network
+    --self.trackData = nil -- Will be loaded and set on network
 
     self.nodeChain = {}
     self.effectChain = {}
@@ -50,7 +50,7 @@ function Loader.client_init( self )  -- Only do if server side???
     self.showSpeeds = false
     self.showSegments = true
     
-    self.debug =false  -- Debug flag
+    self.debug =true  -- TODO: remove, should always be true
    
 
 
@@ -71,6 +71,10 @@ function Loader.client_onRefresh( self )
 	self:client_init()
 end
 
+function Loader.server_onDestroy(self)
+
+end
+
 function Loader.server_onRefresh(self)
     self:server_onDestroy()
     self:server_init()
@@ -85,60 +89,84 @@ function Loader.server_init(self)
     self.trackName = "Unnamed"
     self.trackID = 123 -- TODO: generate UUID
     self.location = sm.shape.getWorldPosition(self.shape)
-    self.direction = self.shape.at
-
+    self.direction = self.shape:getAt()
+    
     -- Saved Track data loading
-    self.trackData = self.storage:load()  -- Loads any existing data when placed:
+    local storedTrack = self.storage:load()  -- Loads any existing data when placed:
                                             -- N: "Track Name"
                                             -- I: "uuid"
-                                            -- C: [Simplified Node chain goes here]
+                                            -- C: [Simplified Node chain]
                                             -- O: Origin position: (position of this block when placed and saved)
                                             -- D: Origin Direction: (Direction of this block when placed and saved)
-    if self.trackData == nil then -- IDK just do nothing for now
+    if storedTrack == nil then -- IDK just do nothing for now
         print("No previous track data found")
     else -- Just automaticallly import and show what is saved
-        print("Loading track",self.trackData.N)
+        print("Loaded track",storedTrack.N)
+        self.trackData = storedTrack
         -- Reads in track, calculates offset and places nodes in offset position
         -- Saves track to world
-        self:sv_loadTrack()
+        self:sv_loadTrack() -- for initial placement
+        --print("finished load")
         -- creates visuals for clientside
-        self.network:setClientData({["nodeChain"] = self.nodeChain})
+        print("Post init")
+        print(self.trackData.O)
     end
 end
 
-
-function Loader.client_onClientDataUpdate( self, data ) -- Loads client data
-    print("client loading data",data)
+function Loader.cl_receiveTrackData(self,data)
+    --print("client Recieved data",data)
     self.nodeChain = data.nodeChain
     self:cl_loadTrack()
 end
 
-function Loader.cl_loadTrack() -- validates and loads visualization of track
-    if self.nodeChain == nil then
-        print("cl load track: Data is Nil")
+
+function Loader.cl_loadTrack(self) -- validates and loads visualization of track
+    if self.nodeChain == nil or #self.nodeChain <=1 then
+        print("cl load track: Data is Nil",self.nodeChain)
         return
     end
-
+    
     for k=1, #self.nodeChain do local v=self.nodeChain[k] -- Add effect to nodeChain
-        v.effect = self:generateEffect(v.location)
+        if v.effect == nil then
+            v.effect = self:generateEffect(v.location)
+        else
+            -- set location?
+        end
     end
     self:hardUpdateVisual()
 end
 
-function Loader.sv_loadTrack() -- Validates and saves track to world 
+
+function Loader.sv_loadTrack(self) -- Validates and saves track to world 
     if self.trackData == nil then
         print("sv load track: Data is Nil")
         return
     end
-    -- Calculate offsets
-    local res = calculateOffset(self.trackData.O,self.location, self.trackData.D,self.direciton) -- gets offset x,y,z location and rotation from origin
+    -- Set sself nodechain
+    self.nodeChain = self.trackData.C
+    -- Calculate offsets direction
+    local res = calculateOffset(self.trackData.O,self.location, self.trackData.D,self.direction) -- gets offset x,y,z location and rotation from origin
     local offset = res[1]
     local radians = res[2]
-    self:applyNodeChainOffset(ofset,radians) -- Should mutate sv nodeChain
-    local data = {channel = TRACK_DATA, raceLine = true} -- Eventually have metaData too?
-    self:sv_saveData(data) -- Save new data to world
-    sm.gui.displayAlertText("Saved track to world")
+    self:applyNodeChainOffset(offset,radians) -- Should mutate sv nodeChain
+    local simpChain = self:simplifyNodeChain(self.nodeChain)
+    --print("setting clientdata",simpChain)
+    self.network:sendToClients("cl_receiveTrackData",{nodeChain = simpChain})
+    --self:sv_sendAlert("Track Data loaded") -- TODO: only show once
+    
 end
+
+
+function Loader.simplifyNodeChain(self,chain) 
+    local simpChain = {}
+    --sm.log.info("simping node chain") -- TODO: make sure all seg IDs are consistance
+    for k=1, #chain do local v=self.nodeChain[k]
+        local newNode = {location = v.location, segType = v.segType.TYPE, effect = nil}
+        table.insert(simpChain,newNode)
+    end
+    return simpChain
+end
+
 
 function Loader.sv_saveTrack(self) -- Reads simplified node chain and saves it
     local worldNodeChain = self:sv_loadWorldTrackData(TRACK_DATA)
@@ -157,16 +185,12 @@ function Loader.sv_saveTrack(self) -- Reads simplified node chain and saves it
 end
 
 
-function Loader.sv_saveData(self,data) -- saves data to world
-    debugPrint(self.debug,"Saving data")
-    debugPrint(self.debug,data)
-    local channel = data.channel
-    data = self.simpNodeChain -- was data.raceLine --{hello = 1,hey = 2,  happy = 3, hopa = "hdjk"}
-    print("saving Track")
+function Loader.sv_saveWoldTrackData(self)
+    debugPrint(self.debug,"Saving track data")
+    local channel = TRACK_DATA
+    data = self.nodeChain
     sm.storage.save(channel,data) -- track was channel
-    --sm.terrainData.save(data) -- saves as terrain??
-    saveData(data,channel) -- worldID?
-
+    saveData(data,channel) -- Goes into global for no reason...?
     print("Track Saved")
 end
 
@@ -177,7 +201,7 @@ function Loader.sv_importTrack(self) -- Imports .json file
 end
 
 
-function Control.sv_loadWorldTrackData(self,channel) -- Loads any saved track data (simplified nodechain only) from world storage
+function Loader.sv_loadWorldTrackData(self,channel) -- Loads any saved track data (simplified nodechain only) from world storage
     local worldNodeChain = sm.storage.load(channel)
     if worldNodeChain == nil then
         print("Server did not find track data") 
@@ -187,6 +211,7 @@ function Control.sv_loadWorldTrackData(self,channel) -- Loads any saved track da
             self.trackLoadError = true
         end
     else
+        print("Found Track Data",#worldNodeChain)
         --print("Server found track data") 
         if self.trackLoadError then
             print("Track Loaded")
@@ -202,7 +227,7 @@ end
 --TODO: move these to global
 function calculateOffset(pos1,pos2, dir1, dir2) -- calculate full offset between two vectors, will need original and new rotations?
     local radDif = vectorAngleDiff(dir1,dir2)
-    local offset = pos1 - pos2 -- Might have to do a pi/2 or /180
+    local offset = pos2 - pos1 -- Might have to do a pi/2 or /180
     print("rotationDif", radDif, "offset",offset)
     return {offset,radDif}
 end
@@ -210,28 +235,22 @@ end
 function Loader.getNewCoordinates(self,point,offset,angle) -- tak
     -- apply rotation (and pos offset?)
     local originValue = point -- Originvalue vec3
-    local offsetX = offset[1]
-    local offsetY = offset[2]
-
-    print("originVal",originValue)
     local rotatedPoint = sm.vec3.new(0,0,0);
-    ---local angle = rads * Math.PI / 180.0; Angle is already radians
-    --local angle = rads -- TODO: just rename
+    rotatedPoint.x = math.cos(angle) * (offset.x) - math.sin(angle) * (offset.y) + (originValue.x);
+    rotatedPoint.y = math.sin(angle) * (offset.x) + math.cos(angle) * (offset.y) + (originValue.y);
+    rotatedPoint.z = point.z -- Set back original z value
+    --print("old",point)
+    --print("new",rotatedPoint)
 
-    rotatedPoint.x = Math.cos(angle) * (offsetX) - Math.sin(angle) * (offsetY) + (originValue.x);
-    rotatedPoint.y = Math.sin(angle) * (offsetX) + Math.cos(angle) * (offsetY) + (originValue.y);
-    
-    print("neaw point",rotatedPoint)
-     
     return rotatedPoint; 
 end
 
 function Loader.applyNodeChainOffset(self,offset,rads) -- Applys tranform to all chains in offset
-    if self.nodeChain == nil then
+    if self.nodeChain == nil or #self.nodeChain <=1 then
         print("ApplyNCO: No node chain")
         return 
     end
-
+    --print("applying offset to new coords",offset,rads)
     for k=1, #self.nodeChain do local node=self.nodeChain[k]
         -- move points around origin
         local newLocation = self:getNewCoordinates(node.location,offset,rads)
@@ -240,14 +259,36 @@ function Loader.applyNodeChainOffset(self,offset,rads) -- Applys tranform to all
         node.mid = newMid
 
         -- rotate out vector, in vector and perp vector
-        node.perpVector = node.perpVector:rotateZ(rads)
+        node.perp = node.perp:rotateZ(rads)
         node.outVector = node.outVector:rotateZ(rads)
     end 
 end
 
 --visualization helpers
+
+function Loader.sv_sendAlert(self,msg) -- sends alert message to all clients (individual clients not recognized yet)
+    self.network:sendToClients("cl_showAlert",msg)
+end
+
+function Loader.cl_showAlert(self,msg) -- client recieves alert
+    print("Displaying",msg)
+    sm.gui.displayAlertText(msg,3)
+end
+
+
+function Loader.toggleVisual(self,nodeChain)
+    print("displaying",self.visualizing)
+    if self.visualizing then
+        self:stopVisualization()
+        self.visualizing = false
+    else
+        self:showVisualization()
+        self.visualizing = true
+    end
+end
+
 function Loader.stopVisualization(self) -- Stops all effects in node chain (specify in future?)
-    debugPrint(self.debug,'Stoppionng visualizaition')
+    --debugPrint(self.debug,'Stoppionng visualizaition')
     for k=1, #self.nodeChain do local v=self.nodeChain[k]
         if v.effect ~= nil then
             v.effect:stop()
@@ -293,7 +334,8 @@ function Loader.stopVisualization(self) -- Stops all effects in node chain (spec
     self.visualizing = false
 end
 
-function Loader.showVisualization(self) --starts all effects
+function Loader.showVisualization(self) -- Clientstarts all effects
+    --print("showing vis",self.nodeChain)
     for k=1, #self.nodeChain do local v=self.nodeChain[k]
         if v.effect ~= nil then
             if not v.effect:isPlaying() then
@@ -327,14 +369,10 @@ end
 function Loader.updateVisualization(self) -- moves/updates effects according to nodeChain
     for k=1, #self.nodeChain do local v=self.nodeChain[k]
         if v.effect ~= nil then
-            if v.pos ~= nil then -- possibly only trigger on change
-                v.effect:setPosition(v.pos)
-                if self.showSpeeds then
-                    if v.vMax ~= nil then
-                        local color = getSpeedColorScale(self.maxSpeed,self.minSpeed,v.vMax)
-                        v.effect:setParameter( "Color", color )
-                    end
-                end
+            --print("effect",v)
+            if v.location ~= nil then -- possibly only trigger on change
+                v.effect:setPosition(v.location)
+
                 if self.showSegments then
                     if v.segType ~= nil then
                         local color = sm.color.new(v.segType.COLOR)
@@ -349,32 +387,6 @@ function Loader.updateVisualization(self) -- moves/updates effects according to 
                 else
                     v.effect:stop()
                 end
-                if self.showWalls then
-                    if v.lEffect ~= nil then
-                        if not v.lEffect:isPlaying() then
-                            v.lEffect:start()
-                        end
-                    end
-                    if v.rEffect ~= nil then
-                        if not v.rEffect:isPlaying() then
-                            v.rEffect:start()
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    if self.errorNode then
-        if not self.errorNode:isPlaying() then
-            self.errorNode:start()
-        end 
-    end
-
-    if self.visualizing then -- only show up on debug for now
-        for k=1, #self.debugEffects do local effect=self.debugEffects[k]
-            if not effect:isPlaying() then
-                effect:start()
             end
         end
     end
@@ -430,5 +442,41 @@ function Loader.client_onInteract(self,character,state)
 		else -- Save track
 			self.network:sendToServer("sv_saveTrack")
 		end
+	end
+end
+
+function Loader.server_onFixedUpdate(self, timeStep)
+    local location = sm.shape.getWorldPosition(self.shape)
+    local direction = self.shape.at
+    if self.trackData == nil then
+        --print("No Track Data")
+    else
+        if (location ~= self.location or direciton ~= self.direciton) then
+            if sm.shape.getVelocity(self.shape):length() ==0 then
+                self.location = location
+                self.direction = direction
+                self:sv_loadTrack()
+            else
+                --self:stopVisualization()
+            end
+        end
+    end
+
+end
+
+function Loader.client_onFixedUpdate( self, timeStep ) 
+    self:updateVisualization()
+end
+
+
+function Loader.client_canTinker( self, character )
+    --print("canTinker")
+	return true
+end
+
+function Loader.client_onTinker( self, character, state )
+    --print('onTinker')
+	if state then
+        self.network:sendToServer('sv_saveData')
 	end
 end
