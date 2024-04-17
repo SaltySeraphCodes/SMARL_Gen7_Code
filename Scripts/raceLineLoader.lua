@@ -40,7 +40,7 @@ end
 function Loader.client_init( self )  -- Only do if server side???
     --self.trackData = nil -- Will be loaded and set on network
 
-    self.nodeChain = {}
+    --self.nodeChain = {}
     self.effectChain = {}
     self.debugEffects = {}
     self.effect = sm.effect.createEffect("Loot - GlowItem")
@@ -115,18 +115,27 @@ end
 
 function Loader.cl_receiveTrackData(self,data)
     --print("client Recieved data",data)
-    self.nodeChain = data.nodeChain
+    -- Instead of refreshing everything, we will update the nodes
+    if self.effectChain ~= nil and #self.effectChain >1 then -- if exists and has length
+        for k=1, #data do local v=data[k] -- Add effect to nodeChain
+            if self.effectChain[k] ~=nil then -- if "matching" point
+                self.effectChain[k].location = v.location
+            end
+        end
+    else
+        self.effectChain = data.nodeChain
+    end
     self:cl_loadTrack()
 end
 
 
 function Loader.cl_loadTrack(self) -- validates and loads visualization of track
-    if self.nodeChain == nil or #self.nodeChain <=1 then
-        print("cl load track: Data is Nil",self.nodeChain)
+    if self.effectChain == nil or #self.effectChain <=1 then
+        print("cl load track: Data is Nil",self.effectChain)
         return
     end
     
-    for k=1, #self.nodeChain do local v=self.nodeChain[k] -- Add effect to nodeChain
+    for k=1, #self.effectChain do local v=self.effectChain[k] -- Add effect to nodeChain
         if v.effect == nil then
             v.effect = self:generateEffect(v.location)
         else
@@ -232,12 +241,11 @@ function calculateOffset(pos1,pos2, dir1, dir2) -- calculate full offset between
     return {offset,radDif}
 end
 
-function Loader.getNewCoordinates(self,point,offset,angle) -- tak
+function Loader.getNewCoordinates(self,point,origin,offset,angle) -- tak
     -- apply rotation (and pos offset?)
-    local originValue = point -- Originvalue vec3
     local rotatedPoint = sm.vec3.new(0,0,0);
-    rotatedPoint.x = math.cos(angle) * (offset.x) - math.sin(angle) * (offset.y) + (originValue.x);
-    rotatedPoint.y = math.sin(angle) * (offset.x) + math.cos(angle) * (offset.y) + (originValue.y);
+    rotatedPoint.x = math.cos(angle) * (offset.x) - math.sin(angle) * (offset.y) + (origin.x);
+    rotatedPoint.y = math.sin(angle) * (offset.x) + math.cos(angle) * (offset.y) + (origin.y);
     rotatedPoint.z = point.z -- Set back original z value
     --print("old",point)
     --print("new",rotatedPoint)
@@ -253,7 +261,7 @@ function Loader.applyNodeChainOffset(self,offset,rads) -- Applys tranform to all
     --print("applying offset to new coords",offset,rads)
     for k=1, #self.nodeChain do local node=self.nodeChain[k]
         -- move points around origin
-        local newLocation = self:getNewCoordinates(node.location,offset,rads)
+        local newLocation = self:getNewCoordinates(node.location,self.trackData.O,offset,rads)
         local newMid = self:getNewCoordinates(node.mid,offset,rads)
         node.location =newLocation
         node.mid = newMid
@@ -289,77 +297,21 @@ end
 
 function Loader.stopVisualization(self) -- Stops all effects in node chain (specify in future?)
     --debugPrint(self.debug,'Stoppionng visualizaition')
-    for k=1, #self.nodeChain do local v=self.nodeChain[k]
+    for k=1, #self.effectChain do local v=self.effectChain[k]
         if v.effect ~= nil then
             v.effect:stop()
         end
-        if v.lEffect ~= nil then
-            if not v.lEffect:isPlaying() then
-                v.lEffect:stop()
-            end
-        end
-        if v.rEffect ~= nil then
-            if not v.rEffect:isPlaying() then
-                v.rEffect:stop()
-            end
-        end
-    
-
-        if v.lEffect ~= nil then
-            if not v.lEffect:isPlaying() then
-                v.lEffect:stop()
-            end
-        end
-        if v.rEffect ~= nil then
-            if not v.rEffect:isPlaying() then
-                v.rEffect:stop()
-            end
-        end
     end
-
-    
-    for k=1, #self.debugEffects do local v=self.debugEffects[k]
-        if v ~= nil then
-            if not v:isPlaying() then
-                --print("debugStop")
-                v:stop()
-            end
-        end
-    end
-    
-
-    if self.errorNode then
-        self.errorNode:stop()
-    end
+    --TODO: have error catching for too large client data size (chunk data by 250? nodes)
     self.visualizing = false
 end
 
 function Loader.showVisualization(self) -- Clientstarts all effects
     --print("showing vis",self.nodeChain)
-    for k=1, #self.nodeChain do local v=self.nodeChain[k]
+    for k=1, #self.effectChain do local v=self.effectChain[k]
         if v.effect ~= nil then
             if not v.effect:isPlaying() then
                 v.effect:start()
-            end
-        end
-        if self.showWalls then
-            if v.lEffect ~= nil then
-                if not v.lEffect:isPlaying() then
-                    v.lEffect:start()
-                end
-            end
-            if v.rEffect ~= nil then
-                if not v.rEffect:isPlaying() then
-                    v.rEffect:start()
-                end
-            end
-        end
-    end
-
-    if self.debug then -- only show up on debug for now
-        for k=1, #self.debugEffects do local v=self.debugEffects[k]
-            if not v:isPlaying() then
-                v:start()
             end
         end
     end
@@ -367,19 +319,16 @@ function Loader.showVisualization(self) -- Clientstarts all effects
 end
 
 function Loader.updateVisualization(self) -- moves/updates effects according to nodeChain
-    for k=1, #self.nodeChain do local v=self.nodeChain[k]
+    for k=1, #self.effectChain do local v=self.effectChain[k]
         if v.effect ~= nil then
-            --print("effect",v)
             if v.location ~= nil then -- possibly only trigger on change
                 v.effect:setPosition(v.location)
-
                 if self.showSegments then
                     if v.segType ~= nil then
                         local color = sm.color.new(v.segType.COLOR)
                         v.effect:setParameter( "Color", color )
                     end
                 end
-
                 if self.visualizing then
                     if not v.effect:isPlaying() then
                         v.effect:start()
@@ -398,7 +347,6 @@ function Loader.hardUpdateVisual(self) -- toggle visuals to gain color
 end
 
 function Loader.generateEffect(self,location,color) -- Creates new effect at param location
-    
     local effect = sm.effect.createEffect("Loot - GlowItem")
     effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
     effect:setScale(sm.vec3.new(0,0,0))
@@ -426,12 +374,6 @@ function Loader.createEfectLine(self,from,to,color) --
         table.insert(self.debugEffects,self:generateEffect(pos,(color or sm.color.new('00ffffff'))))
     end
 
-end
-
-function Loader.printNodeChain(self)
-    for k, v in pairs(self.nodeChain) do
-		print(v.id,v.segID)
-    end
 end
 
 function Loader.client_onInteract(self,character,state)
