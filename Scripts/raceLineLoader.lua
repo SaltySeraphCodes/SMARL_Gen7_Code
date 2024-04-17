@@ -194,7 +194,7 @@ end
 --TODO: move these to global
 function calculateOffset(pos1,pos2, dir1, dir2) -- calculate full offset between two vectors, will need original and new rotations?
     local radDif = vectorAngleDiff(dir1,dir2)
-    local offset = pos1 - pos2
+    local offset = pos1 - pos2 -- Might have to do a pi/2 or /180
     print("rotationDif", radDif, "offset",offset)
     return {offset,radDif}
 end
@@ -204,19 +204,48 @@ function sleep(n)  -- freezes game
   while clock() - t0 <= n do end
 end
 
+function Loader.getNewCoordinates(self,point,offset,angle) -- tak
+     -- apply rotation (and pos offset?)
+     local originValue = point -- Originvalue vec3
+     local offsetX = offset[1]
+     local offsetY = offset[2]
+     local differenceFromOrigin = {
+         x: x - originValue.x,
+         y: y - originValue.y
+     };
+     
+    print("originVal",originValue,differenceFromOrigin)
+     
+     local rotatedPoint = sm.vec3.new(0,0,0);
+     ---local angle = rads * Math.PI / 180.0; Angle is already radians
+     --local angle = rads -- TODO: just rename
+ 
+     rotatedPoint.x = Math.cos(angle) * (offsetX) - Math.sin(angle) * (offsetY) + (originValue.x);
+     rotatedPoint.y = Math.sin(angle) * (offsetX) + Math.cos(angle) * (offsetY) + (originValue.y);
+     
+     print("neaw point",rotatedPoint)
+     
+     return rotatedPoint; 
+end
+
+function Loader.rotateVector()
+
 function Loader.applyNodeChainOffset(self,offset,rads) -- Applys tranform to all chains in offset
     if self.nodeChain == nil then
         print("ApplyNCO: No node chain")
         return 
     end
 
-    -- TODO:
-    -- Also get directional offset, and generate offset x,y,z for every node from origin?
-
     for k=1, #self.nodeChain do local node=self.nodeChain[k]
-        node.location = node.location + offset
-        node.mid = node.mid + offset -- I wish it were as simple as this
-        
+        -- move points around origin
+        local newLocation = self:getNewCoordinates(node.location,offset,rads)
+        local newMid = self:getNewCoordinates(node.mid,offset,rads)
+        node.location =newLocation
+        node.mid = newMid
+
+        -- rotate out vector, in vector and perp vector
+        node.perpVector = node.perpVector:rotateZ(rads)
+        node.outVector = node.outVector:rotateZ(rads)
     end 
 end
 
