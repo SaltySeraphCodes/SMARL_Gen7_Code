@@ -148,6 +148,55 @@
       },
       {
          "box" : {
+            "x" : 1,
+            "y" : 1,
+            "z" : 1
+         },
+         "color" : "3efe3e",
+         "name" : "smar_track_loader",
+         "physicsMaterial" : "Mechanical",
+         "renderable" : {
+            "lodList" : [
+               {
+                  "mesh" : "$MOD_DATA/Objects/Mesh/smar_mesh/smar_engine_controller.fbx",
+                  "pose0" : "$MOD_DATA/Objects/Mesh/smar_mesh/smar_engine_controller.fbx",
+                  "subMeshList" : [
+                     {
+                        "material" : "PoseAnimDifAsgNor",
+                        "textureList" : [
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_track_loader_dif.tga",
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_engine_controller_asg.tga",
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_engine_controller_nor.tga"
+                        ]
+                     },
+                     {
+                        "custom" : {
+                           "uv0" : {
+                              "u" : 0.166666670,
+                              "v" : 0.16450
+                           }
+                        },
+                        "material" : "UVAnimDifAsgNor",
+                        "textureList" : [
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_track_loader_dif.tga",
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_engine_controller_asg.tga",
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_engine_controller_nor.tga"
+                        ]
+                     }
+                  ]
+               }
+            ]
+         },
+         "rotationSet" : "PropZ",
+         "scripted" : {
+            "classname" : "Loader",
+            "filename" : "$CONTENT_DATA/Scripts/raceLineLoader.lua"
+         },
+         "sticky" : "-Z",
+         "uuid" : "9f5ce20a-b774-4df9-9b6a-d1993c705138"
+      },
+      {
+         "box" : {
             "x" : 3,
             "y" : 8,
             "z" : 4
@@ -302,7 +351,7 @@
          "sticky" : "-Z",
          "uuid" : "04caa519-f127-4235-a792-7a83a79afd21"
       },
-       {
+      {
          "box" : {
             "x" : 1,
             "y" : 1,

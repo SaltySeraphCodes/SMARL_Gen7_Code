@@ -100,7 +100,7 @@ function Generator.client_init( self )  -- Only do if server side???
     self.scanError = false
     self.errorLocation = nil
 
-    self.showWalls = true -- show wall effects (reduces total allowed effects)
+    self.showWalls = false -- show wall effects (reduces total allowed effects)
 	print("Track Generator V2.0 Initialized at ",self.location,self.shape.at)
 end
 

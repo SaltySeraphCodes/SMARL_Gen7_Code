@@ -26,5 +26,9 @@
    "fbc31377-6081-426d-b518-f676840c407c" : {
       "description" : "Car AI Driver, connect to steering bearings and SMAR Engine. Place anywhere on car with steering wheel (smooth face) facing the front. \n MUST BE PLACED WHILE CAR IS ON LIFT IN ORDER FOR CAR TO BE SCANNED CORRECTLY.",
       "title" : "SMAR Driver"
+   },
+   "9f5ce20a-b774-4df9-9b6a-d1993c705138" : {
+      "description" : "Saves Track as a blueprint for later use. \n Place down on memorable spot (like back corner of start/finish line). Make sure you place it down on a separate block so it can become a floating obj. \n Press 'E' To save the track to the block and blueprint. Save block on lift.  ",
+      "title" : "SMAR Track Loader"
    }
 }

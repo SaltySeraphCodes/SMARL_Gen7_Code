@@ -79,7 +79,6 @@ end
 
 function Loader.server_onCreate(self)
     self:server_init()
-
 end
 
 function Loader.server_init(self)
@@ -102,20 +101,17 @@ function Loader.server_init(self)
         -- Reads in track, calculates offset and places nodes in offset position
         -- Saves track to world
         self:sv_loadTrack()
-
         -- creates visuals for clientside
-        self.network:setClientData({"nodeChain" = self.nodeChain})
+        self.network:setClientData({["nodeChain"] = self.nodeChain})
     end
 end
 
 
-
 function Loader.client_onClientDataUpdate( self, data ) -- Loads client data
-    print("client loading data")
+    print("client loading data",data)
     self.nodeChain = data.nodeChain
     self:cl_loadTrack()
 end
-
 
 function Loader.cl_loadTrack() -- validates and loads visualization of track
     if self.nodeChain == nil then
@@ -123,7 +119,7 @@ function Loader.cl_loadTrack() -- validates and loads visualization of track
         return
     end
 
-    for k=1, #self.nodeChain do local v=self.nodeChain[k] do -- Add effect to nodeChain
+    for k=1, #self.nodeChain do local v=self.nodeChain[k] -- Add effect to nodeChain
         v.effect = self:generateEffect(v.location)
     end
     self:hardUpdateVisual()
@@ -140,7 +136,7 @@ function Loader.sv_loadTrack() -- Validates and saves track to world
     local radians = res[2]
     self:applyNodeChainOffset(ofset,radians) -- Should mutate sv nodeChain
     local data = {channel = TRACK_DATA, raceLine = true} -- Eventually have metaData too?
-    self:sv_saveData(data)
+    self:sv_saveData(data) -- Save new data to world
     sm.gui.displayAlertText("Saved track to world")
 end
 
@@ -151,21 +147,33 @@ function Loader.sv_saveTrack(self) -- Reads simplified node chain and saves it
         return 
     end
     self.trackData = {
-        "N" = self.trackName
-        "I" = self.trackID
-        "C" = worldNodeChain
-        "O" = self.location 
-        "D" = self.direction -- self.shape.at
+        ["N"] = self.trackName,
+        ["I"] = self.trackID,
+       [ "C"] = worldNodeChain,
+       [ "O"] = self.location,
+       [ "D"] = self.direction -- self.shape.at
     }
     self.storage:save(self.trackData)
 end
 
-function Loader.sv_exportTrack(self) -- Exports track as a .json file
 
+function Loader.sv_saveData(self,data) -- saves data to world
+    debugPrint(self.debug,"Saving data")
+    debugPrint(self.debug,data)
+    local channel = data.channel
+    data = self.simpNodeChain -- was data.raceLine --{hello = 1,hey = 2,  happy = 3, hopa = "hdjk"}
+    print("saving Track")
+    sm.storage.save(channel,data) -- track was channel
+    --sm.terrainData.save(data) -- saves as terrain??
+    saveData(data,channel) -- worldID?
+
+    print("Track Saved")
+end
+
+function Loader.sv_exportTrack(self) -- Exports track as a .json file
 end
 
 function Loader.sv_importTrack(self) -- Imports .json file
-
 end
 
 
@@ -199,36 +207,24 @@ function calculateOffset(pos1,pos2, dir1, dir2) -- calculate full offset between
     return {offset,radDif}
 end
 
-function sleep(n)  -- freezes game
-  local t0 = clock()
-  while clock() - t0 <= n do end
-end
-
 function Loader.getNewCoordinates(self,point,offset,angle) -- tak
-     -- apply rotation (and pos offset?)
-     local originValue = point -- Originvalue vec3
-     local offsetX = offset[1]
-     local offsetY = offset[2]
-     local differenceFromOrigin = {
-         x: x - originValue.x,
-         y: y - originValue.y
-     };
-     
-    print("originVal",originValue,differenceFromOrigin)
-     
-     local rotatedPoint = sm.vec3.new(0,0,0);
-     ---local angle = rads * Math.PI / 180.0; Angle is already radians
-     --local angle = rads -- TODO: just rename
- 
-     rotatedPoint.x = Math.cos(angle) * (offsetX) - Math.sin(angle) * (offsetY) + (originValue.x);
-     rotatedPoint.y = Math.sin(angle) * (offsetX) + Math.cos(angle) * (offsetY) + (originValue.y);
-     
-     print("neaw point",rotatedPoint)
-     
-     return rotatedPoint; 
-end
+    -- apply rotation (and pos offset?)
+    local originValue = point -- Originvalue vec3
+    local offsetX = offset[1]
+    local offsetY = offset[2]
 
-function Loader.rotateVector()
+    print("originVal",originValue)
+    local rotatedPoint = sm.vec3.new(0,0,0);
+    ---local angle = rads * Math.PI / 180.0; Angle is already radians
+    --local angle = rads -- TODO: just rename
+
+    rotatedPoint.x = Math.cos(angle) * (offsetX) - Math.sin(angle) * (offsetY) + (originValue.x);
+    rotatedPoint.y = Math.sin(angle) * (offsetX) + Math.cos(angle) * (offsetY) + (originValue.y);
+    
+    print("neaw point",rotatedPoint)
+     
+    return rotatedPoint; 
+end
 
 function Loader.applyNodeChainOffset(self,offset,rads) -- Applys tranform to all chains in offset
     if self.nodeChain == nil then
@@ -248,7 +244,6 @@ function Loader.applyNodeChainOffset(self,offset,rads) -- Applys tranform to all
         node.outVector = node.outVector:rotateZ(rads)
     end 
 end
-
 
 --visualization helpers
 function Loader.stopVisualization(self) -- Stops all effects in node chain (specify in future?)
@@ -420,7 +415,6 @@ function Loader.createEfectLine(self,from,to,color) --
     end
 
 end
-
 
 function Loader.printNodeChain(self)
     for k, v in pairs(self.nodeChain) do

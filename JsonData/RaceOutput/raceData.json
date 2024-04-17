@@ -3,9 +3,9 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : 9.0,
+		"lapsLeft" : 10.0,
 		"qualifying" : "true",
-		"status" : 1.0
+		"status" : 0.0
 	},
 	"qd" : 
 	[
@@ -122,20 +122,5 @@
 			"split" : "13.464"
 		}
 	],
-	"rt" : 
-	[
-		
-		{
-			"bestLap" : 0.0,
-			"id" : 20.0,
-			"isFocused" : "false",
-			"lapNum" : 1.0,
-			"lastLap" : 65.29699999999957,
-			"locX" : -60.21111297607422,
-			"locY" : -505.3175354003906,
-			"place" : 1.0,
-			"speed" : 0.06859669834375381,
-			"timeSplit" : "0.000"
-		}
-	]
+	"rt" : null
 }
