@@ -3,9 +3,9 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : 10.0,
+		"lapsLeft" : 8.0,
 		"qualifying" : "true",
-		"status" : 0.0
+		"status" : 1.0
 	},
 	"qd" : 
 	[

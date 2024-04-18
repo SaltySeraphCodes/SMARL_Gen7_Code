@@ -298,8 +298,8 @@ function Loader.applyNodeChainOffset(self,tempChain) -- alters temporary chain
         local newMid = self:getNewCoordinates(node.mid,offset,radians)
         node['tempLoc'] = newLocation
         node['tempMid'] = newMid
-        node['tempPerp'] = rotationQuat * node.perp 
-        node['tempOut'] = rotationQuat * node.outVector
+        node['tempPerp'] = node.perp:rotateZ(radians) --rotationQuat * node.perp 
+        node['tempOut'] = node.outVector:rotateZ(radians) --rotationQuat * node.outVector
     end 
     local checkIndex = 20
     print(tempChain[checkIndex].outVector.x,tempChain[checkIndex].tempOut.x)
