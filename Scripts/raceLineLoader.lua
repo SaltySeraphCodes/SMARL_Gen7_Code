@@ -40,7 +40,6 @@ end
 function Loader.client_init( self )  -- Only do if server side???
     --self.trackData = nil -- Will be loaded and set on network
 
-    --self.nodeChain = {}
     self.effectChain = {}
     self.debugEffects = {}
     self.effect = sm.effect.createEffect("Loot - GlowItem")
@@ -103,28 +102,30 @@ function Loader.server_init(self)
     else -- Just automaticallly import and show what is saved
         print("Loaded track",storedTrack.N)
         self.trackData = storedTrack
+        -- Do not set self nodechain until U and then save it
         -- Reads in track, calculates offset and places nodes in offset position
         -- Saves track to world
         self:sv_loadTrack() -- for initial placement
         --print("finished load")
         -- creates visuals for clientside
-        print("Post init")
-        print(self.trackData.O)
     end
 end
 
 function Loader.cl_receiveTrackData(self,data)
-    --print("client Recieved data",data)
     -- Instead of refreshing everything, we will update the nodes
     if self.effectChain ~= nil and #self.effectChain >1 then -- if exists and has length
-        for k=1, #data do local v=data[k] -- Add effect to nodeChain
+        for k=1, #data.nodeChain do local v=data.nodeChain[k] -- Add effect to nodeChain
             if self.effectChain[k] ~=nil then -- if "matching" point
                 self.effectChain[k].location = v.location
+            else
+                --print("found effect?",self.effectChain[k])
             end
         end
     else
+        --print("new effect chain")
         self.effectChain = data.nodeChain
     end
+
     self:cl_loadTrack()
 end
 
@@ -151,23 +152,25 @@ function Loader.sv_loadTrack(self) -- Validates and saves track to world
         print("sv load track: Data is Nil")
         return
     end
-    -- Set sself nodechain
-    self.nodeChain = self.trackData.C
+    -- Do not set nodechain until after official track layout is chosen
+    local tempChain = {} -- create new table
+    local tempChain = shallowcopy(self.trackData.C)
+    --print("tc:",self.trackData.C[1].location,tempChain[1].location)
+
     -- Calculate offset and mutates nodechaing
-    self:applyNodeChainOffset() -- Should mutate sv nodeChain
-    local simpChain = self:simplifyNodeChain(self.nodeChain)
-    --print("setting clientdata",simpChain)
+    local updateChain = self:applyNodeChainOffset(tempChain) -- Should mutate sv nodeChain ( which is bad, because it perma does it, we only want temporary)
+    local simpChain = self:simplifyNodeChain(tempChain)
     self.network:sendToClients("cl_receiveTrackData",{nodeChain = simpChain})
     --self:sv_sendAlert("Track Data loaded") -- TODO: only show once
-    
+    self.nodeChain = updateChain
 end
 
 
 function Loader.simplifyNodeChain(self,chain) 
     local simpChain = {}
     --sm.log.info("simping node chain") -- TODO: make sure all seg IDs are consistance
-    for k=1, #chain do local v=self.nodeChain[k]
-        local newNode = {location = v.location, segType = v.segType.TYPE, effect = nil}
+    for k=1, #chain do local v=chain[k]
+        local newNode = {location = v.tempLoc, segType = v.segType.TYPE, effect = nil}
         table.insert(simpChain,newNode)
     end
     return simpChain
@@ -190,9 +193,30 @@ function Loader.sv_saveTrack(self) -- Reads simplified node chain and saves it
     self.storage:save(self.trackData)
 end
 
+function Loader.confirmTempChanges(self) -- Sets temporary changes into permanant changes, Mutates whole nodechain, cannot be reset unless through storage.load?
+    for k=1, #self.nodeChain do local v=self.nodeChain[k] -- TODO: actually remove temporrary keys from table
+        if v.tempLoc then
+            v.location = v.tempLoc
+            v.tempLoc = nil
+        end
+        if v.tempMid then
+            v.mid = v.tempMid
+            v.tempMid = nil
+        end
+        if v.tempPerp then
+            v.perp = v.tempPerp
+            v.tempPerp = nil
+        end
+        if v.tempOut then
+            v.outVector = v.tempOut
+            v.tempOut = nil
+        end
+    end
+end
 
 function Loader.sv_saveWoldTrackData(self)
     debugPrint(self.debug,"Saving track data")
+    self:confirmTempChanges() -- applies temp changes to real nodechain
     local channel = TRACK_DATA
     data = self.nodeChain
     sm.storage.save(channel,data) -- track was channel
@@ -236,42 +260,58 @@ function calculateRotation(dir1,dir2)
     return radDif -- TODO: just remove and use raw function, no need to wrap
 end
 
+
 function calculateOffset(pos1,pos2) -- calculate full offset between two vectors, will need original and new rotations?
-    local offset = (pos2 - pos1)/20 -- Might have to do a pi/2 or /180
+    local offset = (pos2 - pos1) -- Might have to do a pi/2 or /180
     return offset
 end
 
-function Loader.getNewCoordinates(self,point,offset,angle) -- tak
+function Loader.getNewCoordinates(self,origin,point,offset,angle) -- tak
     -- apply rotation (and pos offset?)
     local rotatedPoint = sm.vec3.new(0,0,0);
-    rotatedPoint.x = (point.x) + math.cos(angle) * (offset.x) - math.sin(angle) * (offset.y) 
-    rotatedPoint.y = (point.y) + math.sin(angle) * (offset.x) + math.cos(angle) * (offset.y) 
-    rotatedPoint.z = point.z -- Set back original z value
-    --print("old",point)
-    --print("new",rotatedPoint)
+    local pointQuat = sm.quat.new(point.x,point.y,point.z,0)
+    local fakeRot = math.pi/2 -- Performs a negative rotation so pi/2 rotates -90 Degress and vise versa? can either inverse here or inverse in rotation grab?
+    angle = angle * -1 -- inverse angle ()
+    local rotPoint = origin
+    local pointLoc = point + origin
+    local pointRotate = point --pointLoc - rotPoint
+    --sm.vec3(9)
+    local pointX = (pointRotate.x*math.cos(angle) - pointRotate.y*math.sin(angle)) + offset.x
+    local pointY = (pointRotate.x*math.sin(angle) + pointRotate.y*math.cos(angle)) + offset.y
+    local pointZ = point.z
+    local newPoint = sm.vec3.new(pointX,pointY,pointZ)
 
-    return rotatedPoint; 
+    --rotatedPoint.x = (point.x) + math.cos(angle) * (offset.x) - math.sin(angle) * (offset.y) 
+    --rotatedPoint.y = (point.y) + math.sin(angle) * (offset.x) + math.cos(angle) * (offset.y) 
+    --rotatedPoint.z = point.z -- Set back original z value
+    --print("old",point)
+    --print("new",point,":",newPoint)
+    return newPoint-- rotatedPoint; 
 end
 
-function Loader.applyNodeChainOffset(self,offset) -- Applys tranform to all chains in offset
-    if self.nodeChain == nil or #self.nodeChain <=1 then
+function Loader.applyNodeChainOffset(self,tempChain) -- alters temporary chain
+    if tempChain == nil or #tempChain <=1 then
         print("ApplyNCO: No node chain")
         return 
     end
+    local offset = calculateOffset(self.trackData.O,self.location) 
     local radians = calculateRotation(self.trackData.D,self.direction)
-
-    print("applying offset to new coords",radians)
-    for k=1, #self.nodeChain do local node=self.nodeChain[k]
-        local offset = calculateOffset(self.location, node.location) 
-        local newLocation = self:getNewCoordinates(node.location,offset,radians)
-        local newMid = self:getNewCoordinates(node.mid,offset,radians)
-        node.location =newLocation
-        node.mid = newMid
-
-        -- rotate out vector, in vector and perp vector
-        node.perp = node.perp:rotateZ(radians)
-        node.outVector = node.outVector:rotateZ(radians)
+    local rotationQuat = sm.vec3.getRotation(self.trackData.D:normalize(),self.direction:normalize()) -- Retu
+    for k=1, #tempChain do local node=tempChain[k]
+        local newLocation = self:getNewCoordinates(self.location,node.location,offset,radians)
+        local newMid = self:getNewCoordinates(self.location,node.mid,offset,radians)
+        node['tempLoc'] = newLocation
+        node['tempMid'] = newMid
+        --node.location =newLocation
+        --node.mid = newMid
+        -- Rotate perp and out vector even though they actually arent needed in the end... TODO: remove?
+        node['tempPerp'] = rotationQuat * node.perp 
+        node['tempOut'] = rotationQuat * node.outVector
+        --node.perp =  rotationQuat * node.perp --node.perp:rotateZ(radians)
+        --node.outVector = rotationQuat * node.outVector -- node.outVector:rotateZ(radians)
     end 
+
+    return tempChain
 end
 
 --visualization helpers
@@ -281,13 +321,13 @@ function Loader.sv_sendAlert(self,msg) -- sends alert message to all clients (in
 end
 
 function Loader.cl_showAlert(self,msg) -- client recieves alert
-    print("Displaying",msg)
+    print("Showing Alert:",msg)
     sm.gui.displayAlertText(msg,3)
 end
 
 
 function Loader.toggleVisual(self,nodeChain)
-    print("displaying",self.visualizing)
+    --print("displaying",self.visualizing)
     if self.visualizing then
         self:stopVisualization()
         self.visualizing = false
@@ -309,7 +349,6 @@ function Loader.stopVisualization(self) -- Stops all effects in node chain (spec
 end
 
 function Loader.showVisualization(self) -- Clientstarts all effects
-    --print("showing vis",self.nodeChain)
     for k=1, #self.effectChain do local v=self.effectChain[k]
         if v.effect ~= nil then
             if not v.effect:isPlaying() then
@@ -382,7 +421,7 @@ function Loader.client_onInteract(self,character,state)
      if state then
 		if character:isCrouching() then -- I guess toggle visuals?
             self.debug = not self.debug -- togle debug
-            self:toggleVisual(self.nodeChain)
+            self:toggleVisual(self.effectChain)
 		else -- Save track
 			self.network:sendToServer("sv_saveTrack")
 		end
@@ -396,7 +435,7 @@ function Loader.server_onFixedUpdate(self, timeStep)
         --print("No Track Data")
     else
         if (location ~= self.location or direciton ~= self.direciton) then
-            if sm.shape.getVelocity(self.shape):length() ==0 then
+            if sm.shape.getVelocity(self.shape):length() == 0 then
                 self.location = location
                 self.direction = direction
                 self:sv_loadTrack()
@@ -421,6 +460,6 @@ end
 function Loader.client_onTinker( self, character, state )
     --print('onTinker')
 	if state then
-        self.network:sendToServer('sv_saveData')
+        self.network:sendToServer('sv_saveWoldTrackData')
 	end
 end
