@@ -14,22 +14,24 @@
             <Index name="5d8f2445-31bb-4079-94ab-dc1df1e6e3ed">
                 <Frame point="192 0"/>
             </Index>
-            <Index name="011818d5-aead-49d8-aca6-50a33cb88e96">
+            <Index name="9f5ce20a-b774-4df9-9b6a-d1993c705138">
                 <Frame point="288 0"/>
             </Index>
-            <Index name="e80d963c-3af2-47aa-99d8-365e1569a568">
+            <Index name="011818d5-aead-49d8-aca6-50a33cb88e96">
                 <Frame point="384 0"/>
             </Index>
-            <Index name="04caa519-f127-4235-a792-7a83a79afd21">
+            <Index name="e80d963c-3af2-47aa-99d8-365e1569a568">
                 <Frame point="0 96"/>
             </Index>
-            <Index name="b20d3826-3235-459c-a4c9-ef1438caaed9">
+            <Index name="04caa519-f127-4235-a792-7a83a79afd21">
                 <Frame point="96 96"/>
             </Index>
-            <Index name="645fe8aa-2c33-43c9-8859-f6a03374c62a">
+            <Index name="b20d3826-3235-459c-a4c9-ef1438caaed9">
                 <Frame point="192 96"/>
             </Index>
-           
+            <Index name="645fe8aa-2c33-43c9-8859-f6a03374c62a">
+                <Frame point="288 96"/>
+            </Index>
         </Group>
     </Resource>
 </MyGUI>

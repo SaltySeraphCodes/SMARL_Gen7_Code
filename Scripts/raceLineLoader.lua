@@ -30,7 +30,7 @@ function Loader.client_onCreate( self )
 end
 
 function Loader.client_onDestroy(self)
-    print("Loader destroyed")
+    --print("Loader destroyed")
     if self.effect:isPlaying() then
         self.effect:stop()
     end
@@ -222,6 +222,7 @@ function Loader.sv_saveWoldTrackData(self)
     sm.storage.save(channel,data) -- track was channel
     saveData(data,channel) -- Goes into global for no reason...?
     print("Track Saved")
+    self:sv_sendAlert("Track Saved To World")
 end
 
 function Loader.sv_exportTrack(self) -- Exports track as a .json file
@@ -266,27 +267,22 @@ function calculateOffset(pos1,pos2) -- calculate full offset between two vectors
     return offset
 end
 
-function Loader.getNewCoordinates(self,origin,point,offset,angle) -- tak
+function Loader.getNewCoordinates(self,point,offset,angle) -- tak
     -- apply rotation (and pos offset?)
-    local rotatedPoint = sm.vec3.new(0,0,0);
-    local pointQuat = sm.quat.new(point.x,point.y,point.z,0)
-    local fakeRot = math.pi/2 -- Performs a negative rotation so pi/2 rotates -90 Degress and vise versa? can either inverse here or inverse in rotation grab?
+    --local fakeRot = math.pi/2 -- Performs a negative rotation so pi/2 rotates -90 Degress and vise versa? can either inverse here or inverse in rotation grab?
     angle = angle * -1 -- inverse angle ()
-    local rotPoint = origin
-    local pointLoc = point + origin
-    local pointRotate = point --pointLoc - rotPoint
-    --sm.vec3(9)
-    local pointX = (pointRotate.x*math.cos(angle) - pointRotate.y*math.sin(angle)) + offset.x
-    local pointY = (pointRotate.x*math.sin(angle) + pointRotate.y*math.cos(angle)) + offset.y
-    local pointZ = point.z
+    local distFromZero = self.trackData.O -- How far away original node is from 0,0
+    local centeredPoint = point - distFromZero -- Point centered around 0,0 based on origin
+    -- rotate Point(s) around 0,0
+    local pointX = (centeredPoint.x*math.cos(angle) - centeredPoint.y*math.sin(angle))
+    local pointY = (centeredPoint.x*math.sin(angle) + centeredPoint.y*math.cos(angle))
+    local pointZ = centeredPoint.z
     local newPoint = sm.vec3.new(pointX,pointY,pointZ)
-
-    --rotatedPoint.x = (point.x) + math.cos(angle) * (offset.x) - math.sin(angle) * (offset.y) 
-    --rotatedPoint.y = (point.y) + math.sin(angle) * (offset.x) + math.cos(angle) * (offset.y) 
-    --rotatedPoint.z = point.z -- Set back original z value
-    --print("old",point)
-    --print("new",point,":",newPoint)
-    return newPoint-- rotatedPoint; 
+    -- offset point back to original offset
+    newPoint = newPoint + distFromZero
+    -- offset Point to new Location
+    newPoint = newPoint + offset
+    return newPoint
 end
 
 function Loader.applyNodeChainOffset(self,tempChain) -- alters temporary chain
@@ -298,19 +294,15 @@ function Loader.applyNodeChainOffset(self,tempChain) -- alters temporary chain
     local radians = calculateRotation(self.trackData.D,self.direction)
     local rotationQuat = sm.vec3.getRotation(self.trackData.D:normalize(),self.direction:normalize()) -- Retu
     for k=1, #tempChain do local node=tempChain[k]
-        local newLocation = self:getNewCoordinates(self.location,node.location,offset,radians)
-        local newMid = self:getNewCoordinates(self.location,node.mid,offset,radians)
+        local newLocation = self:getNewCoordinates(node.location,offset,radians)
+        local newMid = self:getNewCoordinates(node.mid,offset,radians)
         node['tempLoc'] = newLocation
         node['tempMid'] = newMid
-        --node.location =newLocation
-        --node.mid = newMid
-        -- Rotate perp and out vector even though they actually arent needed in the end... TODO: remove?
         node['tempPerp'] = rotationQuat * node.perp 
         node['tempOut'] = rotationQuat * node.outVector
-        --node.perp =  rotationQuat * node.perp --node.perp:rotateZ(radians)
-        --node.outVector = rotationQuat * node.outVector -- node.outVector:rotateZ(radians)
     end 
-
+    local checkIndex = 20
+    print(tempChain[checkIndex].outVector.x,tempChain[checkIndex].tempOut.x)
     return tempChain
 end
 
@@ -424,6 +416,7 @@ function Loader.client_onInteract(self,character,state)
             self:toggleVisual(self.effectChain)
 		else -- Save track
 			self.network:sendToServer("sv_saveTrack")
+            self:cl_showAlert("Track Saved to Block")
 		end
 	end
 end
