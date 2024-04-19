@@ -1855,7 +1855,7 @@ function Generator.iterateScan(self)
     -- Finish calculations on previous node
     lastNode.next = newNode
     lastNode.outVector = getNormalVectorFromPoints(lastNode.pos,newNode.pos)
-    lastNode.force = angleDiff(lastNode.inVector,lastNode.outVector)
+    lastNode.force = vectorAngleDiff(lastNode.inVector,lastNode.outVector)
     --
     -- Add effects and put into node chaing
     if leftWall == nil or rightWall == nil or nextLocation2 == nil then
@@ -1888,11 +1888,11 @@ function Generator.iterateScan(self)
         local firstNode = self.nodeChain[1]
         newNode.next = firstNode -- link back to begining
         newNode.outVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos)
-        newNode.force = angleDiff(newNode.inVector,newNode.outVector)
+        newNode.force = vectorAngleDiff(newNode.inVector,newNode.outVector)
 
         firstNode.last = newNode
         firstNode.inVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos) -- or lastNode.outVector if too much
-        firstNode.force = angleDiff(firstNode.inVector,firstNode.outVector)
+        firstNode.force = vectorAngleDiff(firstNode.inVector,firstNode.outVector)
         self.scanning = false
         local totalForce = calculateTotalForce(self.nodeChain)
         if self.debug then
