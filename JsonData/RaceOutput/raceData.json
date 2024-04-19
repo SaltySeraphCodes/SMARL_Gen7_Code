@@ -3,9 +3,9 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : 10.0,
+		"lapsLeft" : 15.0,
 		"qualifying" : "true",
-		"status" : 0.0
+		"status" : 1.0
 	},
 	"qd" : 
 	[
@@ -127,27 +127,27 @@
 		
 		{
 			"bestLap" : 0.0,
-			"id" : 24.0,
+			"id" : 1.0,
 			"isFocused" : "false",
 			"lapNum" : 0.0,
 			"lastLap" : 0.0,
-			"locX" : -152.6226043701172,
-			"locY" : 200.8905639648438,
-			"place" : 1.0,
-			"speed" : 0.0,
+			"locX" : -76.01971435546875,
+			"locY" : -199.5980682373047,
+			"place" : 2.0,
+			"speed" : 40.26392745971680,
 			"timeSplit" : "0.000"
 		},
 		
 		{
 			"bestLap" : 0.0,
-			"id" : 13.0,
+			"id" : 1.0,
 			"isFocused" : "false",
 			"lapNum" : 0.0,
 			"lastLap" : 0.0,
-			"locX" : 176.2730712890625,
-			"locY" : 1.297727108001709,
+			"locX" : -195.5259094238281,
+			"locY" : -1.255373716354370,
 			"place" : 1.0,
-			"speed" : 0.0,
+			"speed" : 32.71607971191406,
 			"timeSplit" : "0.000"
 		}
 	]

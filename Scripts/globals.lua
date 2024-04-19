@@ -40,7 +40,7 @@ DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- stee
 -- Track generation options -- possibly move to track piece?
 FORCE_SENSITIVIY = 4 -- How much angle differences affect total force on node chain
 FORCE_THRESHOLD = 0.01 -- when nodes accept where they are
-WALL_PADDING = 5
+WALL_PADDING = 7
 TRACK_DATA = 1 -- Location to save world storage for the racing line
 
 TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
