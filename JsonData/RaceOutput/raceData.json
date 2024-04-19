@@ -122,5 +122,33 @@
 			"split" : "13.464"
 		}
 	],
-	"rt" : null
+	"rt" : 
+	[
+		
+		{
+			"bestLap" : 0.0,
+			"id" : 24.0,
+			"isFocused" : "false",
+			"lapNum" : 0.0,
+			"lastLap" : 0.0,
+			"locX" : -152.6226043701172,
+			"locY" : 200.8905639648438,
+			"place" : 1.0,
+			"speed" : 0.0,
+			"timeSplit" : "0.000"
+		},
+		
+		{
+			"bestLap" : 0.0,
+			"id" : 13.0,
+			"isFocused" : "false",
+			"lapNum" : 0.0,
+			"lastLap" : 0.0,
+			"locX" : 176.2730712890625,
+			"locY" : 1.297727108001709,
+			"place" : 1.0,
+			"speed" : 0.0,
+			"timeSplit" : "0.000"
+		}
+	]
 }

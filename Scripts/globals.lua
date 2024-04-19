@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.5.2"
+SMAR_VERSION = "1.5.6"
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -40,7 +40,7 @@ DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- stee
 -- Track generation options -- possibly move to track piece?
 FORCE_SENSITIVIY = 4 -- How much angle differences affect total force on node chain
 FORCE_THRESHOLD = 0.01 -- when nodes accept where they are
-WALL_PADDING = 7
+WALL_PADDING = 5
 TRACK_DATA = 1 -- Location to save world storage for the racing line
 
 TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
@@ -1269,6 +1269,10 @@ function getVmax(angle,maxSteer,minSteer,maxVel,minVel)
     local k = 1/((maxSteer or DEFAULT_MAX_STEER) -(minSteer or DEFAULT_MINOR_STEER))* math.log((maxVel or DEFAULT_MAX_STEER_VEL)/(minVel or DEFAULT_MINOR_STEER_VEL) )
     local A0 = (minVel or DEFAULT_MINOR_STEER_VEL)* math.exp(-k*(minSteer or DEFAULT_MINOR_STEER))
     return A0 * math.exp(k*angle)
+end
+
+function getVmax2(angle,maxSteermminSteer,maxVel,minVel)
+
 end
 
 
