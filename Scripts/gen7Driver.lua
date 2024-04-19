@@ -5200,8 +5200,8 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     end
     
     if self.speed > 2 and not self.noEngineError and not self.carData['Downforce'] then -- Standard downforce (Also specify for Stock cars only?)
-        local maxForce = -950
-        local minForce = -750
+        local maxForce = -700
+        local minForce = -600
         local offset = 0.08 -- offset towards/from front to push down
 
         if self.carData and self.carData.metaData then

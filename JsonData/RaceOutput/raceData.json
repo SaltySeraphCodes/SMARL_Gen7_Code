@@ -3,9 +3,9 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : 8.0,
+		"lapsLeft" : 10.0,
 		"qualifying" : "true",
-		"status" : 1.0
+		"status" : 0.0
 	},
 	"qd" : 
 	[
@@ -121,5 +121,6 @@
 			"racer_name" : "Porsche 962 Ai Car",
 			"split" : "13.464"
 		}
-	]
+	],
+	"rt" : null
 }
