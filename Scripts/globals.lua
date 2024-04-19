@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-
+SMAR_VERSION = "1.5.2"
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -1169,7 +1169,7 @@ function vectorAngleDiff(vector1,vector2) -- gets the angle difference between v
     local lengthProduct = vector1:length() * vector2:length()
     local rads = math.acos(dotProduct / lengthProduct) * getSignReal(directionalCross.z)
     --print("d",dotProduct,directionalCross.z,vector2,rads)
-    return rads -- returns radians, degrees = math.deg()
+    return rads -- returns radians, degrees = math.deg() range of <-pi to =pi
 end
 
 function determineAngle(vector1,vector2)

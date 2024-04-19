@@ -122,6 +122,7 @@ function SmarlCamera.server_init(self)
 	self.cameraLoaded = false -- whether tool is loaded into global
 	self.externalControlsEnabled = false -- whether kepyress reader is active
 	self.sv_dataUpdated = false -- Flag for if data gets updated
+	print("SMAR Version ",SMAR_VERSION, "Loaded")
 end
 
 function SmarlCamera.load_camera(self) -- attatches camera to smar globals
@@ -388,11 +389,11 @@ function SmarlCamera.client_onReload(self)
 	local isCrouching =  self.tool:isCrouching() 
 	local dir = 1
 	local raceStatus = self.raceStatus
-	print("reload",isSprinting,isCrouching)
+	print("Checking ", SMAR_VERSION)
 	if isCrouching then
 		dir = -1
 	end
-
+	sm.gui.chatMessage( "SMAR VERSON: " ..SMAR_VERSION )
 	raceStatus = raceStatus + dir
 	--print("Setting race status",raceStatus,dir)
 	--print(sm.smarlFunctions)

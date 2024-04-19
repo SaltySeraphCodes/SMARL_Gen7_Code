@@ -90,17 +90,17 @@ function Generator.client_init( self )  -- Only do if server side???
     self.segSearch = 0
     self.segSearchTimeout = 100
 
-    self.debug =false  -- Debug flag -- REMEMBER TO TURN THIS OFF
-    self.instantScan = true
+    self.debug =true  -- Debug flag -- REMEMBER TO TURN THIS OFF
+    self.instantScan = false
     self.instantOptimize = false -- Scans and optimizes in one loop
     self.racifyLineOpt = true -- Makes racing line more "racelike"
-    self.asyncTimeout = 0-- Scan speed [0 fast, 1 = 1per sec]
+    self.asyncTimeout = 1-- Scan speed [0 fast, 1 = 1per sec]
     self.asyncTimeout2 = 0 -- optimization speed
     -- error states
     self.scanError = false
     self.errorLocation = nil
 
-    self.showWalls = false -- show wall effects (reduces total allowed effects)
+    self.showWalls = true -- show wall effects (reduces total allowed effects)
 	print("Track Generator V2.0 Initialized at ",self.location,self.shape.at)
 end
 
@@ -180,24 +180,24 @@ function Generator.stopVisualization(self) -- Stops all effects in node chain (s
             v.effect:stop()
         end
         if v.lEffect ~= nil then
-            if not v.lEffect:isPlaying() then
+            if v.lEffect:isPlaying() then
                 v.lEffect:stop()
             end
         end
         if v.rEffect ~= nil then
-            if not v.rEffect:isPlaying() then
+            if v.rEffect:isPlaying() then
                 v.rEffect:stop()
             end
         end
     
 
         if v.lEffect ~= nil then
-            if not v.lEffect:isPlaying() then
+            if v.lEffect:isPlaying() then
                 v.lEffect:stop()
             end
         end
         if v.rEffect ~= nil then
-            if not v.rEffect:isPlaying() then
+            if v.rEffect:isPlaying() then
                 v.rEffect:stop()
             end
         end
@@ -206,8 +206,7 @@ function Generator.stopVisualization(self) -- Stops all effects in node chain (s
     
     for k=1, #self.debugEffects do local v=self.debugEffects[k]
         if v ~= nil then
-            if not v:isPlaying() then
-                --print("debugStop")
+            if v:isPlaying() then
                 v:stop()
             end
         end
@@ -632,9 +631,9 @@ function Generator.getWallTopDown(self,location,direction,cycle,threshold) -- sc
     -- stores floor location and if floor height threshold is passed then will return wall location
    local scanHeight = 4 -- how high from location to start scan
    local perpOffset = -5 -- start loc
-   local perpLimit = 5  -- end scan dist
+   local perpLimit = 25  -- end scan dist
    local floorValue = nil
-   local scanGrain = 0.25 -- Sweeet spot may need adjustment [0.25]
+   local scanGrain = 0.15 -- Sweeet spot may need adjustment [0.25]
    local scanStart = location + (direction * perpOffset)
    scanStart.z = location.z + scanHeight
    local scanEnd = scanStart + sm.vec3.new(0,0,-25) -- scan down
@@ -846,7 +845,7 @@ function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method
     -- ALSO: Potentially get VHDif of lastWall/curWall to determine direction of turn & etc
 
     local searchLimit = 60 -- how far to look for walls, dynamic: self.nodechain[#self.nodeChain]].lastNode.width/2
-    local scanFromHeight = 3.5 --* self.shape.up
+    local scanFromHeight = 30 --* self.shape.up
     if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].width then
         searchLimit = (self.nodeChain[self.nodeIndex-1].width * 0.8 or 60)
     end
