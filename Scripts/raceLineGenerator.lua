@@ -1105,7 +1105,7 @@ function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
             return startNode,node, true
         end
         
-        local angle = getNodeAngle(initNode,node)
+        local angle = getNodeAngle(initNode,node) -- double check this
         --print(node.id,"f:",angle,lastAngle,angle - lastAngle,self.nodeChain[1].id,self.nodeChain[1].segID)
 
         if apexNode ~= nil then -- continue down curve until straight path found or reversal of turn
@@ -1146,7 +1146,6 @@ function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
 end
 
 function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: run a filterpass over segments and combine all like/adjacent segments into one segID
-    print("scanning segm")
     local firstNode = self.nodeChain[1]
     local segID = 1
     local done = false
