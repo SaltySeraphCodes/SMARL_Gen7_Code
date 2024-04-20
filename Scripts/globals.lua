@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.5.6"
+SMAR_VERSION = "1.5.61"
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -97,7 +97,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_ACCEL = 0.4,
         MAX_BRAKE = 0.6,
         GEARING = {0.4,0.45,0.35,0.3}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 78/5 -- LImit for VRPM TODO: adjust properly
+        REV_LIMIT = 78/4 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "sports", -- medium -- dark gray
@@ -435,38 +435,32 @@ end
 -- Engine/Driver Connector helpers TODO: get this to a more accurate and dynamic flavor
 function calculateMaximumVelocity(segBegin,segEnd,segLen) -- gets maximumSpeed based on segment node and length of turn
     local segType = segBegin.segType
-    local segCurve = segBegin.segCurve
+    local segCurve = segBegin.segCurve -- TODO: investigate curve
     local segLen = (segLen or 10)
-    local angleMultiplier = 5 -- default
     local angle = math.abs(segCurve)
     local angle2 = angleDiff(segBegin.outVector,segEnd.outVector) -- depreciated
     if  segType == "Straight" then -- sometimes things go wrong
         
-        return getVmax(angle) * 1.8
-    elseif segType == "Fast_Right" or segType == "Fast_Left" then -- reduce ang
-        --print("fastSeg",segLen)
+        return getVmax(angle) * 2
+    elseif segType == "Fast_Right" or segType == "Fast_Left" then
+        if segLen >= 5 then -- Long turn
+            return getVmax(angle)*1.4 
+        else
+            return getVmax(angle)*1.2
+        end
+    elseif segType == "Medium_Right" or segType == "Medium_Left" then
         if segLen >= 10 then -- Long turn
-            --print("maxWideTurn",segLen)
-            return getVmax(angle) -- Adjustable to engineVel?
+            return getVmax(angle*1.1)*1.2
+        else
+            return getVmax(angle*1.3)*1
         end
-        angleMultiplier = 2
-    elseif segType == "Medium_Right" or segType == "Medium_Left" then -- increase ang?
-        if segLen >= 20 then -- Long turn
-            --print("Medium long Turn",segLen)
-            return getVmax(angle*1.5)+ segLen - 20 -- Adjustable to engineVel?
+    elseif segType == "Slow_Right" or segType == "Slow_Left" then
+        if segLen >= 15 then -- Long turn
+            return getVmax(angle*1.2)*1.3 
+        else
+            return getVmax(angle*1.6)*1
         end
-        angleMultiplier = 2
-    elseif segType == "Slow_Right" or segType == "Slow_Left" then -- increase ang?
-        if segLen >= 20 then -- Long turn
-            --print("Slow long Turn",segLen)
-            return getVmax(angle*2)  -- Adjustable to engineVel?
-        end
-        angleMultiplier = 3
     end
-       
-    --print("angle",angle)
-    --print("Velocity angle",segBegin.segID,segType,angle,angle2,getVmax(angle),getVmax(angle2))
-    --angle = math.abs(angle2)*angleMultiplier
     return getVmax(angle)
 end
 
@@ -1091,38 +1085,48 @@ function calculateNewForceAngles(v) -- updates forces on a node
     return v
 end
 
-function validChange(pos,dir,node) -- checks if a movement is valid (in track)
+function validChange(node,location,perp,dir) -- checks if a point is within track bounds + padding
     local valid = false
-    local distance = getDistToWall(pos,dir,node.width)
+    local distance = getDistToWall(node,location,perp,dir) -- gets closest dist of virtual and physical wall based off of node data
     if distance > WALL_PADDING then -- if not too close to wall
           valid = true
     end
     return valid
 end
 
-function getDistToWall(location,direction,width) -- sends out 3? raycasts to determine the distance to the wall, returns distance between vectors
+function getDistToWall(node,location,perp,dir) -- sends out 3? raycasts to determine the distance to the wall, returns distance between vectors
     local zOffsetLimit = 0.6 -- How far above/below to search
     local zOffset = 0 -- unecessary?
     local zStep = 0.05 -- how many things to check
-    local vWallDist = width/2
-    local vWall = location + (direction*vWallDist) -- location of wall
-    local hit,data = sm.physics.raycast(location, location + direction*300)
+    local hit,data = sm.physics.raycast(location, location + (perp*dir)*300)
     if data.valid == false then -- If first try failed, just go all out
         for k=-zOffsetLimit, zOffsetLimit,zStep do 
             local newLocation = location + sm.vec3.new(0,0,k)
-            hit,data = sm.physics.raycast(newLocation, newLocation + direction*300)
+            hit,data = sm.physics.raycast(newLocation, newLocation +  (perp*dir)*300)
             if data.valid == false then
-                --print("K",k,"DistTo Wallfailed")
             else
-                --print("foundWall") -- Possibly validate here
-                break --? possibly average rest of measurements?
+                break -- average rest of measurements?
             end
         end
     end
-    if not data.valid then
-        return getDistance(location,vWall)
+
+    local virtualWall = nil
+    -- Find which wall to use based on dir (-1 1)
+    if dir == 1 then
+        virtualWall = node.rightWall
+    elseif dir == -1 then
+        virtualWall = node.leftWall
     end
-    return getDistance(location,data.pointWorld)
+
+    if not data.valid then
+        return getDistance(location,virtualWall) -- use virtual wall
+    else -- compare real and virtual wall so no corner cuts
+        local vWallD= getDistance(location,virtualWall)
+        local wallD = getDistance(location,data.pointWorld)
+        local closest = math.min( vWallD,wallD )
+        --print("v",vWallDist,"w",wallD,"m",closest)
+        return closest
+    end
 end
 
 
@@ -1190,6 +1194,7 @@ function calculateTotalForce(nodeChain)
     for k=1, #nodeChain do local v=nodeChain[k]
         totalForce = totalForce + math.abs(v.force)
     end
+    --print("return total force",totalForce)
     return totalForce
 end
 
