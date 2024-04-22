@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.5.61"
+SMAR_VERSION = "1.5.7" -- The Error correction update
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content

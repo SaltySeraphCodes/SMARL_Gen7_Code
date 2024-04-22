@@ -5200,29 +5200,34 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     end
     
     if self.speed > 2 and not self.noEngineError and not self.carData['Downforce'] then -- Standard downforce (Also specify for Stock cars only?)
-        local maxForce = -700
-        local minForce = -600
-        local offset = 0.08 -- offset towards/from front to push down
+        local maxForce = -1500
+        local minForce = -500
+        local offset = 0.05 -- offset towards/from front to push down
+        local bankAdjust = 0
+        if self.goalNode then
+            bankAdjust = math.abs(self.goalNode.bank) * 2000
+        end
 
         if self.carData and self.carData.metaData then
             if self.carData.metaData.Car_Type == "F1" then -- load different DF data
-                maxForce = -900
-                minForce = -700
+                maxForce = -1500
+                minForce = -800
                 offset = 0.05
             end
         end
 
-        local speedAdj = -maxForce + -0.1*self.speed^2.3
+        local speedAdj = -maxForce + 0.1*self.speed^2.3
         --local force = sm.vec3.new(0,0,1) * -(self.speed^1.7)  -- -- invert so slower has higher? TODO: Check for wedges/aero parts, tire warmth factor too
         local force = sm.vec3.new(0,0,1) * -speedAdj  -- -- invert so slower has higher? TODO: Check for wedges/aero parts, tire warmth factor too
-        force.z = mathClamp(maxForce,minForce,force.z)
+        force.z = mathClamp(maxForce,minForce,force.z) - bankAdjust
         --print(self.speed,speedAdj,force.z)
+       -- print("df:",force.z)
 
         if self.velocity.z < -0.13 and not self.tilted then -- falling down
             --print(self.tagText,"down",self.velocity.z)
             sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,100),true,self.shape.at*0.3) -- should not be negative, and 100
             
-        elseif self.velocity.z > 0.13 then -- going up
+        elseif self.velocity.z > 0.55 then -- going up
             --print(self.tagText,"up")
             sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,100),true) -- really shouldnt be a thing
         else -- GOing flat, normal downforce
@@ -5231,7 +5236,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
             --print(self.shape.at*offset)
             
             sm.physics.applyImpulse(self.shape.body,force,true,self.shape.at*offset)--,--self.shape.at)
-            
+            -- todo: Investigate if DF is only pushing down on car and not at the proper bank angle
         end 
     end
 
