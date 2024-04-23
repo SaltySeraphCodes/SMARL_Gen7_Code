@@ -1440,8 +1440,8 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     local lookAheadConst = 4 -- play around until perfect -- SHould be dynamic depending on downforce?
     local lookAheadHeur = 0.6 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
-        lookAheadConst = 12
-        lookAheadHeur = 0.9
+        lookAheadConst = 15
+        lookAheadHeur = 2
     end
     
     local lookaheadDist = lookAheadConst + self.speed*lookAheadHeur
@@ -1457,8 +1457,8 @@ function Driver.updateGoalNodeMid(self) -- Updates self.goalNode to mid node (ov
     local lookAheadConst = 4 -- play around until perfect -- SHould be dynamic depending on downforce?
     local lookAheadHeur = 0.6 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
-        lookAheadConst = 13
-        lookAheadHeur = 1
+        lookAheadConst = 15
+        lookAheadHeur = 2
     end
     
     local lookaheadDist = lookAheadConst + self.speed*lookAheadHeur
@@ -4092,13 +4092,9 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         if sm.vec3.closestAxis(upDir).z == -1 then
             local weight =self.mass * DEFAULT_GRAVITY
 		    stopDir.z = self.mass/2.5
-            --print(self.mass/3)
-            --print("flip")
         else
-            
             stopDir.z = self.mass/11
         end
-		
 		offset = upDir * 4
 		if self.shape:getWorldPosition().z >= self.currentNode.location.z + 3 then 
 			stopDir.z = -450 -- maybe anti self.weight?
@@ -4113,12 +4109,12 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
        --print(self.id,"oversteer correct",offset,self.speed, self.strategicThrottle)
         --self.pathGoal = "mid"
         if self.strategicThrottle >= 0 then  
-            self.strategicThrottle = self.strategicThrottle - 0.05 -- begin coast
+            self.strategicThrottle = self.strategicThrottle - 0.1 -- begin coast
             -- reduce steering?
             if math.abs(offset) > 14 or self.speed > 23 then
                 --print(self.speed)
                 self.strategicThrottle = ratioConversion(10,35,0.9,1,self.speed) -- Convert x to a ratio from a,b to  c,d
-                --print("ovrsteer overspeed thrott",self.speed,self.strategicThrottle)
+                print("ovrsteer overspeed thrott",self.speed,self.strategicThrottle)
             else
                 self.strategicThrottle =self.strategicThrottle -0.01 -- coast
             end
@@ -4127,22 +4123,19 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 
     if self.understeer and self.goalNode and not self.oversteer then
         local offset = self.goalDirectionOffset
-        --print(self.id,"understeer correct",offset,self.speed, self.strategicThrottle)
-        self.rotationCorrect = true
+        --self.rotationCorrect = true
         if self.strategicThrottle >= 0 then  -- Do this when not "braking"
-            self.strategicThrottle = self.strategicThrottle - 0.05
+            self.strategicThrottle = self.strategicThrottle - 0.1
             --print(self.id,"understeerCorrect",self.strategicThrottle)
             if math.abs(offset) > 13 or self.speed > 24 then
-                self.strategicThrottle = ratioConversion(10,35,0.9,1,self.speed) -- Convert x to a ratio from a,b to  c,d
-                --print("understeer overspeed thrott",self.speed,self.strategicThrottle)
+                self.strategicThrottle = ratioConversion(10,35,0,1,self.speed) -- Convert x to a ratio from a,b to  c,d
                 if self.speed <= 10 then
-                    self.strategicThrottle = 0.4
-                    self.strategicSteering = self.strategicSteering/2
-                    --print("half steer")
+                    self.strategicThrottle = 0.2
+                    self.strategicSteering = self.strategicSteering/1.5
                 end
             else
-                self.strategicThrottle = self.strategicThrottle - 0.01 -- coast
-                self.strategicSteering = self.strategicSteering *0.95
+                self.strategicThrottle = self.strategicThrottle - 0.1 -- coast
+                --self.strategicSteering = self.strategicSteering *0.95
             end
         else
             --print(self.id,"understeer braking",self.speed,offset,self.strategicThrottle)
@@ -4161,11 +4154,10 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     end
 -- Check over rotation
     if self.rotationCorrect then
-        --self.speedControl = 15
         --print(self.id,"fix rotate",self.angularVelocity:length(),self.goalDirectionOffset, self.speed,self.strategicThrottle)
         if self.speed < 15 and  math.abs(self.goalDirectionOffset) > 3 and self.angularVelocity:length() > 0.7 then -- counter steer
-            self.strategicSteering = self.strategicSteering / -10
-            --print(self.tagText,"counterSteer?")
+            self.strategicSteering = self.strategicSteering / -5
+            print(self.tagText,"counterSteer?")
         end
         
         if self.speed < 18 or self.angularVelocity:length() < 1 and math.abs(self.goalDirectionOffset) < 1 then
@@ -4177,7 +4169,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         if self.speed >20 then
            --print("over speed rotatin correct")
             --print("brake",self.speed)
-            self.strategicThrottle = self.strategicThrottle - 0.05
+            self.strategicThrottle = self.strategicThrottle - 0.1
         end
     end    
 -- Check walls
@@ -4272,6 +4264,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 
 -- check stuck
     if self.stuck and self.raceStatus ~= 0 then
+
         local offset = posAngleDif3(self.location,self.shape.at,self.goalNode.location) -- TODO: replace with goaldiroffset
         local frontDir = self.shape.at
         --frontDir.z = self.shape:getWorldPosition().z -- keep z level the same for inclines
@@ -4280,12 +4273,12 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 
         if hit then
             dist = getDistance(self.location,data.pointWorld) 
+            print("stuck hit dis",dist)
         end
-        --print(self.tagText,"RAYCAST",dist,data,self.curGear)
             
         if self.rejoining then -- Car is approved and rejoining, check different things
             if self.curGear == -1 then -- If reversing
-                --print("attemptReverse")
+                print("CurReverse attemptReverse")
                 if  toVelocity(self.engine.curRPM) < -9 and self.speed <= math.abs(toVelocity(self.engine.curRPM)) -1 then --math.abs(toVelocity(self.engine.curRPM)) -1
                     if self.speed <= 1 then
                         --print("reverse stuck",toVelocity(self.engine.curRPM),self.speed)
@@ -4377,7 +4370,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 
         else -- start rejoin process (only if car has tried going forward)
             if self.engine.curRPM > 1 and self.curGear >=0 then
-                --print("slowing to reverse?",self.engine.curRPM)
+                print("slowing to strt reverse",self.engine.curRPM)
                 self.strategicThrottle = -1
             else -- Check for clear entry point then reverse
 
@@ -4385,12 +4378,12 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                 local clearFlag = self:checkForClearTrack(distanceThreshold)
                 if clearFlag then
                     local curentSide =0 -- 0 self:getCurrentSide() TODO:get right and finsih
-                    --print("Rejoining",self.trackPosition,curentSide)
+                    print("Rejoining",self.trackPosition,curentSide)
                     self.trackPosBias = curentSide
                     self.rejoining = true
                     self.curGear = -1
                     self:shiftGear(self.curGear)
-                    --print("reeversing begin",self.curGear,self.engine.curRPM)
+                    print("reeversing begin",self.curGear,self.engine.curRPM)
                     self.strategicThrottle = 0.6
                     self.strategicSteering = self.strategicSteering * -1.4
                 else -- stay stopped
@@ -4402,7 +4395,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     
 -- Check Offtrack
     if self.offTrack ~= 0 and not self.userControl then
-        --print(self.id,"offtrack",self.offTrack)
+        print(self.id,"offtrack",self.offTrack)
         if self.speed < 15 then -- speed rejoin
             self.strategicSteering = self.strategicSteering --+ self.offTrack/90 --? when at high speeds adjust to future turn better?
             --print(self.id,"offtrack correction", print(self.id,"offtrack",self.goalDirectionOffset))
@@ -4424,21 +4417,21 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
             if self.currentNode.segType == "Straight" then -- If supposed to be on straight
                 if math.abs(self.goalDirectionOffset) > 3 then -- if too much turn
                     if self.speed > 20 then
-                        --print(self.tagText,"WildOfftrackAdjustST",self.strategicSteering,self.goalDirectionOffset)
+                        print(self.tagText,"WildOfftrackAdjustST",self.strategicSteering,self.goalDirectionOffset)
                         self.strategicThrottle = 0.1
                         if math.abs(self.trackPosition) < self.currentNode.width/3.5 then -- if somewhat in the middle, slow the adjustment
-                            --print("pre adjust",self.strategicSteering)
+                            print("pre adjust",self.strategicSteering)
                             self.strategicSteering = self.strategicSteering + -(self.goalDirectionOffset / adjustmenDampener)
-                            --print(self.tagText,"adjusted",self.strategicSteering,(self.goalDirectionOffset / adjustmenDampener))
+                            print(self.tagText,"adjusted",self.strategicSteering,(self.goalDirectionOffset / adjustmenDampener))
                             self.strategicThrottle = 0.1                 
                         else
-                            --print(self.tagText,"outside",-self.goalDirectionOffset)
+                            print(self.tagText,"outside",-self.goalDirectionOffset)
                             self.strategicThrottle = -0.1
                             self.strategicSteering = self.strategicSteering - self.goalDirectionOffset
                         end
                         self.goalOffsetCorrecting = true
                     end -- Else if speed < 7 then keep throttle at 0 or low power
-                    --print(self.tagText,"Spinout??",self.goalDirectionOffset,self.strategicThrottle)
+                    print(self.tagText,"Spinout??",self.goalDirectionOffset,self.strategicThrottle)
                     self.goalOffsetCorrecting = true
                 else
                     if self.goalOffsetCorrecting then 
@@ -4449,15 +4442,15 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
             else -- car turning
                 --print("turn",self.goalDirectionOffset)
                 if math.abs(self.goalDirectionOffset) > 3.2 then -- if too much turn
-                    --print(self.tagText,"Turn offDirection Adjust")
+                    print(self.tagText,"Turn offDirection Adjust")
                     --self.strategicSteering = self.strategicSteering/1.5 -- + (self.goalDirectionOffset / 5) Mauybe remove
                     if self.speed > 20 then
                         --print(self.tagText, "WildOfftrackAdjustTurn",self.trackPosition,self.goalDirectionOffset)
                         if math.abs(self.trackPosition) < self.currentNode.width/3.5 then -- if somewhat in the middle, slow the adjustment
                             self.strategicThrottle = 0
-                            --print("pre adjustTurn",self.strategicSteering)
+                            print("pre adjustTurn",self.strategicSteering)
                             self.strategicSteering = self.strategicSteering + -(self.goalDirectionOffset / adjustmenDampener)
-                           --print("adjustedTrurn",self.strategicSteering,-(self.goalDirectionOffset / adjustmenDampener))
+                           print("adjustedTrurn",self.strategicSteering,-(self.goalDirectionOffset / adjustmenDampener))
                         else
                             --print(self.tagText,"onoutsideTurn",self.goalDirectionOffset,self.strategicSteering)
                             self.strategicThrottle = 0
@@ -4465,7 +4458,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                         end
                         self.goalOffsetCorrecting = true
                     end
-                    --print(self.tagText,"Turn Spinout??",self.goalDirectionOffset,self.strategicThrottle)
+                    print(self.tagText,"Turn Spinout??",self.goalDirectionOffset,self.strategicThrottle)
                 else
                     if self.goalOffsetCorrecting then 
                         self.goalOffsetCorrecting = false
