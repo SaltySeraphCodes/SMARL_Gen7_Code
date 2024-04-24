@@ -251,6 +251,10 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
         --print(self.accelInput,self.curRPM)
         if self.curRPM > 10 then
             rpmIncrement = ratioConversion(0,-1,-self.engineStats.MAX_BRAKE,0,self.accelInput)
+            if self.shape:getVelocity():length() < 1 then
+                print("Reverse speed boost")
+                rpmIncrement = -10
+            end
             --print("rpmInc",rpmIncrement)
         elseif self.curRPM <= 10 and self.curRPM > -10 then
             rpmIncrement = -self.curRPM -- try to stop car
@@ -273,7 +277,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     local draftTS = 0 -- * global.draftStrengthHow much to increase the top speed by ()
     if self.driver.drafting and self.accelInput >= 0.8 then -- only work while accelerating, can get in the way of brakes
         --print(self.driver.id,"drafting")
-        draftTS = 0.3 -- * draftStrength
+        draftTS = 0.25 -- * draftStrength
         rpmIncrement = rpmIncrement + 0.0001 -- * global.draftStrength
     end
     -- handicap handing

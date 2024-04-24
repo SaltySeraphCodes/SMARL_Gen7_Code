@@ -1171,7 +1171,14 @@ function vectorAngleDiff(vector1,vector2) -- gets the angle difference between v
     local directionalCross = sm.vec3.cross(vector2,vector1)
 
     local lengthProduct = vector1:length() * vector2:length()
+
+    if dotProduct == lengthProduct or string.format("%.4f",dotProduct) == string.format("%.4f",lengthProduct) then
+        return 0 -- Preemptive straight vec
+    end
     local rads = math.acos(dotProduct / lengthProduct) * getSignReal(directionalCross.z)
+    if math.abs(tostring(rads)) == tostring(0/0) then
+        rads = 0
+    end
     --print("d",dotProduct,directionalCross.z,vector2,rads)
     return rads -- returns radians, degrees = math.deg() range of <-pi to =pi
 end

@@ -1109,7 +1109,7 @@ function Driver.checkOversteer(self) -- check if car is sliding based off of rot
     local overSteerMeasure = (self.steering * self.angularSpeed) /self.speed
     if overSteerMeasure - overSteerThreshold * getSign(self.steering) < self.overSteerTolerance  then
         self.oversteer = true
-        --print("O",self.id, overSteerMeasure - overSteerThreshold * getSign(self.steering), self.overSteerTolerance,self.oversteer)
+        print("O",self.id, overSteerMeasure - overSteerThreshold * getSign(self.steering), self.overSteerTolerance,self.oversteer)
     else
         self.oversteer = false
     end
@@ -1126,8 +1126,7 @@ function Driver.checkUndersteer(self) -- check if car is sliding based off of ro
     --print(string.format("understeerDif %.3f %.3f %.3f",nominalMomentum,self.angularSpeed,self.angularSpeed - nominalMomentum))
     if understeerthresh < self.underSteerTolerance then -- was just based on nominal momentum > 1
         self.understeer = true
-        --print("U",self.id,understeerthresh,self.underSteerTolerance)
-
+        print("U",self.id,understeerthresh,self.underSteerTolerance)
     else
         self.understeer = false
     end
@@ -1166,8 +1165,9 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
     --print(offset,self.goalDirectionOffset)
     --print("hah",self.engine.curRPM)
     --print(self.speed,toVelocity(self.engine.curRPM),self.curGear, offset) -- Get distance away from node? track Dif?
-    if math.abs(offset) >= 30 or math.abs(self.goalDirectionOffset) > 8.5 then 
-        --print("Stuck?",offset,self.goalDirectionOffset,self.speed)
+    --print("stuck?",offset,self.goalDirectionOffset)
+    if math.abs(offset) >= 30 or math.abs(self.goalDirectionOffset) > math.pi then -- if positional angle
+        print("Stuck?",offset,self.goalDirectionOffset,self.speed)
         if self.speed <= 4 and not self.userControl then
             --print(self.tagText,"offset stuck",offset,self.speed,self.goalDirectionOffset)
             self.stuck = true
@@ -1437,8 +1437,8 @@ end
 function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heuristic (lookahead factor) -- MAy be checking enginesspeed and not current speed on restarts
     if self.lost then return end
     if self.currentNode == nil then return end
-    local lookAheadConst = 4 -- play around until perfect -- SHould be dynamic depending on downforce?
-    local lookAheadHeur = 0.6 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    local lookAheadConst = 3 -- play around until perfect -- SHould be dynamic depending on downforce?
+    local lookAheadHeur = 0.3 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 15
         lookAheadHeur = 2
@@ -1454,8 +1454,8 @@ end
 function Driver.updateGoalNodeMid(self) -- Updates self.goalNode to mid node (overtyped duplicate of goalNode
     if self.lost then return end
     if self.currentNode == nil then return end
-    local lookAheadConst = 4 -- play around until perfect -- SHould be dynamic depending on downforce?
-    local lookAheadHeur = 0.6 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    local lookAheadConst = 3 -- play around until perfect -- SHould be dynamic depending on downforce?
+    local lookAheadHeur = 0.3 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
         lookAheadConst = 15
         lookAheadHeur = 2
@@ -1625,7 +1625,7 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
             --print("heading offtrack correction",self.strategicThrottle)
         end
     end
-    local biasMult = 2
+    local biasMult = 2 -- how hard to follow track bias ("lanes")
     local biasDif = 0
     local followStren = self.followStrength
     local directionOffset = self.goalDirectionOffset
@@ -1637,7 +1637,9 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     end
     if biasDif ~= 0 and math.abs(self.offTrack) == 0 then -- makes a slower recovery?
         --followStren = 5
-        directionOffset = directionOffset * 1.5
+        print("offtrack slow recovery?",directionOffset)
+        directionOffset = directionOffset * 2 -- 
+        print("offtrack slow recovery?",directionOffset)
     end
     if self.speed < 2 then 
         directionOffset = 0
@@ -1648,8 +1650,8 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     if self.curGear <=0  then
         directionOffset = 0
     end
-    SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset
-    --print(self.tagText,"ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle,followStren)
+    SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset -- VErsion one 
+    --print(self.tagText,"SA",biasDif,directionOffset,SteerAngle)
     self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
 end
 
@@ -2335,7 +2337,7 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
     self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
 end
 
-function Driver.getGoalDirAdjustment(self) -- Allows racer to stay relatively straight
+function Driver.getGoalDirAdjustment(self) -- Allows racer to stay relatively straight UNUSED -- DEPRECIATE ?
 	if self.speed < 0.5 or self.goalDirection == nil then return 0 end
     local velocity = self.velocity:normalize()
 	local angleMultiplier = 10
@@ -2349,17 +2351,16 @@ function Driver.getGoalDirAdjustment(self) -- Allows racer to stay relatively st
 end
 
 function Driver.calculateGoalDirOffset(self) -- calculates the offset in which the driver is not facing the curNode's outDir
-    if self.goalDirection == nil or self.velocity:length() <= 0.2 then return 0 end
-    local velocity = self.velocity:normalize()
-	local angleMultiplier = 8
-	--velocity = sm.vec3.normalize(self.velocity) -- Normalized to prevent oversteer -- or use self.at?
-	local goalVector = self.goalDirection -- This is a vector, (rename to goalVector?)
+    if self.goalDirection == nil or self.velocity:length() <= 0.1 then return 0 end
+    local velocity = self.velocity:safeNormalize(self.velocity) -- Is necessary?
+	--local angleMultiplier = 8 -- What is this for??
+	--local goalVector = self.goalDirection -- This is a vector, (rename to goalVector?)
 	local turnAngle = 0 
-	local directionalOffset = sm.vec3.dot(goalVector,velocity)
-	local directionalCross = sm.vec3.cross(goalVector,velocity)
-    turnAngle = (directionalCross.z) * angleMultiplier -- NOTE: will return wrong when moving oposite of goalDir
-    --print("Offset=",turnAngle)
-    return turnAngle
+	--local directionalOffset = sm.vec3.dot(goalVector,velocity)
+	--local directionalCross = sm.vec3.cross(goalVector,velocity)
+    local dirAngle = (vectorAngleDiff(velocity,self.goalDirection) or 0) 
+    --turnAngle = (directionalCross.z) * angleMultiplier -- NOTE: will return wrong when moving oposite of goalDir
+    return dirAngle
 end
 
 -- Throttle
@@ -4370,8 +4371,9 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 
         else -- start rejoin process (only if car has tried going forward)
             if self.engine.curRPM > 1 and self.curGear >=0 then
-                print("slowing to strt reverse",self.engine.curRPM)
+                print("slowing to strt reverse",self.engine.curRPM,self.curGear)
                 self.strategicThrottle = -1
+                -- THIS IS TOO SLOW, Need to get things going faster
             else -- Check for clear entry point then reverse
 
                 local distanceThreshold = -55 -- make dynamic?
@@ -4413,7 +4415,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 -- Check wildly offCenter I think these conflict with other things
     local adjustmenDampener = 80 -- 
     if not self.rejoining and not self.stuck then
-        if self.goalDirectionOffset ~= nil and math.abs(self.goalDirectionOffset) >0  then 
+        if self.goalDirectionOffset ~= nil and math.abs(self.goalDirectionOffset) >0  then  -- If theres an offfset at all
             if self.currentNode.segType == "Straight" then -- If supposed to be on straight
                 if math.abs(self.goalDirectionOffset) > 3 then -- if too much turn
                     if self.speed > 20 then
@@ -4445,7 +4447,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                     print(self.tagText,"Turn offDirection Adjust")
                     --self.strategicSteering = self.strategicSteering/1.5 -- + (self.goalDirectionOffset / 5) Mauybe remove
                     if self.speed > 20 then
-                        --print(self.tagText, "WildOfftrackAdjustTurn",self.trackPosition,self.goalDirectionOffset)
+                        print(self.tagText, "WildOfftrackAdjustTurn",self.trackPosition,self.goalDirectionOffset)
                         if math.abs(self.trackPosition) < self.currentNode.width/3.5 then -- if somewhat in the middle, slow the adjustment
                             self.strategicThrottle = 0
                             print("pre adjustTurn",self.strategicSteering)
@@ -4468,9 +4470,9 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         end
     end
     if self.rejoining then -- what going on?
-        --print(self.curGear)
+        print("rejoining")
         if  self.curGear >= 4 then
-            --print("rejoin complete")
+            print("rejoin complete")
             self.rejoining = false
             self.stuck = false
             self.pathGoal = "location"
@@ -4574,10 +4576,17 @@ function Driver.calculateTrackPos(self)
 end
 
 function Driver.calculateGoalDirection(self) -- calculates general direciton car should try to go
-    if self.currentNode == nil then return self.shape.at end -- maybe instead of at, use goalNode?
+    if self.currentNode == nil then
+        print("StraightCur node")
+        return self.shape.at 
+    end -- maybe instead of at, use goalNode?
+
+    if self.goalNode then
+        --print("goalNode")
+        --self.goalNode.outVector
+    end
     --print(self.goalNode)
-    local goalDirection = self.currentNode.outVector -- Can make this dynamic according to different race states
-    --print("goalDirection",goalDirection,self.goalDirection)
+    local goalDirection = self.currentNode.outVector -- TODO: Determine if curNode or goalNode is desireable
     return goalDirection
 end
 
@@ -5216,13 +5225,13 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
         --print(self.speed,speedAdj,force.z)
        -- print("df:",force.z)
 
-        if self.velocity.z < -0.13 and not self.tilted then -- falling down
+        if self.velocity.z < -0.55 and not self.tilted then -- TODO: Just do an math.abs and only apply downforce outside of range?
             --print(self.tagText,"down",self.velocity.z)
-            sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,100),true,self.shape.at*0.3) -- should not be negative, and 100
+            --sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,100),true,self.shape.at*0.3) -- should not be negative, and 100
             
         elseif self.velocity.z > 0.55 then -- going up
             --print(self.tagText,"up")
-            sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,100),true) -- really shouldnt be a thing
+            --sm.physics.applyImpulse(self.shape.body,sm.vec3.new(0,0,100),true) -- really shouldnt be a thing
         else -- GOing flat, normal downforce
             --print(self.tagText,self.speed,force.z)
             --print(self.tagText,"flat")
