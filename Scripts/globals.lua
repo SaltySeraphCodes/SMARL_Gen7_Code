@@ -444,13 +444,13 @@ function calculateMaximumVelocity(segBegin,segEnd,segLen) -- gets maximumSpeed b
         return getVmax(angle) * 2
     elseif segType == "Fast_Right" or segType == "Fast_Left" then
         if segLen >= 5 then -- Long turn
-            return getVmax(angle)*1.4 
+            return getVmax(angle)*1.5 
         else
-            return getVmax(angle)*1.2
+            return getVmax(angle)*1.3
         end
     elseif segType == "Medium_Right" or segType == "Medium_Left" then
-        if segLen >= 10 then -- Long turn
-            return getVmax(angle*1.1)*1.2
+        if segLen >= 12 then -- Long turn
+            return getVmax(angle*1.1)*1.3
         else
             return getVmax(angle*1.3)*1
         end

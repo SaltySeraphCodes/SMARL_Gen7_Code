@@ -188,7 +188,15 @@ function Driver.server_init( self )
         self.rightColDist= self.carDimensions['right']:length() + self.hPadding 
     end
 
-    self.carRadar = { front = 0, rear = 0, left = 0, right = 0 }
+     -- initialize local car radar (big values )
+    if self.carRadar == nil or #self.carRadar <=0 then 
+        self.carRadar = { 
+            front = 100,
+            rear = -100,
+            right = 100,
+            left = -100
+        }
+    end
     self.carAlongSide = {left = 0, right = 0} -- triggers -1,1 if there is a car directly alongside somewhat closely
     self.opponentFlags = {} -- list of opponents and flags
     
@@ -583,7 +591,15 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
         self.rightColDist= self.carDimensions['right']:length() + self.hPadding 
     end
 
-    self.carRadar = { front = 0, rear = 0, left = 0, right = 0 }
+ -- initialize local car radar (big values )
+    if self.carRadar == nil or #self.carRadar <=0 then 
+        self.carRadar = { 
+            front = 100,
+            rear = -100,
+            right = 100,
+            left = -100
+        }
+    end    
     self.carAlongSide = {left = 0, right = 0} -- triggers -1,1 if there is a car directly alongside somewhat closely
     self.opponentFlags = {} -- list of opponents and flags
     --self.engine = nil -- gets loaded from engine
@@ -2961,8 +2977,119 @@ function Driver.newUpdateCollisionLayer(self)-- -- New updated collision layer
     --self.strategicSteering = self.strategicSteering + colSteer + passSteer
 end
 
--- Updating methods (layers and awhat not)
-function Driver.updateCollisionLayer(self)
+
+function Driver.generateOpponent(self,opponent,oppDict)
+    local vhDist = getDriverHVDistances(self,opponent)
+    local oppWidth
+    if opponent.leftColDist == nil or opponent.rightColDist == nil then
+        oppWidth = selfWidth
+    else 
+        oppWidth = (opponent.leftColDist + opponent.rightColDist) or selfWidth -- in case oppwidth is broken
+    end
+    if vhDist['vertical'] < 100 or vhDist['vertical'] > -25 then -- TODO: Look at efficient params for determining if in range
+        if oppDict[opponent.id] == nil then
+            oppDict[opponent.id] ={data = opponent, inRange = true,  vhDist = {}, oppWidth = oppWidth, flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
+                                        alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
+                                        pass = false, letPass = false, drafting = false}               
+        }
+        else
+            oppDict[opponent.id].flags.inRange = true
+        end
+    else -- If opponent not in range at all ( DO we even add them to the dict?)
+        if oppDict[opponent.id] == nil then
+            oppDict[opponent.id] ={data = opponent, inRange = false, vhDist = {},  oppWidth = oppWidth,  flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
+            alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
+            pass = false, letPass = false, drafting = false,  }}
+        else
+            oppDict[opponent.id].inRange = false -- Sets everything to false to reset
+            oppDict[opponent.id].flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
+            alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
+            pass = false, letPass = false, drafting = false   }
+        end
+    end
+    --obsoleteVHDistances(self,opponent)
+    if vhDist == nil then 
+        return oppDict -- TODO: find what the heck this is for
+    end -- send error?
+    oppDict[opponent.id].vhDist = vhDist -- send to opp
+
+    return 
+
+
+function Driver.updateLocalRadar(self,opponent)
+    if opponent.carDimensions == nil then
+        --self:sv_sendAlert("Car ".. opponent.tagText .. " Not Scanned; Place on Lift")
+        print("opponent not scanned")
+        return nil,nil
+    end
+    if opponent.rearColDist == nil or opponent.frontColDist == nil then
+        print("oponent radar not updated?")
+        return nil,nil --TODO: figure out what to return here
+    end
+    --local distance = getDriverDistance(self,opponent,#self.nodeChain) -- TODO: Remove cuz obsolete?
+   
+    local frontCol = nil
+    local rearCol = nil
+    local leftCol = nil
+    local rightCol = nil
+
+    if vhDist['horizontal'] > 0 then -- opponent on right
+        rightCol = vhDist['horizontal'] - (self.rightColDist + (opponent.leftColDist or self.leftColDist))
+    elseif  vhDist['horizontal'] <= 0 then -- opponent on left
+        leftCol = vhDist['horizontal'] + (self.leftColDist + (opponent.rightColDist or self.rightColDist)) -- Failsaif to its own width
+        -- if leftCol >= 0 then print("danger on left?")
+    end
+
+
+
+    if vhDist['vertical'] > 0 then -- if opponent in front 
+        frontCol = vhDist['vertical'] - (self.frontColDist + (opponent.rearColDist or self.rearColDist))
+    elseif vhDist['vertical'] <=0 then -- if opp behind 
+        rearCol = vhDist['vertical'] + (self.rearColDist + (opponent.frontColDist or self.frontColDist))
+        --if rearCol >= 0 then print("danger from behind") end
+    end
+
+
+    -- update localRadar
+   if frontCol then
+        if frontCol < self.carRadar.front then
+            self.carRadar.front = frontCol
+        end
+   else
+        self.carRadar.front = 100
+   end
+   
+   if rearCol then
+    if rearCol > self.carRadar.rear then
+        self.carRadar.rear = rearCol
+    end
+    else
+        self.carRadar.rear = -100
+    end
+
+   if leftCol then
+    if leftCol > self.carRadar.left then
+        self.carRadar.left = leftCol
+    end
+    else
+        self.carRadar.left = -100
+        --oppFlags.leftWarning = false
+    end
+
+   if rightCol then
+    if rightCol < self.carRadar.right then
+        self.carRadar.right = rightCol
+    end
+    else
+        self.carRadar.right = 100
+        --oppFlags.rightWarning = false
+    end
+    local colDic = {["frontCol"] = frontCo, ["rearCol"]= rearCol, ["leftCol"] = leftCol, ['rightCol'] = rightCol}
+    return colDic,opponentDic
+end
+
+-- Updating methods (layers and awhat not) -- Server
+function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local radar update and pass determination)
     if self.carData == nil then return end -- not scanned
     --print(self.carData.carDimensions)
     if self.carData.carDimensions == nil then return end -- not scanned
@@ -2975,7 +3102,7 @@ function Driver.updateCollisionLayer(self)
             self:cancelPass()
         end
         if self.drafting then
-            self.drafting = false
+            self.drafting = false -- Stay in drafting range
         end
         return 
     end
@@ -2984,120 +3111,18 @@ function Driver.updateCollisionLayer(self)
     local colThrottle = self.strategicThrottle
     local colSteer = self.strategicSteering
     local passSteer = 0 -- add on to colSteer
-    local oppInRange = {}--self.opponentFlags -- possibly attatch to self so no regeneration necessary?
-    local selfWidth = self.leftColDist + self.rightColDist
-    -- set up local car radar (big values )
-    self.carRadar = {
-        front = 100,
-        rear = -100,
-        right = 100,
-        left = -100
-    }
+    local oppInRange = {}-- Unique to every Car,
+    local selfWidth = self.leftColDist + self.rightColDist -- Init car width (uneccessary, should set in sv_init)
+   
     
     local alongSideLeft = -100
     local alongSideRight = 100 
-
     local hasDraft = false
 
     for k=1, #carsInRange do local opponent=carsInRange[k] -- May need to have deep copy of carsInrange or create new class
-        if opponent.carDimensions == nil then
-            --self:sv_sendAlert("Car ".. self.id .. " Not Scanned; Place on Lift")
-            break
-        end
-        if opponent.rearColDist == nil or opponent.frontColDist == nil then
-            break
-        end
-        --local distance = getDriverDistance(self,opponent,#self.nodeChain) -- TODO: Remove cuz obsolete?
-        local vhDist = getDriverHVDistances(self,opponent)
-        local oppWidth
-        if opponent.leftColDist == nil or opponent.rightColDist == nil then
-            oppWidth = selfWidth
-        else 
-            oppWidth = (opponent.leftColDist + opponent.rightColDist) or selfWidth -- in case oppwidth is broken
-        end
-        if vhDist['vertical'] < 100 or vhDist['vertical'] > -25 then -- ??
-            if oppInRange[opponent.id] == nil then
-                oppInRange[opponent.id] ={data = opponent, inRange = true,  vhDist = {}, flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
-                                            alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
-                                            pass = false, letPass = false, drafting = false                 
-            }}
-            else
-                oppInRange[opponent.id].flags.inRange = true
-            end
-        else
-            if oppInRange[opponent.id] == nil then
-                oppInRange[opponent.id] ={data = opponent, inRange = false, vhDist = {}, flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
-                alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
-                pass = false, letPass = false, drafting = false,  }}
-            else
-                oppInRange[opponent.id].inRange = false -- Sets everything to false to reset
-                oppInRange[opponent.id].flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
-                alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
-                pass = false, letPass = false, drafting = false   }
-            end
-        end
-        --obsoleteVHDistances(self,opponent)
-        if vhDist == nil then break end -- send error?
-        oppInRange[opponent.id].vhDist = vhDist -- send to opp
-
-        local frontCol = nil
-        local rearCol = nil
-        local leftCol = nil
-        local rightCol = nil
-
-        if vhDist['horizontal'] > 0 then -- opponent on right
-            rightCol = vhDist['horizontal'] - (self.rightColDist + (opponent.leftColDist or self.leftColDist))
-        elseif  vhDist['horizontal'] <= 0 then -- opponent on left
-            leftCol = vhDist['horizontal'] + (self.leftColDist + (opponent.rightColDist or self.rightColDist)) -- Failsaif to its own width
-            -- if leftCol >= 0 then print("danger on left?")
-        end
-
-
-
-        if vhDist['vertical'] > 0 then -- if opponent in front 
-            frontCol = vhDist['vertical'] - (self.frontColDist + (opponent.rearColDist or self.rearColDist))
-        elseif vhDist['vertical'] <=0 then -- if opp behind 
-            rearCol = vhDist['vertical'] + (self.rearColDist + (opponent.frontColDist or self.frontColDist))
-            --if rearCol >= 0 then print("danger from behind") end
-        end
-
-
-        -- update localRadar
-       if frontCol then
-            if frontCol < self.carRadar.front then
-                self.carRadar.front = frontCol
-            end
-       else
-            self.carRadar.front = 100
-       end
-       
-       if rearCol then
-        if rearCol > self.carRadar.rear then
-            self.carRadar.rear = rearCol
-        end
-        else
-            self.carRadar.rear = -100
-        end
-
-       if leftCol then
-        if leftCol > self.carRadar.left then
-            self.carRadar.left = leftCol
-        end
-        else
-            self.carRadar.left = -100
-            --oppFlags.leftWarning = false
-        end
-
-       if rightCol then
-        if rightCol < self.carRadar.right then
-            self.carRadar.right = rightCol
-        end
-        else
-            self.carRadar.right = 100
-            --oppFlags.rightWarning = false
-        end
-       
+        local colDic,oppInRange = self:updateLocalRadar(opponent) -- returns dic {frontCol,rearCol,leftCol,rightCol}
         local oppFlags = oppInRange[opponent.id].flags
+        self:setOppFlags
         if frontCol and frontCol < 70 then -- In draft range? (globals.draftRange)
             if (rightCol and rightCol <0.2) or (leftCol and leftCol > -0.2) then -- If overlapping (a little margin)
                 oppFlags.drafting = true
@@ -3244,46 +3269,9 @@ function Driver.updateCollisionLayer(self)
                 end
             end
         end
-   --[[Pass calculations print("could pass?")
-                self.passCommit = self:calculateClosestPassPoint(opponent,vhDist)
-                local passDirection = self.passCommit
-                if passDirection == 0 then
-                    self.passCommit = 0
-                    local testThrot = 0.9- math.abs(vMax/self.speed) 
-                    if testThrot < colThrottle then
-                        print("warning eadjust",testThrot)
-                        colThrottle = testThrot
-                    end
-                    --print("EMERGENCY PASS FAILURE")
-                else
-                    self.goalOffset = self:calculateGoalOffset(oppInRange[opponent.id],passDirection)
-                    self.passing.isPassing = true
-                    elf.passing.carID = opponent.id
-                    print("Start warning p[ass",passDirection) -- potentially set flag for ePass?
-                    oppFlags.pass = true]]
-
-                    --[[Emergency pass calculationsself.passCommit = self:calculateClosestPassPoint(opponent,vhDist)
-                    local passDirection = self.passCommit
-                    if passDirection ~= 0 then -- This is an emergency pass, execute if possible
-                        self.goalOffset = self:calculateGoalOffset(oppInRange[opponent.id],passDirection)
-                        print("ePass start",passDirection)
-                        eThrot = 0.99 - math.abs(vMax/self.speed)
-                        self.passing.isPassing = true
-                        oppFlags.pass = true
-                    else
-                        if self.passing.isPassing and self.speed - vMax < 0 then
-                            print("epassFail")
-                            self:cancelPass()
-                            oppFlags.pass = false
-                        end
-                        print("ebrake1")
-                        eThrot = 0.80- math.abs(vMax/self.speed)
-                    end]]
         
-        -- TODO: ADD YELLOW FLAGS Stopped cars will add global yellow flags with segID and trackPos
-
+        -- TODO: ADD YELLOW FLAGS Stopped cars will add global yellow flags with segID and trackPos/trackBias
         -- Process and execute flags
-    
 
         if oppFlags.frontWatch then
             local vMax =opponent.speed
@@ -3615,7 +3603,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
     end
 
 
-    local marginRatio = ratioConversion(15,4,-0.6,-3,oppDist) -- Convert x to a ratio from a,b to  c,d
+    local marginRatio = ratioConversion(20,4,-0.8,-3.3,oppDist) -- Convert x to a ratio from a,b to  c,d
     local turnDir = getSign(self.futureLook.direction)
     local oppTPos = opponent.trackPosition -- OOOR Just take the opponents distance from left/right wall
     local width = (opponent.currentNode.width or 20)
@@ -3628,7 +3616,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
         if spaceLeft < selfWidth then
             --print("No room on inside")
         else
-            if not (opponent.carRadar.right < selfWidth and (opponent.carRadar.front < 1)) then -- room on opponents inside
+            if not (opponent.carRadar.right < selfWidth and (opponent.carRadar.front < 1)) then -- room on opponents inside and car in front?
                 if self.carAlongSide.right == 0 or self.carAlongSide.right > selfWidth then -- if no car to your righty
                     --print("Passing on inside")
                     passDir = 1
@@ -3968,9 +3956,9 @@ function Driver.calculateGoalOffset(self,opponentD,dir) -- calculates goal node 
     local selfWidth = self.leftColDist + self.rightColDist
     local speedDif = self.speed - opponent.speed
     if speedDif < 3 then 
-        speedDif = 3
-    elseif speedDif > 13 then
-        speedDif = 14
+        speedDif = 4
+    elseif speedDif > 12 then
+        speedDif = 15
     end
     local goalTrackPos = getNodeVHDist(self.goalNode,self.goalNode).horizontal
     local desiredTrackPos = opponent.trackPosition + dir * (oppWidth + selfWidth/2)
@@ -3985,12 +3973,12 @@ function Driver.calculateGoalOffset(self,opponentD,dir) -- calculates goal node 
         distFromOpp = 1
     end
 
-    if math.abs(desiredTrackPos) < self.goalNode.width/2.1 then
+    if math.abs(desiredTrackPos) < self.goalNode.width/2.2 then
         --print("Pos on track")
         strength = (speedDif) + math.abs(goalTrackPos-desiredTrackPos)/(distFromOpp)  -- convert by distance away from opp
     else
         --print("Out of bounds look",desiredTrackPos,self.goalNode.width/2.1,self.trackPosition)
-        strength = 2 -- possibly cancel pass
+        strength = 3 -- todo: look at how to properly adjust this
         --self:cancelPass() -- remove flag?
     end
     --print(self.tagText,"strength",strength,distFromOpp )
@@ -3999,19 +3987,19 @@ function Driver.calculateGoalOffset(self,opponentD,dir) -- calculates goal node 
     return shiftDir
 end
 
-function Driver.calculatePassOffset(self,opponent,direction,oppLoc) -- calculate which angle wheel needs to be at to pass car
+function Driver.calculatePassOffset(self,opponent,direction,oppLoc) --DEPRECIATING TODO: Remove
     local turnAngle = 0
     local frontDist = oppLoc.vertical
     local sideDist = oppLoc.horizontal
     if direction == 1 then
-        turnAngle = ratioConversion(27,5,0.1,0,frontDist) * 1  -- Convert x to a ratio from a,b to  c,d
-        if sideDist <= -2 and frontDist < 6 then -- or 0?
+        turnAngle = ratioConversion(30,5,0.2,0,frontDist) * 1  -- Convert x to a ratio from a,b to  c,d
+        if sideDist <= -2 and frontDist < 8 then -- or 0?
             --print("preFilter",turnAngle)
             turnAngle = turnAngle/math.abs(sideDist-1)
         end
     elseif direction == -1 then
-        turnAngle = ratioConversion(27,5,0.1,0,frontDist)  * -1 -- Convert x to a ratio from a,b to  c,d
-        if sideDist >= 1 and frontDist < 6 then -- or 0?
+        turnAngle = ratioConversion(30,5,0.2,0,frontDist)  * -1 -- Convert x to a ratio from a,b to  c,d
+        if sideDist >= 1 and frontDist < 8 then -- or 0?
             --print("preFilter",turnAngle)
             turnAngle = turnAngle/math.abs(-sideDist-1)
         end

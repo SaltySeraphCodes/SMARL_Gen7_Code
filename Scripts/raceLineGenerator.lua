@@ -623,8 +623,6 @@ function Generator.findWallTopDown(self,location,direction,cycle,threshold) -- s
    return foundWall,floorValue
 end
 
-
-
 function Generator.getWallTopDown(self,location,direction,cycle,threshold) -- scans walls from the top down and across the perp axis (BEST)
     -- Scans from location to another location from top down 
     -- original location is estimated position based off of last wall
@@ -678,7 +676,7 @@ function Generator.getWallTopDown(self,location,direction,cycle,threshold) -- sc
    return foundWall,floorValue -- also sending floor to base bank off of floor
 end
 
-function Generator.checkForSharpEdge(self,midPoint,newWall,cycle)
+function Generator.checkForSharpEdge(self,midPoint,newWall,cycle) -- TODO: Determine whether or not to slow down track scan here??
    if cycle == 1 then
        --self:createEfectLine(location,searchLocation,sm.color.new('ee127fff')) -- red ish line
        --print("FoundLeftWall",searchLocation.z,location.z) -- Validate difference/distance between walls
@@ -1001,7 +999,7 @@ function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method
     return midPoint, width,leftWall,rightWall,bankAngle
 end
 
-function Generator.analyzeSegment(self,initNode,flag) -- Attempt # 4
+function Generator.analyzeSegment(self,initNode,flag) -- Legacy; DEPRECIATING
     if initNode == nil then print("Error No init node") return end
     local index = initNode.id
     local turnThreshold = 0.1 -- how much track curves before considering it a turn [0.1]
