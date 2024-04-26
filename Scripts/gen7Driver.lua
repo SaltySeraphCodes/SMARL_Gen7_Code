@@ -2978,7 +2978,7 @@ function Driver.newUpdateCollisionLayer(self)-- -- New updated collision layer
 end
 
 
-function Driver.processDrafting(self,opponent,oppDict,colDict)
+function Driver.processDrafting(self,oppDict)
     local canDraft = false
     local draftLane = 0
     if not self.raceControlError then
@@ -2991,17 +2991,45 @@ function Driver.processDrafting(self,opponent,oppDict,colDict)
         canDraft = false
         return canDraft,draftLane
     end
-    oppFlags = oppDict[opponent.id].flags
-    if colDict.frontCol and colDict.frontCol < 70 then
-        if (colDict.rightCol and colDict.rightCol <0.2) or (colDict.leftCol and colDict.leftCol > -0.2) then -- If overlapping (a little margin)
-            oppFlags.drafting = true
+
+    if self.carRadar.front self.carRadar.front < 70 then
+        print("Radar has something in range",self.carRadar)
+        if (self.carRadar.right and self.carRadar.right <0.2) or (self.carRadar.left and self.carRadar.left > -0.2) then 
+            print("Radar has car in draft zone LR")
             canDraft = true --TODO: redo this to only set flag for drafting logic func
         else
-            oppFlags.drafting = false
             canDraft = false
         end
     end
     -- TODO: Determine draft lane if canDraft is false
+
+    -- GEt all opponents in front of self
+    -- Find opponent closest in front (within 10?) of drafting range and not moving too slow
+    -- Get track position of closest opp
+    -- If self is already within LR vhDist (overlap) then do nothing and return canDraft
+    -- If not, get TrackPos (bias) of opp and return desired trackPos(bias) and false
+    -- In Main, set TrackBias to draftLane
+    -- set self.drafting to result
+    for opponent, opponentData in pairs(oppDict) do
+        print("Draft check",opponent,opponentData)
+        local oppFlags = opponent.flags
+        print('flags',oppFlags)
+        print('vhDist',opponent.vhDist)
+        if opponent.vhDist.vertical and opponent.vhDist.vertical < 70 then -- In draft range? (globals.draftRange)
+            if opponent.vhDist.horizontal and (opponent.vhDist.horizontal < 1 and opponent.vhDist.horizontal > -1) then -- If overlapping (a little margin)
+                oppFlags.drafting = true
+                hasDraft = true
+                --print(self.id,opponent.id,"hasDraft",hasDraft,oppFlags.drafting)
+            else
+                oppFlags.drafting = false
+            end
+        end
+    end
+    
+
+    if canDraft == false and self.drafting == false then -- Issue: might "look before seeing whole picture"
+        print("looking for car to draft")
+    end
 
     return canDraft, draftLane
 end
@@ -3475,10 +3503,12 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
         end
 
         -- TODO: ADD YELLOW FLAGS Stopped cars will add global yellow flags with segID and trackPos/trackBias
-        local canDraft, draftLane = processDrafting(opponent,oppDict,colDict)
-        if canDraft then draftEligible = true end -- If any result is true then draft eligible 
+     
     end
-
+    local canDraft, draftLane = processDrafting(oppDict)
+    if canDraft then 
+        draftEligible = true 
+    end -- If any result is true then draft eligible 
     self.drafting = draftEligible
     print("Drafting?",self.drafting)
 
