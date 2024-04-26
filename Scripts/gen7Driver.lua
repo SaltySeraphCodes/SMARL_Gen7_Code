@@ -2978,6 +2978,321 @@ function Driver.newUpdateCollisionLayer(self)-- -- New updated collision layer
 end
 
 
+function Driver.processDrafting(self,opponent,oppDict,colDict)
+    local canDraft = false
+    local draftLane = 0
+    if not self.raceControlError then
+        if getRaceControl().draftingEnabled == false then
+            return canDraft,draftLane 
+        end
+    end
+    if (self.caution or self.formation) then -- deny draft due to caution and what not
+        self.drafting = false
+        canDraft = false
+        return canDraft,draftLane
+    end
+    oppFlags = oppDict[opponent.id].flags
+    if colDict.frontCol and colDict.frontCol < 70 then
+        if (colDict.rightCol and colDict.rightCol <0.2) or (colDict.leftCol and colDict.leftCol > -0.2) then -- If overlapping (a little margin)
+            oppFlags.drafting = true
+            canDraft = true --TODO: redo this to only set flag for drafting logic func
+        else
+            oppFlags.drafting = false
+            canDraft = false
+        end
+    end
+    -- TODO: Determine draft lane if canDraft is false
+
+    return canDraft, draftLane
+end
+
+function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrottle)  -- Returns steering angle and throttle based on flags
+    local oppFlags = oppDict[opponent.id].flags
+    local frontCol = colDict.frontCol
+    local rearCol = colDict.rearCol
+    local leftCol = colDict.leftCol
+    local rightCol = colDict.rightCol
+
+    if oppFlags.frontWatch and not oppFlags.pass then -- If car is in front but not too close, 
+        if self.speed - opponent.speed > 5 or opponent.speed < 9 then
+            print(self.tagText,"Approaching front fast",self.speed - opponent.speed)
+            -- start moving over slightly for preemptive avoidance
+            local passDir = self:checkPassingSpace(opponent)
+            if passDir ~= 0 then -- Start moving in that direction
+                local movAdj = passDir * 0.1
+                colSteer = colSteer + movAdj -- unsure what rio to use here, perhaps use oppDist too>
+                print(self.tagText,"Early Warning moveOver",passDir,movAdj,colSteer)
+            else
+                print(self.tagText,"Early Warning emergency brake",colThrottle)
+                colThrottle = colThrottle - 0.01 -- Still move over??
+            end
+        end
+    end
+    
+    if oppFlags.frontWarning and not oppFlags.pass then -- If car is in front and getting closer (and not already passing)
+        if self.speed - opponent.speed > 3 or opponent.speed < 8 then
+            print(self.tagText,"Warning front fast",self.speed - opponent.speed)
+            -- start moving over slightly for preemptive avoidance
+            local passDir = self:checkPassingSpace(opponent)
+            if passDir ~= 0 then -- Start moving in that direction
+                local movAdj = passDir * 0.3 -- 
+                colSteer = colSteer + movAdj -- unsure what rio to use here, perhaps use oppDist too>
+                print(self.tagText,"mid Warning moveOver",passDir,movAdj,colSteer)
+            else
+                print(self.tagText,"Mid Warning emergency brake",colThrottle)
+                colThrottle = colThrottle - 0.1 -- Still move over??
+            end
+        end
+    end
+
+    if oppFlags.frontEmergency and not oppFlags.alongSide and not oppFlags.pass then -- If front emergency and opponent is not alongside and not already passing
+        colThrottle = 0.65 - math.abs(opponent.speed/self.speed)  -- REduce speed
+        print(self.tagText,"Close  Emergency Brake!!!",colThrottle)
+    else if oppFlags.pass then-- If passing
+        -- Check here for speed dif pass cancelation
+    end
+
+    if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
+        colSteer = colSteer + ratioConversion(-6,2,-0.14,0,leftCol) -- Adjust according to distance
+        if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
+            colSteer = colSteer/3 -- TODO: use a ratio conversion for this too
+        end
+    end
+    if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
+        colSteer = colSteer + ratioConversion(6,-2,0.14,0,rightCol) -- adjust according to distance
+        if self.carAlongSide.left ~= 0 then
+            colSteer = colSteer/3
+        end
+    end
+
+    if oppFlags.leftEmergency then -- if opponent is too close
+        --colSteer = colSteer + 1/(leftCol*20)-- adjust to 
+    end
+    if oppFlags.rightEmergency then -- if opponent is too close
+        --colSteer = colSteer +  1/(rightCol*20) -- figure out adjust
+    end
+   
+
+    --[[if self.passing.isPassing then TODO: Determine if this is necessary, passing reduces collisoin avoidance steering
+        colSteer = colSteer/1.4 
+    else
+        colSteer = colSteer/1.1
+    end]]
+    return colSteer,colThrottle
+end
+
+function Driver.processPassingDetection(self,opponent,oppDict)
+ -- Real Passing ALGo
+    local oppData =  oppDict[opponent.id]
+    local oppFlags = oppDataflags
+    local vhDist = oppData.vhDist
+
+    local catchDist = self.speed * vhDist['vertical']/(self.speed-opponent.speed) -- vertical dist *should* be positive and
+    local brakeDist = getBrakingDistance(self.speed*2,self.mass,self.engine.engineStats.MAX_BRAKE/2,opponent.speed) -- dampening? make variable
+ -- TODO: CHeck this^
+    local oppSpeed = opponent.speed -- TODO: just remove cuz vmax is confusing
+    
+    if vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) >=0  and vhDist['vertical'] < 40 then -- if opponent is somewhat close in front
+        --print(self.tagText,"check pass?",self.speed-opponent.speed)
+        if (self.speed-opponent.speed) > 0.5 then -- If self is approaching apponent
+            --print(self.id,"approaching",self.speed-opponent.speed,oppFlags.pass,self.passing.isPassing)
+            if not oppFlags.pass and not self.passing.isPassing then  -- If not currently passing anyone
+                --print(self.id,vhDist['vertical'] - (self.frontColDist + opponent.rearColDist),self.carRadar.front)
+                if vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) <= self.carRadar.front then -- If this car is the closest front car according to local radar
+                    local passDirection = self:checkPassingSpace(opponent) -- Check for space to pass
+                    if passDirection ~= 0 then -- If theres a direction to pass, assign self the pass and commit to it
+                        self.passCommit = passDirection
+                        self.goalOffset = self:calculateGoalOffset(oppData,passDirection) -- Calculate lateral movement to pass 
+                        if (self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)) ~= 0) then -- Uselsess double check TODO: DEPRECIATE/'REMOVE'
+                            print(self.tagText,"not closes racer to pass",self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)))
+                        end
+                        self.passing.isPassing = true
+                        self.passing.carID = opponent.id
+                        oppFlags.pass = true -- Maybe make passing function?
+                    else -- No space to pass, cancel pass (Could go wrong if another car comes in and forces complete cancel, maybe only partial?)
+                        oppFlags.pass = false
+                        self:cancelPass()
+                    end
+                end -- else: the car is not the closest
+            else -- If already passing 
+                local space = self:confirmPassingSpace(opponent,self.passCommit) -- Make sure Passing point is still viable
+                if vhDist.vertical > 15 or vhDist.vertical < -1 then -- Either too far or already passed?
+                    if oppFlags.pass then -- This is the proper person to pass
+                        print("cancled pass due to ",vhDist.vertical)
+                        oppFlags.pass = false
+                        self:cancelPass()
+                    else
+                        if self.passing.isPassing then -- If another person is ther
+                            print("mismatch pass cancel?")
+                            --self:cancelPass()
+                        end
+                    end
+                end
+                if space ~= self.passCommit then -- If the optimal space has changed since initial pass
+                    if vhDist.vertical > 7 then -- If far enough away, cancel the pass
+                        oppFlags.pass = false
+                        self:cancelPass()
+                    else -- Too close to cancel?
+                     --print("too late now lol",vhDist.horizontal) -- either keep going or slow down depending on next turn?
+                        if vhDist.horizontal > -1 or vhDist.horizontal < 1 then -- If directly behind the car (blocked off)
+                            if (self.carAlongSide.left ~= 0 and self.carAlongSide.right ~= 0) then -- If there are cars left and rightt
+                                oppFlags.pass = false
+                                self:cancelPass()
+                            else -- Continue pass
+                             --print("cahrgeAhead")
+                            end
+                        end
+                    end
+                else -- If the space is the same; contineu to pass!
+                    self.goalOffset = self:calculateGoalOffset(oppInRange[opponent.id],self.passCommit)
+                end
+            end
+        else -- If not actually approaching this opponent
+            if oppFlags.pass then
+                oppFlags.pass = false
+                print("Proper pass cancel")
+                self:cancelPass()
+            else -- Cancel pass anyways? TODO: can probably remove this
+                print("Losing ground pass cancel")
+                self:cancelPass()
+            end
+        end
+    else-- If car is somewhat further away Keep eye on car, check speed dif c
+        if (self.speed-opponent.speed) > 3 and vhDist['vertical'] > 0 then --If approaching car rather quickly
+            local passDirection = self:calculateClosestPassPoint(opponent)
+            if passDirection ~= 0 then -- This is an emergency pass, execute if possible
+                self.passCommit = passDirection
+                self.goalOffset = self:calculateGoalOffset(oppData,passDirection)
+                print(self.tagText,"Emergency pass",opponent.tagText)
+                self.passing.isPassing = true
+                self.passing.carID = opponent.id
+                oppFlags.pass = true
+            else -- If nowhere to go
+                print(self.tagText,"Uncertainty???")
+            end
+        end
+    end
+end
+
+function Driver.setOppFlags(self,opponent,oppDict,colDict)
+    -- Unpack Vars
+    if opponent == nil or oppDict == nil or colDict == nil then 
+        print("Bad Params",#opponent,#oppDict,#colDict)
+        return oppDict
+    end
+    -- Unpack dicts
+    local oppFlags = oppDict[opponent.id].flags
+    local frontCol = colDict.frontCol
+    local rearCol = colDict.rearCol
+    local leftCol = colDict.leftCol
+    local rightCol = colDict.rightCol
+
+    
+    
+    if frontCol and frontCol < 50 and frontCol > 10 then -- somewhat close
+        if self.speed - opponent.speed  > 1 then -- moving 1 faster ?
+            if (rightCol and rightCol <0) or (leftCol and leftCol > -0) then -- If overlapping
+                oppFlags.frontWatch = true
+            else
+                oppFlags.frontWatch = false
+            end
+        else
+            oppFlags.frontWatch = false -- good idea??
+        end
+    else
+        oppFlags.frontWatch = false
+    end
+
+    if frontCol and frontCol <= 20 then -- even closer, check for passing
+        if self.speed - opponent.speed > 0.2 then -- if approaching 
+            if (rightCol and rightCol <0) or (leftCol and leftCol > -0) then -- If overlapping, Makke separate flag?
+                local catchDist = self.speed * vhDist['vertical']/(self.speed-opponent.speed) -- vertical dist *should* be positive and
+                local brakeDist = getBrakingDistance(self.speed*2,self.mass,self.engine.engineStats.MAX_BRAKE/2,opponent.speed) * 2.5 -- dampening? make variable
+                --print("catchDist",catchDist-brakeDist) --TODO: Check this??
+                if catchDist - brakeDist < 18 and catchDist - brakeDist >0 then -- and greater than 0?
+                    oppFlags.frontWarning = true -- check for passing
+                else
+                    oppFlags.frontWarning = false
+                end
+            else
+                oppFlags.frontWarning = false
+            end
+        else
+            oppFlags.frontWarning = false
+        end
+    else
+        oppFlags.frontWarning = false
+    end
+    
+    if frontCol and frontCol < 2.9 then -- if real close use 0?
+        if (rightCol and rightCol <0) or (leftCol and leftCol > 0) then -- If overlapping
+            --print(self.tagText,"FrontEmerg",frontCol,self.passing)
+            oppFlags.frontEmergency = true
+        else
+            oppFlags.frontEmergency = false -- good idea??
+        end
+    else
+        oppFlags.frontEmergency = false
+
+    end
+
+    if rearCol and rearCol < -2 then
+        --print("car behind",rearCol)
+        if oppFlags.pass then
+            --print("Pass complete")
+            if self.passing.isPassing then
+                --print("stoppass")
+                oppFlags.pass = false
+                self:cancelPass()
+            else
+                --print("unmatched pass???")
+            end
+            oppFlags.pass = false
+        end
+    end
+
+    -- Side by side flags
+    if (frontCol and frontCol <= 1.8) or (rearCol and rearCol >=0.4) then -- if car really close
+        if (leftCol and leftCol <= 0.05) or (rightCol and rightCol >= -0.05) then
+            oppFlags.alongSide = true
+        else
+            oppFlags.alongSide = false
+        end
+
+        if (leftCol and leftCol >= -6) then
+            oppFlags.leftWarning = true
+        else
+            oppFlags.leftWarning = false
+        end
+
+        if (rightCol and rightCol <= 6) then
+            oppFlags.rightWarning = true
+        else
+            oppFlags.rightWarning = false
+        end
+
+        if (leftCol and leftCol >=-0.7) then
+            oppFlags.leftEmergency = true
+         else
+            oppFlags.leftEmergency = false
+        end
+
+        if (rightCol and rightCol <= 0.7) then
+            oppFlags.rightEmergency = true
+         else
+            oppFlags.rightEmergency = false
+         end
+   
+    else -- no warnings here
+        oppFlags.rightWarning = false
+        oppFlags.leftWarning = false
+        oppFlags.rightEmergency = false
+        oppFlags.leftEmergency = false
+        oppFlags.alongSide = false -- ?
+    end
+    return oppDict 
+end
+
 function Driver.generateOpponent(self,opponent,oppDict)
     local vhDist = getDriverHVDistances(self,opponent)
     local oppWidth
@@ -2997,14 +3312,14 @@ function Driver.generateOpponent(self,opponent,oppDict)
         end
     else -- If opponent not in range at all ( DO we even add them to the dict?)
         if oppDict[opponent.id] == nil then
-            oppDict[opponent.id] ={data = opponent, inRange = false, vhDist = {},  oppWidth = oppWidth,  flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
+            oppDict[opponent.id] ={data = opponent, inRange = false, vhDist = {},  oppWidth = oppWidth, flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
             alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
-            pass = false, letPass = false, drafting = false,  }}
+            pass = false, letPass = false, drafting = false}}
         else
             oppDict[opponent.id].inRange = false -- Sets everything to false to reset
             oppDict[opponent.id].flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
             alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
-            pass = false, letPass = false, drafting = false   }
+            pass = false, letPass = false, drafting = false}
         end
     end
     --obsoleteVHDistances(self,opponent)
@@ -3013,8 +3328,8 @@ function Driver.generateOpponent(self,opponent,oppDict)
     end -- send error?
     oppDict[opponent.id].vhDist = vhDist -- send to opp
 
-    return 
-
+    return oppDict
+end
 
 function Driver.updateLocalRadar(self,opponent)
     if opponent.carDimensions == nil then
@@ -3048,8 +3363,6 @@ function Driver.updateLocalRadar(self,opponent)
         rearCol = vhDist['vertical'] + (self.rearColDist + (opponent.frontColDist or self.frontColDist))
         --if rearCol >= 0 then print("danger from behind") end
     end
-
-
     -- update localRadar
    if frontCol then
         if frontCol < self.carRadar.front then
@@ -3084,8 +3397,8 @@ function Driver.updateLocalRadar(self,opponent)
         self.carRadar.right = 100
         --oppFlags.rightWarning = false
     end
-    local colDic = {["frontCol"] = frontCo, ["rearCol"]= rearCol, ["leftCol"] = leftCol, ['rightCol'] = rightCol}
-    return colDic,opponentDic
+    local colDict = {["frontCol"] = frontCo, ["rearCol"]= rearCol, ["leftCol"] = leftCol, ['rightCol'] = rightCol}
+    return colDict
 end
 
 -- Updating methods (layers and awhat not) -- Server
@@ -3106,162 +3419,46 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
         end
         return 
     end
-    --print(self.opponentFlags)
     -- GEnerate Flag structure
     local colThrottle = self.strategicThrottle
     local colSteer = self.strategicSteering
     local passSteer = 0 -- add on to colSteer
-    local oppInRange = {}-- Unique to every Car,
+    local oppDict = {}-- Unique to every Car, list of opps in range and their attributes and flags
     local selfWidth = self.leftColDist + self.rightColDist -- Init car width (uneccessary, should set in sv_init)
    
-    
+     -- Alongside stuff
+
     local alongSideLeft = -100
     local alongSideRight = 100 
-    local hasDraft = false
+    local draftEligible = false -- TODO: separate into drafting logic function
 
     for k=1, #carsInRange do local opponent=carsInRange[k] -- May need to have deep copy of carsInrange or create new class
-        local colDic,oppInRange = self:updateLocalRadar(opponent) -- returns dic {frontCol,rearCol,leftCol,rightCol}
-        local oppFlags = oppInRange[opponent.id].flags
-        self:setOppFlags
-        if frontCol and frontCol < 70 then -- In draft range? (globals.draftRange)
-            if (rightCol and rightCol <0.2) or (leftCol and leftCol > -0.2) then -- If overlapping (a little margin)
-                oppFlags.drafting = true
-                hasDraft = true
-                --print(self.id,opponent.id,"hasDraft",hasDraft,oppFlags.drafting)
-            else
-                oppFlags.drafting = false
-            end
-        end
-        
-        if frontCol and frontCol < 50 and frontCol > 10 then -- somewhat close
-            if self.speed - opponent.speed  > 1 then -- moving 1 faster ?
-                if (rightCol and rightCol <0) or (leftCol and leftCol > -0) then -- If overlapping
-                    oppFlags.frontWatch = true
-                else
-                    oppFlags.frontWatch = false
+        oppDict = self:generateOpponent(opponent,oppDict)
+        local colDict = self:updateLocalRadar(opponent) -- returns dic {frontCol,rearCol,leftCol,rightCol}
+        oppDict = self:setOppFlags(opponent,oppDict,colDict)
+        -- Alongside set
+        if (colDict.frontCol and colDict.frontCol <= 1.8) or (colDict.rearCol and colDict.rearCol >=0.4) then --car is vertially close
+            if (colDict.leftCol and colDict.leftCol <= 0.05) or (colDict.rightCol and colDict.rightCol >= -0.05) then
+                if colDict.leftCol and colDict.leftCol > -selfWidth then
+                    if colDict.leftCol > alongSideLeft then
+                        alongSideLeft = colDict.leftCol
+                    else 
                 end
-            else
-                oppFlags.frontWatch = false -- good idea??
-            end
-        else
-            oppFlags.frontWatch = false
-        end
-
-        if frontCol and frontCol <= 20 then -- even closer, check for passing
-            if self.speed - opponent.speed > 0.2 then -- if approaching 
-                if (rightCol and rightCol <0) or (leftCol and leftCol > -0) then -- If overlapping, Makke separate flag?
-                    local catchDist = self.speed * vhDist['vertical']/(self.speed-opponent.speed) -- vertical dist *should* be positive and
-                    local brakeDist = getBrakingDistance(self.speed*2,self.mass,self.engine.engineStats.MAX_BRAKE/2,opponent.speed) * 2.5 -- dampening? make variable
-                    --print("catchDist",catchDist-brakeDist) --TODO: Check this??
-                    if catchDist - brakeDist < 18 and catchDist - brakeDist >0 then -- and greater than 0?
-                        oppFlags.frontWarning = true -- check for passing
-                    else
-                        oppFlags.frontWarning = false
-                    end
-                else
-                    oppFlags.frontWarning = false
-                end
-            else
-                oppFlags.frontWarning = false
-            end
-        else
-            oppFlags.frontWarning = false
-        end
-        
-        if frontCol and frontCol < 2.9 then -- if real close use 0?
-            if (rightCol and rightCol <0) or (leftCol and leftCol > 0) then -- If overlapping
-                --print(self.tagText,"FrontEmerg",frontCol,self.passing)
-                oppFlags.frontEmergency = true
-            else
-                oppFlags.frontEmergency = false -- good idea??
-            end
-        else
-            oppFlags.frontEmergency = false
-
-        end
-
-        if rearCol and rearCol < -2 then
-            --print("car behind",rearCol)
-            if oppFlags.pass then
-                --print("Pass complete")
-                if self.passing.isPassing then
-                    --print("stoppass")
-                    oppFlags.pass = false
-                    self:cancelPass()
-                else
-                    --print("unmatched pass???")
-                end
-                oppFlags.pass = false
-            end
-        end
-        --print(frontCol,rearCol,oppFlags.frontEmergency,oppFlags.frontWarning)
--- Set & process flags & pass ( side)
-        if (frontCol and frontCol <= 1.8) or (rearCol and rearCol >=0.4) then -- if car really close
-            if (leftCol and leftCol <= 0.05) or (rightCol and rightCol >= -0.05) then
-                oppFlags.alongSide = true
-                if leftCol and leftCol > -selfWidth then
-                    --print("car blcokingLeft",leftCol)
-                    if leftCol > alongSideLeft then
-                        alongSideLeft =  leftCol
-                    end 
-                end
-
-                if rightCol and rightCol < selfWidth then
-                    --print("car blcokingRight",rightCol)
-                    if rightCol < alongSideRight then
-                        alongSideRight = rightCol
+                if colDict.rightCol and colDict.rightCol < selfWidth then
+                    if colDict.rightCol < alongSideRight then
+                        alongSideRight = colDict.rightCol
                     end
                 end
-
-            else
-                oppFlags.alongSide = false
             end
-
-            if (leftCol and leftCol >= -6) then
-                oppFlags.leftWarning = true
-            else
-                oppFlags.leftWarning = false
-            end
-
-            if (rightCol and rightCol <= 6) then
-                oppFlags.rightWarning = true
-            else
-                oppFlags.rightWarning = false
-            end
-    
-            if (leftCol and leftCol >=-0.6) then
-                oppFlags.leftEmergency = true
-             else
-                oppFlags.leftEmergency = false
-            end
-
-            if (rightCol and rightCol <= 0.6) then
-                oppFlags.rightEmergency = true
-             else
-                oppFlags.rightEmergency = false
-             end
-       
-        else -- no warnings here
-            oppFlags.rightWarning = false
-            oppFlags.leftWarning = false
-            oppFlags.rightEmergency = false
-            oppFlags.leftEmergency = false
-            oppFlags.alongSide = false -- ?
         end
-        --print(self.tagText,"",frontCol,rearCol,leftCol,rightCol)
-        if (frontCol or 0) <= -0.6 or (rearCol or 0) >= 0.6  then -- if car abnormally close/overlapping?
-            --print(self.tagText,"close vertical",leftCol,rightCol,frontCol,rearCol)
-            if (leftCol or 0) >= 0.7 or  (rightCol or 0) <= -0.7 then
-                --print(self.tagText,"Collision with Opp",frontCol,rearCol,leftCol,rightCol)
-                -- check if speed < 4
+
+        -- Check for collided Car (Lag Inducing)
+        if (colDict.frontCol or 0) <= -0.6 or (colDict.rearCol or 0) >= 0.6  then -- if car abnormally close/overlapping?
+            if (colDict.leftCol or 0) >= 0.7 or  (colDict.rightCol or 0) <= -0.7 then
                 if self.speed < 5 then -- double check disparity between speed and desired speed
-                    --print(self.tagText,"Bad collision likely",self.shape.worldPosition.z,self.currentNode.mid.z,self.stuck,self.stuckTimeout)
-                    -- check if z index is high
                     if self.shape.worldPosition.z > self.currentNode.mid.z + 2 or (self.stuck and self.stuckTimeout >= 5) then
-                        --print(self.tagText,"Horrendus collision detected")
                         if self.carResetsEnabled then
                             print(self.tagText,"resetting colided car")
-                            -- add check clearTrack
                             --self.lost = true
                             self:resetPosition(true)
                         end
@@ -3269,306 +3466,58 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
                 end
             end
         end
-        
+
+        self:processPassingDetection(opponent,oppDict) -- Determines whether to pass nearest opponent or not
+        local colSteerP,colThrottleP = self:processOppFlags(opponent,oppDict,colDict,colSteer,colThrottle) -- Determines what to do with the rest of them 
+        colSteer = colSteer + colSteerP
+        if colThrottleP < colThrottle then 
+            colThrottle = colThrottleP   -- Focus on the slowest
+        end
+
         -- TODO: ADD YELLOW FLAGS Stopped cars will add global yellow flags with segID and trackPos/trackBias
-        -- Process and execute flags
-
-        if oppFlags.frontWatch then
-            local vMax =opponent.speed
-            local eThrot = colThrottle
-            if self.speed - opponent.speed > 8 or opponent.speed < 9 then
-                --print("Approaching front fast",self.speed,opponent.speed)
-                eThrot = eThrot - 1
-                --print("emergency brake")
-                if self.passing.isPassing or oppFlags.pass then --and vhDist['vertical'] < 7 then -- TODO: determine if this is correct decision, dont cancel pass if opp is far away
-                    --print("canceled pass emergency pass")
-                    self:cancelPass()
-                    oppFlags.pass = false
-                end
-            end
-        end
-         
-
-        if oppFlags.frontWarning and not self.passing.isPassing then
-            if self.speed - opponent.speed > 0.2 and frontCol < 20 then
-                local vMax =opponent.speed - 0.3
-                --print("could pass?")
-            end
-        end
-        if oppFlags.frontEmergency then
-            --print("ftooo close",frontCol,oppFlags.alongSide,self.passing.isPassing,oppFlags.pass)
-        end
-        if oppFlags.frontEmergency and not oppFlags.alongSide then--and not passing? oppFlags.pass
-            local vMax =opponent.speed-4
-            local eThrot = colThrottle
-            if frontCol > 0 and frontCol <= 8 then
-                if self.speed - vMax > 0.1 and not oppFlags.pass then -- make smooth ratio instead? -- maybe have closer range? and not self.passing.isPassing?
-                    --print(self.tagText,"AlertClose ") -- TODO: FIX emergency comes up while already passing, make sure car isnt being passed (oppFlags.pass?)
-                    eThrot = 0.90- math.abs(vMax/self.speed) 
-                else
-                    if oppFlags.pass then -- maybe add pass ID(s) to self.passing.isPassing flag to cancel from outside of function too
-                        if self.passing.isPassing and self.speed - vMax < 0 then
-                            self:cancelPass()
-                            --print("epassFail2")
-                            oppFlags.pass = false
-                        end
-                    else
-                        if self.passing.isPassing then
-                            --print(self.tagText,"pasCancel?")
-                            --print("oppPass but not self.pass")
-                            oppFlags.pass = false
-                        end
-                        eThrot = 0.75- math.abs(vMax/self.speed) 
-                        --print(self.tagText,"ebrake2",oppFlags.pass,self.passing.isPassing)
-                    end
-                end
-            else -- way too close
-                eThrot = 0.9- math.abs(vMax/self.speed)
-                --print(self.tagText,"ebrake3",eThrot)
-                if oppFlags.pass then
-                    oppFlags.pass = false
-                end
-                if self.passing.isPassing then
-                    --print("canceling pass")
-                    self:cancelPass()
-                    oppFlags.pass = false
-                end
-                --print(self.id,"ebrake",self.curGear,self.engine.VRPM,eThrot)
-                --colSteer = colSteer + 0.01 -- or whichever inside is
-            end
-
-            if eThrot < colThrottle then
-                colThrottle = eThrot
-            end
-            
-        end
-
-        if oppFlags.leftWarning and leftCol ~= nil then -- multiply by opposite if car is behind
-            --colSteer = colSteer + 1/(leftCol*10) negative-- Divide by speed?
-            colSteer = colSteer + ratioConversion(-6,2,-0.13,0,leftCol)--/(self.followStrength/1.5)   --TODO: figure out if getting passed/attack/defend?
-            if self.carAlongSide.right ~= 0 then
-                colSteer = colSteer/3
-            end
-            --print(self.tagText,"leftColSteer",colSteer,leftCol)
-        end
-        if oppFlags.rightWarning and rightCol ~= nil then
-            --colSteer = colSteer +  1/(rightCol*10) positive
-            colSteer = colSteer + ratioConversion(6,-2,0.13,0,rightCol)--/(self.followStrength/1.5)  -- Convert x to a ratio from a,b to  c,d
-            if self.carAlongSide.left ~= 0 then
-                colSteer = colSteer/3
-            end
-            --print(self.tagText,"righColSteer",colSteer,rightCol)
-        end
-
-        if oppFlags.leftEmergency then
-            --colSteer = colSteer + 1/(leftCol*20)-- adjust to 
-        end
-        if oppFlags.rightEmergency then
-            --colSteer = colSteer +  1/(rightCol*20) -- figure out adjust
-        end
-        if self.strategicSteering ~= colSteer then
-
-        end
-        if self.passing.isPassing then
-            colSteer = colSteer/1.4 
-        else
-            colSteer = colSteer/1.1
-        end
-
-        
-        -- Real Passing ALGo
-        local catchDist = self.speed * vhDist['vertical']/(self.speed-opponent.speed) -- vertical dist *should* be positive and
-        local brakeDist = getBrakingDistance(self.speed*2,self.mass,self.engine.engineStats.MAX_BRAKE/2,opponent.speed) -- dampening? make variable
-        -- TODO: CHeck this^
-        local vMax =opponent.speed
-        if vhDist['vertical'] > -1 then
-            --print(catchDist,brakeDist,catchDist-brakeDist)
-        end
-        if vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) >=0  and vhDist['vertical'] < 30 then -- if opponent is somewhat close
-            --print(self.tagText,"check pass?",self.speed-opponent.speed)
-            if (self.speed-opponent.speed) > 0.5 then --and vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) < 14 then -- if catching ish
-                --print(self.id,"approaching",self.speed-opponent.speed,oppFlags.pass,self.passing.isPassing)
-                if not oppFlags.pass and not self.passing.isPassing then 
-                    --print(self.id,vhDist['vertical'] - (self.frontColDist + opponent.rearColDist),self.carRadar.front)
-                    if vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) <= self.carRadar.front then -- if this is the closest, maybe not
-                        --print(self.tagText,"Can potentially pass",catchDist,brakeDist)
-                        local passDirection = self:checkPassingSpace(opponent)
-                        if passDirection ~= 0 then 
-                            self.passCommit = passDirection
-                            --print(self.tagText,"commiting pass",passDirection,vhDist['vertical'])
-                            self.goalOffset = self:calculateGoalOffset(oppInRange[opponent.id],passDirection)
-                            --print(self.tagText,"->",opponent.tagText,vhDist['vertical'],self.carRadar.front,self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)))
-                            -- double check that opponent is proper one
-                            if (self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)) ~= 0) then
-                                print(self.tagText,"not closes racer to pass",self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)))
-                            end
-                            self.passing.isPassing = true
-                            self.passing.carID = opponent.id
-                            oppFlags.pass = true -- Maybe make passing function?
-                        else 
-                            --print(self.id,"subprime pass point",vhDist['vertical'],passDirection)
-                            self.passCommit = 0
-                            oppFlags.pass = false
-                            if oppFlags.frontWarning then
-                                local testThrot = 0.9- math.abs(vMax/self.speed) 
-                                if testThrot < colThrottle then
-                                    --print("warning eadjust",testThrot)
-                                    colThrottle = testThrot
-                                end
-                            end
-                            --print("EMERGENCY PASS FAILURE")
-                        end
-                    end -- else: the car is not the closest
-                else -- If already passing (midpass)
-                    local space = self:confirmPassingSpace(opponent,self.passCommit)
-                    --print(self.id,"midPass",space,vhDist.vertical)
-                    if vhDist.vertical > 15 or vhDist.vertical < -1 then
-                        if oppFlags.pass then
-                            --print("dont pass this?")
-                            oppFlags.pass = false
-                            self:cancelPass()
-                        else
-                            if self.passing.isPassing then
-                                --print("mismatch pass cancel")
-                                self:cancelPass()
-                            end
-                        end
-                    end
-                    if space ~= self.passCommit then
-                        if vhDist.vertical > 7 then
-                            --print("cancelpass spaceChange",self.carRadar.front,space)
-                            oppFlags.pass = false
-                            self:cancelPass()
-                        else
-                            --print("too late now lol",vhDist.horizontal) -- either keep going or slow down depending on next turn?
-                            if vhDist.horizontal > -1 or vhDist.horizontal < 1 then
-                                if (self.carAlongSide.left == 0 and self.carAlongSide.right == 0) then
-                                    colThrottle = colThrottle - 0.05
-                                    --print("nowheretogo slow")
-                                    oppFlags.pass = false
-                                    self:cancelPass()
-                                else
-                                    --print("cahrgeAhead")
-                                end
-                            end
-                        end
-                    else
-                        --passSteer =0 --self:calculatePassOffset(opponent,self.passCommit,vhDist)
-                        self.goalOffset = self:calculateGoalOffset(oppInRange[opponent.id],self.passCommit)
-                    end
-                end
-            else
-                --print(self.id,"Not Catching")
-                if oppFlags.pass then
-                    oppFlags.pass = false
-                    self:cancelPass()
-                else
-                    self:cancelPass()
-                end
-
-            end
-        else-- Keep eye on car, check speed dif
-            if (self.speed-opponent.speed) > 3 and vhDist['vertical'] > 0 then -- look for closest space
-                --print("approaching car fast")
-                local passDirection = self:calculateClosestPassPoint(opponent)
-                local passDirection = self.passCommit
-                if passDirection ~= 0 then -- This is an emergency pass, execute if possible
-                    self.passCommit = passDirection
-                    self.goalOffset = self:calculateGoalOffset(oppInRange[opponent.id],passDirection)
-                    --print("ePass start",passDirection)
-                    eThrot = 0.99 - math.abs(vMax/self.speed)
-                    --print(self.tagText,"set passing emergency",opponent.tagText)
-                    self.passing.isPassing = true
-                    self.passing.carID = opponent.id
-                    oppFlags.pass = true
-                else
-                    if self.passing.isPassing and self.speed - vMax < 0 then
-                        print("epassFail")
-                        self:cancelPass()
-                        oppFlags.pass = false
-                    end
-                    --print("ebrake1")
-                    eThrot = 0.75 - math.abs(vMax/self.speed)
-                end
-            end
-        end
-
-    end
-    if self.passing.isPassing then
-        --print(self.id,"midPass",self.passing.carID)
-        if self.opponentFlags[self.passing.carID] ~= nil then
-            local passCarData = self.opponentFlags[self.passing.carID]
-            --print(self.id,passCarData.vhDist)
-            if passCarData.vhDist.vertical > 15 or passCarData.vhDist.vertical < -1 then
-                
-                if passCarData.pass then
-                    passCarData.pass = false
-                    self:cancelPass()
-                else
-                    --print(self.id,"pass Complete?",passCarData.pass)
-                    self:cancelPass()
-                end
-            end
-        else
-            --print("oppGone???")
-            self:cancelPass()
-        end
+        local canDraft, draftLane = processDrafting(opponent,oppDict,colDict)
+        if canDraft then draftEligible = true end -- If any result is true then draft eligible 
     end
 
-    --print(self.id,getRaceControl().draftingEnabled)
-    if not self.raceControlError then
-        if getRaceControl().draftingEnabled then
-            if hasDraft then
-                if (self.caution or self.formation) then -- deny draft due to caution and what not
-                else
-                -- print(self.id,"HS",self.id,hasDraft)
-                    self.drafting = true
-                end
-            else
-                self.drafting = false
-            end
-        else
-            self.drafting = false
-        end
-    end
+    self.drafting = draftEligible
+    print("Drafting?",self.drafting)
 
-    if self.carRadar.front > 70 then -- also post pass check? 
-        if self.drafting then
-            --print("false draft",self.id)
-            --self.drafting = false
-        end
-    end
-    --print(self.id,self.goalOffset)
-    if self.passing.isPassing then
-        --print(self.id,"passing")
-    end
-
-    -- Alongside stuff
+    -- set Alongside flags
     if alongSideLeft >-100 then
         self.carAlongSide.left = alongSideLeft
     else
         self.carAlongSide.left = 0
     end
-
     if alongSideRight < 100 then
-        --print("reset alongside")
         self.carAlongSide.right = alongSideRight
     else
         self.carAlongSide.right = 0
     end
 
+    -- Determine if to cancel pass or not
+    if self.passing.isPassing then
+        if self.opponentFlags[self.passing.carID] ~= nil then
+            local passCarData = self.opponentFlags[self.passing.carID]
+            if passCarData.vhDist.vertical > 15 or passCarData.vhDist.vertical < -1 then -- If too far or already past
+                if passCarData.pass then
+                    passCarData.pass = false
+                    self:cancelPass()
+                else
+                    self:cancelPass()
+                end
+            end
+        else
+            self:cancelPass()
+        end
+    end
 
-    self.strategicThrottle = colThrottle
-    self.strategicSteering = self.strategicSteering + colSteer + passSteer
-    --print("passSteer and stratSteer",self.strategicSteering,colSteer,passSteer)
-    self.opponentFlags = oppInRange
-    --print(oppInRange)
-
+    self.strategicThrottle = colThrottle -- ONly take the smallest colThrottle value,   Or return to add priority and "input" to endState throttle and steering
+    self.strategicSteering = self.strategicSteering + colSteer
+    self.opponentFlags = oppDict
 end
 
 -- Passing functionality
 function Driver.cancelPass(self) -- cancels passing
-    --print("cancelPass",self)
     self.passing.isPassing = false
     self.passing.carID = nil
     self.goalOffset = nil
