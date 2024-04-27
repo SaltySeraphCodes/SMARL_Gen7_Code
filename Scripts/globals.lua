@@ -1154,6 +1154,14 @@ function posAngleDif3(location,vec,target) -- Same as above but probably more pr
     return VangleDif * 9-- Dampen from force sensitivity?
 end
 
+
+function posAngleDif4(location,vec,target) -- Same as above but probably even more precise?
+    local goalVec = (target - location):normalize()
+    local VangleDif = vectorAngleDiff(vec,goalVec)
+    --targetAngle = targetAngle - math.atan2(vec.y,vec.x)
+    return VangleDif -- Dampen from force sensitivity?
+end
+
 function angleDiff(vector1,vector2) -- gets the angle difference between vectors TODO, usevactual formula
     local directionalOffset = sm.vec3.dot(vector2,vector1)
 	local directionalCross = sm.vec3.cross(vector2,vector1)

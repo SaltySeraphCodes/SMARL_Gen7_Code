@@ -161,20 +161,15 @@ function Driver.server_init( self )
                 self:sv_sendAlert("Car scan successful")
             end
             self.carData['carDimensions'] = self.carDimensions
-            --self.carData = nil
-            --print("saving else storage")
             self.storage:save(self.carData)
         else
-            --print("Loaded car dimensions",self.carDimensions)
-            --self.carData = nil
-            --print("saving else23 storage")
             self.storage:save(self.carData)
         end
     end
     self.creationBodies = self.body:getCreationBodies()
     -- Collision avoidance Attributes (is rear padding necessary?)
-    self.vPadding = 0.4
-    self.hPadding = 0.15 -- or more
+    self.vPadding = 0.5
+    self.hPadding = 0.16 -- or more
 
     self.frontColDist = 1
     self.rearColDist =  1
@@ -286,8 +281,15 @@ function Driver.server_init( self )
     self.goalDirection = nil
     self.goalDirectionOffset = nil
     self.followStrength = 1 -- range between 1 and 10?
+
+    -- steering state priorities (0-1)
+    self.nodeFollowPriority = 0.5
+    self.draftFollowPriority = 0
+    self.biasFollowPriority = 0.5
+    self.passFollowPriority = 1
+
     self.trackPosBias = 0 -- Angled to try and get the car to get to a certain track position
-    
+    self.draftPosBias = 0 -- also tp get car in a trackPos
     self.currentNode = nil
     self.currentSegment = nil
 
@@ -669,12 +671,20 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     self.totalSegments = nil
     self.ovalTrack = false
 
+    
     self.goalNode = nil
     self.goalOffset = nil
     self.goalDirection = nil
     self.goalDirectionOffset = nil
     self.followStrength = 1 -- range between 1 and 10?
+    self.draftPosBias = 0
     self.trackPosBias = 0 -- Angled to try and get the car to get to a certain track position
+
+    -- steering state priorities (0-1)
+    self.nodeFollowPriority = 0.5
+    self.draftFollowPriority = 0
+    self.biasFollowPriority = 0.5
+    self.passFollowPriority = 1
     
     self.currentNode = nil
     self.currentSegment = nil
@@ -1643,6 +1653,9 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     end
     local biasMult = 2 -- how hard to follow track bias ("lanes")
     local biasDif = 0
+    local draftBiasDif = 0
+    local draftBiasMult = 2.1
+
     local followStren = self.followStrength
     local directionOffset = self.goalDirectionOffset
 
@@ -1651,8 +1664,14 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
         --print(self.trackPosBias,self.trackPosition,biasDif)
         biasDif = biasDif* biasMult  
     end
+
+    if self.draftPosBias ~= nil and self.draftPosBias ~= 0 then 
+        draftBiasDif = (self.draftPosBias -self.trackPosition)
+        --print(self.trackPosBias,self.trackPosition,biasDif)
+        draftBiasDif = draftBiasDif * draftBiasMult  --TODO: remove
+    end
+
     if biasDif ~= 0 and math.abs(self.offTrack) == 0 then -- makes a slower recovery?
-        --followStren = 5
         print("offtrack slow recovery?",directionOffset)
         directionOffset = directionOffset * 2 -- 
         print("offtrack slow recovery?",directionOffset)
@@ -1666,8 +1685,11 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     if self.curGear <=0  then
         directionOffset = 0
     end
-    SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset -- VErsion one 
-    --print(self.tagText,"SA",biasDif,directionOffset,SteerAngle)
+    SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + draftBiasDif + directionOffset -- VErsion one 
+    SteerAngle2 = (posAngleDif4(self.location,self.shape.at,goalNodePos) * self.nodeFollowPriority) + 
+                    (biasDif * self.biasFollowPriority ) + (draftBiasDif * self.draftFollowPriority) + (directionOffset self.passFollowPriority) -- VErsion one 
+
+    print(self.tagText,"SA",SteerAngle,SteerAngle2)
     self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
 end
 
@@ -2980,7 +3002,7 @@ end
 
 function Driver.processDrafting(self,oppDict)
     local canDraft = false
-    local draftLane = 0
+    local draftLane = nil
     if not self.raceControlError then
         if getRaceControl().draftingEnabled == false then
             return canDraft,draftLane 
@@ -3000,6 +3022,9 @@ function Driver.processDrafting(self,oppDict)
         else
             canDraft = false
         end
+    else
+        print("no draftables")
+        self.draftPosBias = 0
     end
     -- TODO: Determine draft lane if canDraft is false
 
@@ -3010,25 +3035,37 @@ function Driver.processDrafting(self,oppDict)
     -- If not, get TrackPos (bias) of opp and return desired trackPos(bias) and false
     -- In Main, set TrackBias to draftLane
     -- set self.drafting to result
+    local fastestOppSpeed = 0
+    local fastestOppPos = 0
+    local fastestOpp = nil
+
+
     for opponent, opponentData in pairs(oppDict) do
         print("Draft check",opponent,opponentData)
         local oppFlags = opponent.flags
         print('flags',oppFlags)
         print('vhDist',opponent.vhDist)
-        if opponent.vhDist.vertical and opponent.vhDist.vertical < 70 then -- In draft range? (globals.draftRange)
+        if opponent.vhDist.vertical and opponent.vhDist.vertical < 65 then -- In draft range? (globals.draftRange)
+            if opponent.speed > fastestOppSpeed then -- found faster opp
+                fastestOppSpeed =  opponent.speed
+                fastestOppPos = opponent.trackPosition
+                fastestOpp = oponent.id
+            end 
             if opponent.vhDist.horizontal and (opponent.vhDist.horizontal < 1 and opponent.vhDist.horizontal > -1) then -- If overlapping (a little margin)
                 oppFlags.drafting = true
-                hasDraft = true
-                --print(self.id,opponent.id,"hasDraft",hasDraft,oppFlags.drafting)
+                canDraft = true
+                print(self.tagTex,"hasDraft",hasDraft,oppFlags.drafting)
             else
                 oppFlags.drafting = false
             end
+                 
         end
     end
-    
 
-    if canDraft == false and self.drafting == false then -- Issue: might "look before seeing whole picture"
-        print("looking for car to draft")
+    if fastestOpp ~= nil then -- after fastest opponent found: try to follow
+        print("FastestOppLane",fastestOpp.trackPosition,fastestOppPos)
+        -- if fastest opp is > 5 away then draftLane = opp trackpos
+        draftLane = fastestOppPos
     end
 
     return canDraft, draftLane
@@ -3443,7 +3480,7 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
             self:cancelPass()
         end
         if self.drafting then
-            self.drafting = false -- Stay in drafting range
+            self.drafting = false -- no cars to draft
         end
         return 
     end
@@ -3506,11 +3543,14 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
      
     end
     local canDraft, draftLane = processDrafting(oppDict)
-    if canDraft then 
-        draftEligible = true 
-    end -- If any result is true then draft eligible 
-    self.drafting = draftEligible
-    print("Drafting?",self.drafting)
+    self.drafting = canDraft
+    if draftLane ~= nil then
+        print("Set draft lane?",draftLane)
+        self.draftPosBias = draftLane
+        self.draftFollowPriority = 1 -- or more?
+    else 
+        self.draftFollowPriority = 0
+    end
 
     -- set Alongside flags
     if alongSideLeft >-100 then
