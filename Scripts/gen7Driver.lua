@@ -1654,7 +1654,6 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     local biasMult = 2 -- how hard to follow track bias ("lanes")
     local biasDif = 0
     local draftBiasDif = 0
-    local draftBiasMult = 2.1
 
     local followStren = self.followStrength
     local directionOffset = self.goalDirectionOffset
@@ -1667,8 +1666,6 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
 
     if self.draftPosBias ~= nil and self.draftPosBias ~= 0 then 
         draftBiasDif = (self.draftPosBias -self.trackPosition)
-        --print(self.trackPosBias,self.trackPosition,biasDif)
-        draftBiasDif = draftBiasDif * draftBiasMult  --TODO: remove
     end
 
     if biasDif ~= 0 and math.abs(self.offTrack) == 0 then -- makes a slower recovery?
@@ -1685,6 +1682,7 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     if self.curGear <=0  then
         directionOffset = 0
     end
+    local goalAngleDDif = self.goalDirection
     SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + draftBiasDif + directionOffset -- VErsion one 
     SteerAngle2 = (posAngleDif4(self.location,self.shape.at,goalNodePos) * self.nodeFollowPriority) + 
                     (biasDif * self.biasFollowPriority ) + (draftBiasDif * self.draftFollowPriority) + (directionOffset self.passFollowPriority) -- VErsion one 
@@ -4738,6 +4736,28 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
     return 
 end
 
+-- TODO: Do ALL follow priority logic here
+function Driver.calculateNodeFollowPriority(self) -- Calculates strength of node to follow (loose on straights, tight on turns?) INVERSEa
+    if self.goalNode == nil then return 0 end
+    if self.currentNode == nil then return 0 end 
+    local segLen = self:getSegmentLength(self.goalNode.segID)
+    -- TODO: get RampStatus (z ><0.1?)
+    
+    if self.goalNode.segType == "Straight" then
+        if self.passing.isPassing then -- Get even looser while passing
+            self.nodeFollowPriority = 0.05
+        else -- just regular straight
+            self.nodeFollowPriority = 0.1
+        end
+    else -- If turning: tighten priority
+        if self.passing.isPassing then -- Get looser while passing
+            self.nodeFollowPriority = 0.7
+        else -- tighten turn
+            self.nodeFollowPriority = 0.8
+        end
+    end 
+end
+
 function Driver.calculateTrackPosBiasTurn(self) --[Unused] tries to make more efficient apex for attacking/defending Uses steering
     if self.currentNode == nil or self.goalNode == nil then return end
     if self.currentNode.width == nil then self.currentNode.width = 20 end
@@ -5313,6 +5333,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     self.goalDirection = self:calculateGoalDirection()
     self.goalDirectionOffset = self:calculateGoalDirOffset()
     self.followStrength = self:calculateNodeFollowStrength()
+    self:calculateNodeFollowPriority()
     --self.trackPosBias = self:calculateTrackPosBiasTurn()
     self.angularSpeed = self.angularVelocity:length() -- Moving here so we only need to calculate once
     self.mass = self.body.mass -- possibly not need
