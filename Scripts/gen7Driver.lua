@@ -1685,7 +1685,7 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     local goalAngleDDif = self.goalDirection
     SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + draftBiasDif + directionOffset -- VErsion one 
     SteerAngle2 = (posAngleDif4(self.location,self.shape.at,goalNodePos) * self.nodeFollowPriority) + 
-                    (biasDif * self.biasFollowPriority ) + (draftBiasDif * self.draftFollowPriority) + (directionOffset self.passFollowPriority) -- VErsion one 
+                (biasDif * self.biasFollowPriority ) + (draftBiasDif * self.draftFollowPriority) + (directionOffset * self.passFollowPriority) -- VErsion one 
 
     print(self.tagText,"SA",SteerAngle,SteerAngle2)
     self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
@@ -3012,7 +3012,7 @@ function Driver.processDrafting(self,oppDict)
         return canDraft,draftLane
     end
 
-    if self.carRadar.front self.carRadar.front < 70 then
+    if self.carRadar.front and self.carRadar.front < 70 then
         print("Radar has something in range",self.carRadar)
         if (self.carRadar.right and self.carRadar.right <0.2) or (self.carRadar.left and self.carRadar.left > -0.2) then 
             print("Radar has car in draft zone LR")
@@ -3111,7 +3111,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     if oppFlags.frontEmergency and not oppFlags.alongSide and not oppFlags.pass then -- If front emergency and opponent is not alongside and not already passing
         colThrottle = 0.65 - math.abs(opponent.speed/self.speed)  -- REduce speed
         print(self.tagText,"Close  Emergency Brake!!!",colThrottle)
-    else if oppFlags.pass then-- If passing
+    elseif oppFlags.pass then-- If passing
         -- Check here for speed dif pass cancelation
     end
 
@@ -3505,7 +3505,7 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
                 if colDict.leftCol and colDict.leftCol > -selfWidth then
                     if colDict.leftCol > alongSideLeft then
                         alongSideLeft = colDict.leftCol
-                    else 
+                    end 
                 end
                 if colDict.rightCol and colDict.rightCol < selfWidth then
                     if colDict.rightCol < alongSideRight then
