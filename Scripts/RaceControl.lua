@@ -568,7 +568,6 @@ function Control.sv_setHandicaps(self)
     for k=1, #allDrivers do local driver=allDrivers[k]
         local nodeDif = firstNode - driver.totalNodes
         local handicap = nodeDif
-        --print(driver.id,nodeDif,driver.handicap)
         if nodeDif < self.handiCapThreshold or self.raceStatus > 1 then -- caution or formation
             handicap = 0
         elseif nodeDif > self.handiCapStrength then

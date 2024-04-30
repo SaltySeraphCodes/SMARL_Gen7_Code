@@ -987,6 +987,18 @@ function degreesToSteering(value)
     return converted
 end
 
+function radiansToSteering(value)
+    local converted = ratioConversion(-MAX_STEER_VALUE,MAX_STEER_VALUE,-1,1,math.deg(value))
+    --print("got converted",converted)
+    if converted > 1 then
+        return 1
+    elseif converted < -1 then
+        return -1
+    end
+    return converted
+    
+end
+
 function degreesToVector(angle)
     local x = math.cos(angle)
     local y = math.sin(angle)
