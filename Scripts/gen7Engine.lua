@@ -280,7 +280,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
 -- Drafting handling
 
     local draftTS = 0 -- * global.draftStrengthHow much to increase the top speed by ()
-    if self.driver.drafting and self.accelInput >= 0.9 then -- only work while accelerating, can get in the way of brakes
+    if self.driver.drafting and self.accelInput >= 0.9 and getRaceControl().draftingEnabled == true then -- only work while accelerating, can get in the way of brakes
         draftTS = 5 -- * draftStrength --TODO: add draft strength UI var in RaceControl
         rpmIncrement = rpmIncrement + 0.00015 -- * global.draftStrength
     end

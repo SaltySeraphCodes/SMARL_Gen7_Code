@@ -3,37 +3,63 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : 4.0,
+		"lapsLeft" : 8.0,
 		"qualifying" : "true",
-		"status" : 1.0
+		"status" : 0.0
 	},
 	"qd" : null,
 	"rt" : 
 	[
 		
 		{
-			"bestLap" : 70.51099999999860,
+			"bestLap" : 70.56999999999243,
 			"id" : 3.0,
 			"isFocused" : "false",
-			"lapNum" : 6.0,
-			"lastLap" : 70.93600000000151,
-			"locX" : -151.4149475097656,
-			"locY" : 448.6578979492188,
-			"place" : 2.0,
-			"speed" : 27.08905220031738,
-			"timeSplit" : "0.033"
+			"lapNum" : 2.0,
+			"lastLap" : 70.56999999999243,
+			"locX" : -216.6112060546875,
+			"locY" : 175.8754577636719,
+			"place" : 1.0,
+			"speed" : 0.0,
+			"timeSplit" : "0.000"
 		},
 		
 		{
-			"bestLap" : 70.77599999999802,
+			"bestLap" : 70.78700000000390,
 			"id" : 1.0,
 			"isFocused" : "false",
-			"lapNum" : 6.0,
-			"lastLap" : 70.95499999999447,
-			"locX" : -151.0536956787109,
-			"locY" : 452.3246154785156,
-			"place" : 1.0,
-			"speed" : 27.75371742248535,
+			"lapNum" : 2.0,
+			"lastLap" : 70.78700000000390,
+			"locX" : -217.3522491455078,
+			"locY" : 166.1569061279297,
+			"place" : 2.0,
+			"speed" : 4.685627573053353e-05,
+			"timeSplit" : "0.466"
+		},
+		
+		{
+			"bestLap" : 0.0,
+			"id" : 2.0,
+			"isFocused" : "false",
+			"lapNum" : 0.0,
+			"lastLap" : 0.0,
+			"locX" : -210.0174102783203,
+			"locY" : 215.7898712158203,
+			"place" : 4.0,
+			"speed" : 0.01866632141172886,
+			"timeSplit" : "0.000"
+		},
+		
+		{
+			"bestLap" : 0.0,
+			"id" : 5.0,
+			"isFocused" : "false",
+			"lapNum" : 0.0,
+			"lastLap" : 0.0,
+			"locX" : -214.3762359619141,
+			"locY" : 212.7564544677734,
+			"place" : 3.0,
+			"speed" : 0.01053396333009005,
 			"timeSplit" : "0.000"
 		}
 	]
