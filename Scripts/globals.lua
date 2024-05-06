@@ -93,10 +93,10 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
    {
         TYPE = "road", -- slowest
         COLOR = "222222ff", -- black
-        MAX_SPEED = 78, -- 73.5 lvl 5 engine
+        MAX_SPEED = 80, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.4,
-        MAX_BRAKE = 0.6,
-        GEARING = {0.4,0.45,0.35,0.3}, -- Gear acceleration Defaults (soon to be paramaterized)
+        MAX_BRAKE = 0.65,
+        GEARING = {0.5,0.45,0.35,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 78/4 -- LImit for VRPM TODO: adjust properly
     },
     {
@@ -104,7 +104,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         COLOR = "4a4a4aff",
         MAX_SPEED = 95, -- 80
         MAX_ACCEL = 0.5,
-        MAX_BRAKE = 0.65, -- 1?
+        MAX_BRAKE = 0.75, -- 1?
         GEARING = {0.45,0.4,0.45,0.3,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 95/5 -- LImit for VRPM TODO: adjust properly
     },
@@ -113,7 +113,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         COLOR = "7f7f7fff", -- Light gray
         MAX_SPEED = 130,
         MAX_ACCEL = 0.7,
-        MAX_BRAKE = 0.75,
+        MAX_BRAKE = 0.85,
         GEARING = {0.46,0.45,0.5,0.4,0.20}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 130/5
     },
@@ -122,7 +122,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         COLOR = "eeeeeeff", -- white
         MAX_SPEED = 250,
         MAX_ACCEL = 1,
-        MAX_BRAKE = 0.85,
+        MAX_BRAKE = 0.90,
         GEARING = {0.48,0.45,0.50,0.5,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 250/5
     },
@@ -209,6 +209,13 @@ end
 
 -- Car helpers
 
+function displayCarRadar(radar) -- prints fun radar
+    print(
+        
+    )
+
+
+end
 
 
 
@@ -277,6 +284,7 @@ end
 -- possibly use areaTrigger?
 -- Get closest nodes to the nearest location?
 function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, detect if outside, instead of searching all, just search for nearest node in general direction
+    --print("gnn")
     local availibleNodes = {}
     local approxRow = round(location.y)
     local approxCol = round(location.x)
@@ -284,7 +292,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
     local searchDistance = 0 -- how far away to search
     
     --print("getting nearest node",approxRow,approxCol)
-    local searchLimit = 150
+    local searchLimit = 50
     local possibleRow = nodeMap[approxRow]
     if possibleRow ~= nil then
         local possibleCol = nodeMap[approxRow][approxCol]
@@ -312,7 +320,8 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
                         --print("Extended",extendedSearchNodes,extendedSearchNodes[1])
                         if extendedSearchNodes ~= nil and #extendedSearchNodes > 0 then
                             for j = 1, #extendedSearchNodes do local eNode = extendedSearchNodes[j]
-                                if math.abs(eNode.location.z - location.z) < 2 then -- make smaller/bigger dif?
+                                --print(eNode.bank,math.abs(eNode.location.z - location.z), 2 + math.abs(5* eNode.bank))
+                                if math.abs(eNode.location.z - location.z) < 2 + math.abs(5* eNode.bank) then -- make smaller/bigger dif?
                                     --print(location.z,eNode.location.z)
                                     table.insert(extendedNodes, eNode) -- puts nodes into extendedNode
                                 else
@@ -342,7 +351,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
     for i=1, #availibleNodes do local node = availibleNodes[i]
         --print("nodefilter?",math.abs(node.location.z - location.z))
         if node == nil then print("Bad node") return end
-        if math.abs(node.location.z - location.z) > 2 then -- TODO: just make lower priority instead of removing...
+        if math.abs(node.location.z - location.z) > 2  + math.abs(5* node.bank) then -- TODO: just make lower priority instead of removing...
             --print(node.id,"not in range")
             table.remove( availibleNodes,i )
         end
@@ -444,21 +453,21 @@ function calculateMaximumVelocity(segBegin,segEnd,segLen) -- gets maximumSpeed b
         return getVmax(angle) * 2
     elseif segType == "Fast_Right" or segType == "Fast_Left" then
         if segLen >= 5 then -- Long turn
-            return getVmax(angle)*1.5 
+            return getVmax(angle)*1.7 
         else
-            return getVmax(angle)*1.3
+            return getVmax(angle)*1.5
         end
     elseif segType == "Medium_Right" or segType == "Medium_Left" then
         if segLen >= 12 then -- Long turn
-            return getVmax(angle*1.1)*1.3
+            return getVmax(angle*1.1)*1.25
         else
-            return getVmax(angle*1.3)*1
+            return getVmax(angle*1.3)*0.95
         end
     elseif segType == "Slow_Right" or segType == "Slow_Left" then
         if segLen >= 15 then -- Long turn
-            return getVmax(angle*1.2)*1.3 
+            return getVmax(angle*1.2)*1.1 
         else
-            return getVmax(angle*1.6)*1
+            return getVmax(angle*1.6)*0.85
         end
     end
     return getVmax(angle)
@@ -1272,6 +1281,16 @@ end
 	return math.floor( value + 0.5 )
 end
 
+function rampToGoal(goal,value,rate) -- ramps value to goal by rate
+    if value == nil then value = 0 end
+    if value == goal then
+         return goal
+    elseif value > goal then 
+        return value - rate
+    elseif value < goal then 
+        return value + rate
+    end
+end
 
     -- Data
 function tableConcat(t1,t2)

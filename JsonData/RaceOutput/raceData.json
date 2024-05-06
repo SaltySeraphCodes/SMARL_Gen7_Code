@@ -3,204 +3,38 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : 11.0,
+		"lapsLeft" : 4.0,
 		"qualifying" : "true",
 		"status" : 1.0
 	},
-	"qd" : 
-	[
-		
-		{
-			"best_lap" : 60.31100000000015,
-			"position" : 1.0,
-			"racer_id" : 31.0,
-			"racer_name" : "Police Racer",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 60.14499999999998,
-			"position" : 2.0,
-			"racer_id" : 27.0,
-			"racer_name" : "Jellyfish",
-			"split" : "0.158"
-		},
-		
-		{
-			"best_lap" : 59.22700000000009,
-			"position" : 3.0,
-			"racer_id" : 33.0,
-			"racer_name" : "Gotta DooDoo",
-			"split" : "0.223"
-		},
-		
-		{
-			"best_lap" : 58.82799999999997,
-			"position" : 4.0,
-			"racer_id" : 25.0,
-			"racer_name" : "Dallas Dominator",
-			"split" : "0.640"
-		},
-		
-		{
-			"best_lap" : 58.52099999999996,
-			"position" : 5.0,
-			"racer_id" : 21.0,
-			"racer_name" : "CoffeyMobile: The Sequel",
-			"split" : "1.275"
-		},
-		
-		{
-			"best_lap" : 60.10999999999990,
-			"position" : 6.0,
-			"racer_id" : 28.0,
-			"racer_name" : "Prototype 02: Drag",
-			"split" : "1.639"
-		},
-		
-		{
-			"best_lap" : 59.24399999999991,
-			"position" : 7.0,
-			"racer_id" : 26.0,
-			"racer_name" : "BK Racing",
-			"split" : "3.117"
-		},
-		
-		{
-			"best_lap" : 60.29299999999989,
-			"position" : 8.0,
-			"racer_id" : 23.0,
-			"racer_name" : "No Clue",
-			"split" : "3.597"
-		},
-		
-		{
-			"best_lap" : 59.15000000000009,
-			"position" : 9.0,
-			"racer_id" : 14.0,
-			"racer_name" : "LaZyKnight2",
-			"split" : "3.987"
-		},
-		
-		{
-			"best_lap" : 60.60500000000002,
-			"position" : 10.0,
-			"racer_id" : 19.0,
-			"racer_name" : "Ford Hoonicorn V2 Ai",
-			"split" : "4.925"
-		},
-		
-		{
-			"best_lap" : 59.80899999999997,
-			"position" : 11.0,
-			"racer_id" : 20.0,
-			"racer_name" : "Bah-tomobile",
-			"split" : "5.172"
-		},
-		
-		{
-			"best_lap" : 59.99600000000009,
-			"position" : 12.0,
-			"racer_id" : 30.0,
-			"racer_name" : "Redline",
-			"split" : "5.675"
-		},
-		
-		{
-			"best_lap" : 60.97699999999986,
-			"position" : 13.0,
-			"racer_id" : 24.0,
-			"racer_name" : "Red Racer",
-			"split" : "9.866"
-		},
-		
-		{
-			"best_lap" : 61.88599999999997,
-			"position" : 14.0,
-			"racer_id" : 22.0,
-			"racer_name" : "Porsche 962 Ai Car",
-			"split" : "13.464"
-		}
-	],
+	"qd" : null,
 	"rt" : 
 	[
 		
 		{
-			"bestLap" : 56.24499999999534,
-			"id" : 1.0,
-			"isFocused" : "false",
-			"lapNum" : 8.0,
-			"lastLap" : 56.59200000000419,
-			"locX" : 567.4312133789062,
-			"locY" : -172.7849121093750,
-			"place" : 4.0,
-			"speed" : 30.89302635192871,
-			"timeSplit" : "443.831"
-		},
-		
-		{
-			"bestLap" : 57.75099999998929,
+			"bestLap" : 70.51099999999860,
 			"id" : 3.0,
 			"isFocused" : "false",
-			"lapNum" : 7.0,
-			"lastLap" : 59.33099999999104,
-			"locX" : 586.2518310546875,
-			"locY" : -269.8258666992188,
-			"place" : 5.0,
-			"speed" : 28.82149505615234,
-			"timeSplit" : "446.004"
-		},
-		
-		{
-			"bestLap" : 50.82200000000012,
-			"id" : 5.0,
-			"isFocused" : "false",
-			"lapNum" : 8.0,
-			"lastLap" : 50.82200000000012,
-			"locX" : 785.7125244140625,
-			"locY" : -138.6992645263672,
-			"place" : 3.0,
-			"speed" : 31.63541412353516,
-			"timeSplit" : "427.940"
-		},
-		
-		{
-			"bestLap" : 45.05000000000291,
-			"id" : 6.0,
-			"isFocused" : "false",
-			"lapNum" : 9.0,
-			"lastLap" : 45.74199999999837,
-			"locX" : 426.9493408203125,
-			"locY" : -44.45014190673828,
-			"place" : 1.0,
-			"speed" : 29.10486221313477,
-			"timeSplit" : "0.000"
-		},
-		
-		{
-			"bestLap" : 45.14600000000792,
-			"id" : 7.0,
-			"isFocused" : "false",
-			"lapNum" : 9.0,
-			"lastLap" : 45.84399999999732,
-			"locX" : 456.4071960449219,
-			"locY" : -101.5900802612305,
+			"lapNum" : 6.0,
+			"lastLap" : 70.93600000000151,
+			"locX" : -151.4149475097656,
+			"locY" : 448.6578979492188,
 			"place" : 2.0,
-			"speed" : 28.78048133850098,
-			"timeSplit" : "2.849"
+			"speed" : 27.08905220031738,
+			"timeSplit" : "0.033"
 		},
 		
 		{
-			"bestLap" : 42.61899999999150,
-			"id" : 8.0,
+			"bestLap" : 70.77599999999802,
+			"id" : 1.0,
 			"isFocused" : "false",
-			"lapNum" : 7.0,
-			"lastLap" : 88.91199999999662,
-			"locX" : 759.5853881835938,
-			"locY" : -396.8029174804688,
-			"place" : 6.0,
-			"speed" : 40.94755172729492,
-			"timeSplit" : "466.048"
+			"lapNum" : 6.0,
+			"lastLap" : 70.95499999999447,
+			"locX" : -151.0536956787109,
+			"locY" : 452.3246154785156,
+			"place" : 1.0,
+			"speed" : 27.75371742248535,
+			"timeSplit" : "0.000"
 		}
 	]
 }

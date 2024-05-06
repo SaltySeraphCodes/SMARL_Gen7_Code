@@ -197,6 +197,55 @@
       },
       {
          "box" : {
+            "x" : 1,
+            "y" : 1,
+            "z" : 1
+         },
+         "color" : "aa33ff",
+         "name" : "smar_downforce",
+         "physicsMaterial" : "Mechanical",
+         "renderable" : {
+            "lodList" : [
+               {
+                  "mesh" : "$MOD_DATA/Objects/Mesh/smar_mesh/smar_engine_controller.fbx",
+                  "pose0" : "$MOD_DATA/Objects/Mesh/smar_mesh/smar_engine_controller.fbx",
+                  "subMeshList" : [
+                     {
+                        "material" : "PoseAnimDifAsgNor",
+                        "textureList" : [
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_downforce_block_dif.tga",
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_engine_controller_asg.tga",
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_engine_controller_nor.tga"
+                        ]
+                     },
+                     {
+                        "custom" : {
+                           "uv0" : {
+                              "u" : 0.166666670,
+                              "v" : 0.16450
+                           }
+                        },
+                        "material" : "UVAnimDifAsgNor",
+                        "textureList" : [
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_downforce_block_dif.tga",
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_engine_controller_asg.tga",
+                           "$MOD_DATA/Objects/Textures/smar_textures/smar_engine_controller_nor.tga"
+                        ]
+                     }
+                  ]
+               }
+            ]
+         },
+         "rotationSet" : "PropZ",
+         "scripted" : {
+            "classname" : "DownforceBlock",
+            "filename" : "$CONTENT_DATA/Scripts/downforceblock.lua"
+         },
+         "sticky" : "-Z",
+         "uuid" : "ab524867-122b-4f98-990b-67ff6d2e9c5c"
+      },
+      {
+         "box" : {
             "x" : 3,
             "y" : 8,
             "z" : 4

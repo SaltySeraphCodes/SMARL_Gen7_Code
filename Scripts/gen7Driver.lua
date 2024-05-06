@@ -192,6 +192,7 @@ function Driver.server_init( self )
             left = -100
         }
     end
+    self.oppDict = nil
     self.carAlongSide = {left = 0, right = 0} -- triggers -1,1 if there is a car directly alongside somewhat closely
     self.opponentFlags = {} -- list of opponents and flags
     
@@ -200,9 +201,12 @@ function Driver.server_init( self )
     --self.engine = nil -- gets loaded from engine
 
     -- Car Control attributes
-    self.steering = 0
-    self.throttle = 0
+    self.steering = 0 -- actual steering value
+    self.throttle = 0 -- actual throttle value
     self.curGear = 0 
+    
+    self.colSteerAdjust = 0 
+    self.colThrottleAdjust = 0 -- class adjustment for updateStrategic Throttle, passes through and gets set in collisison layer
 
     self.strategicSteering = 0
     self.strategicThrottle = 0
@@ -278,24 +282,28 @@ function Driver.server_init( self )
 
     self.goalNode = nil
     self.goalOffset = nil
+    self.passGoalOffsetStrength = 0
+    self.draftGoalOffsetStrength = 0
+    self.biasGoalOffsetStrength = 0
+
     self.goalDirection = nil
     self.goalDirectionOffset = nil
     self.followStrength = 1 -- range between 1 and 10?
 
     -- steering state priorities (0-1)
-    self.nodeFollowPriority = 0.9
+    self.nodeFollowPriority = 0
     self.draftFollowPriority = 0
-    self.biasFollowPriority = 0.5
-    self.passFollowPriority = 1
+    self.biasFollowPriority = 0
+    self.passFollowPriority = 0
 
-    self.trackPosBias = 0 -- Angled to try and get the car to get to a certain track position
+    self.trackPosBias = nil -- Angled to try and get the car to get to a certain track position
     self.draftPosBias = 0 -- also tp get car in a trackPos
     self.currentNode = nil
     self.currentSegment = nil
 
     self.futureLook =  {segID = 0, direction = 0, length = 0, distance = 0} 
     -- Tolerances and Thresholds
-    self.overSteerTolerance = -2 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
+    self.overSteerTolerance = -1.9 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
     self.underSteerTolerance = -0.4 -- Smaller (more negative [fractional]) the more tolerance to understeer-- USED TO BE:THe bigger (positive) more tolerance to understeer (will not slow down as early, DEFAULT -0.3)
     self.passAggression = -2 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
     self.skillLevel =7 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
@@ -480,6 +488,7 @@ function Driver.sv_softReset(self)
     self.throttle = 0
     self.curGear = 0 
 
+    self.colThrottleAdjust = 0
     self.strategicSteering = 0
     self.strategicThrottle = 0
 
@@ -600,7 +609,8 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
             right = 100,
             left = -100
         }
-    end    
+    end 
+    self.oppDict = nil   
     self.carAlongSide = {left = 0, right = 0} -- triggers -1,1 if there is a car directly alongside somewhat closely
     self.opponentFlags = {} -- list of opponents and flags
     --self.engine = nil -- gets loaded from engine
@@ -610,6 +620,7 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     self.throttle = 0
     self.curGear = 0 
 
+    self.colThrottleAdjust = 0
     self.strategicSteering = 0
     self.strategicThrottle = 0
 
@@ -677,13 +688,13 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     self.goalDirectionOffset = nil
     self.followStrength = 1 -- range between 1 and 10?
     self.draftPosBias = 0
-    self.trackPosBias = 0 -- Angled to try and get the car to get to a certain track position
+    self.trackPosBias = nil -- Angled to try and get the car to get to a certain track position
 
     -- steering state priorities (0-1)
-    self.nodeFollowPriority = 0.5
-    self.draftFollowPriority = 0.5
-    self.biasFollowPriority = 0.5
-    self.passFollowPriority = 0.5
+    self.nodeFollowPriority = 0
+    self.draftFollowPriority = 0
+    self.biasFollowPriority = 0
+    self.passFollowPriority = 0
     
     self.currentNode = nil
     self.currentSegment = nil
@@ -984,24 +995,28 @@ end
 
 -- Control layer
 function Driver.setSteering(self,value) --Just sets the bearings
+    if type(value) ~= "number" or math.abs(value) == math.huge  or math.abs(tostring(value)) == tostring(0/0) then
+        print(self.tagText,"nan",value)
+    end
     for k, v in pairs(sm.interactable.getBearings(self.interactable )) do
         local adj = 3
         if self.speed > 0.11 then -- prevent twitching while in stand still
-            local adj = 5 - (0.06*self.speed) -- reduce steer value?
+            --local adj = 5 - (0.06*self.speed) -- reduce steer value?
             if self.userControl then
                 adj = 2
             end
         end
-        --self:debugOutput(25,{"steer",self.speed,adj})
+        --self:debugOutput(1,{"steer",value})
         sm.joint.setTargetAngle( v, value, adj, 1500)
     end
 end
 
 function Driver.outputThrotttle(self,value)
-    if type(value) ~= "number" or math.abs(value) == math.huge then
+    if type(value) ~= "number" or math.abs(value) == math.huge or math.abs(tostring(value)) == tostring(0/0)  then
         print(self.tagText,"not num",value) -- TODO: Look into why this
         value = 0.5
     end
+    
     self.interactable:setPower(value)
 end
 
@@ -1027,7 +1042,7 @@ function Driver.updateControlLayer(self) -- Min angle for F1 cars is 40
     --print("steer",self.strategicSteering)
     if not self.userControl then 
         local angle = steeringToDegrees((self.strategicSteering or 0))-- In Degrees
-        local steerLim = 55 -- normal steer limit
+        local steerLim = 55 -- TODO: "customizable steering limit"
         
         if self.carData and self.carData.metaData then -- TODO: make a helper function that does this
             if self.carData.metaData.Car_Type == "F1" then -- load different DF data
@@ -1042,6 +1057,7 @@ function Driver.updateControlLayer(self) -- Min angle for F1 cars is 40
         self.throttle = acceleration
        
         self:setSteering(radians)
+        --print(self.tagText,"output Throttle",acceleration,self.strategicThrottle,self.throttle,self.colThrottleAdjust)
         self:outputThrotttle(acceleration)
     else -- user controls outputs
         local angle = -steeringToDegrees(self.userSteer)/1.5-- In Degrees 
@@ -1132,6 +1148,7 @@ function Driver.checkOversteer(self) -- check if car is sliding based off of rot
    
     local overSteerThreshold = (self.steering/self.speed)
     local overSteerMeasure = (self.steering * self.angularSpeed) /self.speed
+    --print(overSteerMeasure - overSteerThreshold,self.overSteerTolerance)
     if overSteerMeasure - overSteerThreshold * getSign(self.steering) < self.overSteerTolerance  then
         self.oversteer = true
         --print("O",self.id, overSteerMeasure - overSteerThreshold * getSign(self.steering), self.overSteerTolerance,self.oversteer)
@@ -1194,7 +1211,7 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
     if math.abs(offset) >= 30 or math.abs(self.goalDirectionOffset) > math.pi then -- if positional angle
         --print("Stuck?",offset,self.goalDirectionOffset,self.speed)
         if self.speed <= 4 and not self.userControl then
-            print(self.tagText,"offset stuck",offset,self.speed,self.goalDirectionOffset)
+            --print(self.tagText,"offset stuck",offset,self.speed,self.goalDirectionOffset)
             self.stuck = true
             return
         end
@@ -1221,11 +1238,11 @@ function Driver.checkOffTrack(self) -- check if car is offtrack based on trackPo
     if self.currentNode == nil or self.trackPosition == nil then self.offTrack = 0 return end
     if self.currentNode.width == nil then print("setting default width",self.currentNode) self.currentNode.width = 20 end -- Default width?
     local limit = self.currentNode.width/2
-    local margin = 4 -- could be dynamic
+    local margin = 5 -- could be dynamic
     local status = math.abs(self.trackPosition) - limit
     if status > margin then
         self.offTrack = status * getSign(self.trackPosition)
-        --print(self.id,"off track")
+        --print(self.tagText,"off track")
     else
         if self.offTrack ~= 0 then
             --print(self.tagText,"Back on track")
@@ -1244,8 +1261,9 @@ function Driver.checkLocationOnTrack(self,currentNode,location) -- checks if loc
     local vhDist = getLocationVHDist(currentNode,location)
     local nodePos = vhDist.horizontal
     local limit = currentNode.width/2
-    local margin = 1 -- maybe smaller?
+    local margin = -0.5 -- maybe smaller?
     local status = math.abs(nodePos) - limit
+    --print("status",math.abs(nodePos),limit,status,margin)
     if status > margin then
         --print("Node off track",status)
         --print(string.format("GoalNode Location %.2f %.2f %.2f",nodePos,limit,status))
@@ -1416,10 +1434,12 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
                self.lost = false
                self.nodeFindTimeout = 0
                self.strategicThrottle = 1
+               print("set throttle 1 0-")
             else
                 --print("found node")
                 self.nodeFindTimeout = 0
                 self.strategicThrottle = 1
+                print("set throttle 1 1-")
             end
         end
 
@@ -1463,10 +1483,10 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     if self.lost then return end
     if self.currentNode == nil then return end
     local lookAheadConst = 3 -- play around until perfect -- SHould be dynamic depending on downforce?
-    local lookAheadHeur = 0.3 -- same? Dynamic on downforce, more downforce == less const/heuristic?
+    local lookAheadHeur = 0.45 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
-        lookAheadConst = 15
-        lookAheadHeur = 2
+        lookAheadConst = 5
+        lookAheadHeur = 0.5
     end
     
     local lookaheadDist = lookAheadConst + self.speed*lookAheadHeur
@@ -1624,75 +1644,67 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     if self.goalNode == nil then return end
     
     local goalNodePos = self.goalNode.location
-    local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
+    local goalOffset = (self:calculateGoalOffset() or sm.vec3.new(0,0,0))
     local goalPerp = self.goalNode.perp
-   
+    -- All turning does is affect goal node location
     --print(pathType)
     --print(self.tagText,pathType)
-    if pathType ~= "location" then -- TODO? should be 'mid'
-        --print("pulled")
-        --print(self.tagText,"dif path goal",pathType)
-        goalNodePos = self.goalNode[pathType] --+ goalOffset
+    if pathType == "mid" then -- TODO: make ready for PIT and MID and OTHER?
+        goalNodePos = self.goalNode[pathType] --+ goalOffset?
     end
-    --print("goaloffset",self.goalOffset,goalOffset)
     goalNodePos = self.goalNode[pathType] + goalOffset-- place goalnode offset here...
     -- check if goalNode pos is offTrack
     local onTrack = self:checkLocationOnTrack(self.goalNode,goalNodePos)
     if not onTrack then
+        --print("node not track")
         if self.passing.isPassing then
             print(self.tagText,"off track cancel/slow?")
-            --self:cancelPass()
-            self.strategicThrottle = self.strategicThrottle - 0.05
+            --self.strategicThrottle = self.strategicThrottle - 0.01
         end
-        goalNodePos = self.goalNode[pathType] 
-        if self.strategicThrottle > -1 then -- COrrect this foo by using offset too?
-            self.strategicThrottle = self.strategicThrottle - 0.05
-            --print("heading offtrack correction",self.strategicThrottle)
-        end
-    end
-    local biasMult = 2 -- how hard to follow track bias ("lanes")
-    local biasDif = 0
-    local draftBiasDif = 0
+        goalNodePos = self.goalNode[pathType]
+        self.goalOffset = sm.vec3.new(0,0,0) 
+        
+        -- Resets goal node to general location
+        -- Need to set it at the edge of wall??
 
-    local followStren = self.followStrength
-    local directionOffset = self.goalDirectionOffset
-
-    if self.trackPosBias ~= nil and self.trackPosBias ~= 0 then
-        biasDif = (self.trackPosBias -self.trackPosition)
-        --print(self.trackPosBias,self.trackPosition,biasDif)
-        biasDif = biasDif* biasMult  
-    end
-
-    if self.draftPosBias ~= nil and self.draftPosBias ~= 0 then 
-        draftBiasDif = (self.draftPosBias -self.trackPosition)
-    end
-
-    if biasDif ~= 0 and math.abs(self.offTrack) == 0 then -- makes a slower recovery?
-        directionOffset = directionOffset * 1.5 -- 
-        --print(self.tagText,"offtrack slow recovery?",directionOffset)
-    end
-    if self.speed < 2 then 
-        directionOffset = 0
-    end
-    if math.abs(self.offTrack) > 1 then
-        followStren = followStren * 0.2
-    end
-    if self.curGear <=0  then
-        directionOffset = 0
+        --if self.strategicThrottle > -1 then -- COrrect this foo by using offset too?
+        --    self.strategicThrottle = self.strategicThrottle - 0.05
+        --    --print("heading offtrack correction",self.strategicThrottle)
+        --end
     end
     
 
+    local followStren = self.followStrength
+    local directionOffset = self.goalDirectionOffset
+    if self.trackPosBias ~= nil and self.trackPosBias ~= nil then
+        biasDif = (self.trackPosBias -self.trackPosition)
+    end
+
+   
+
+    --if biasDif ~= 0 and math.abs(self.offTrack) == 0 then -- makes a slower recovery?
+    --    directionOffset = directionOffset * 0.1 -- 
+    --    --print(self.tagText,"offtrack slow recovery?",directionOffset)
+    --end
+    if self.speed < 2 then 
+        directionOffset = 0
+    end
+
+    --if self.curGear <=0  then
+    --    directionOffset = 0
+    --end
+    
+
     local goalAngleDif = self.goalDirection
-    local SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset -- VErsion one 
-    local SteerAngle2 = (posAngleDif4(self.location,self.shape.at,goalNodePos) * self.nodeFollowPriority) + 
-                        (biasDif * self.biasFollowPriority ) + (draftBiasDif * self.draftFollowPriority) + (directionOffset * self.passFollowPriority) -- VErsion one 
-    local multiplr = 0.02
-    SteerAngle2 = SteerAngle * multiplr
-    local stratSteer1 = degreesToSteering(SteerAngle) -- */ speed?
+    --local SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/7) + biasDif + directionOffset -- VErsion one 
+    local SteerAngle2 = (posAngleDif4(self.location,self.shape.at,goalNodePos) * self.nodeFollowPriority)-- Other priorities are set in calculategoalOffset
+    --local stratSteer1 = degreesToSteering(SteerAngle) -- */ speed?
     local stratSteer2 = radiansToSteering(SteerAngle2) 
-    self.strategicSteering = stratSteer1
-    --print(self.tagText,"SA",stratSteer1,stratSteer2)
-    --print(self.tagText,"SA",stratSteer1,stratSteer2,biasDif,directionOffset)
+    self.strategicSteering = stratSteer2
+    --print(self.tagText,"SA",stratSteer2)
+    --print(self.tagText,"SA" ,self.trackPosition,self.trackPosBias," ", (biasDif * self.biasFollowPriority ))--stratSteer2)
+
+    --biasDif * self.biasFollowPriority,draftBiasDif * self.draftFollowPriority,directionOffset * self.passFollowPriority, stratSteer2)
 
 end
 
@@ -1709,7 +1721,6 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
         --print("caution mid node not on track")
         if self.passing.isPassing then
             --print("offtrackStuff?")
-            --self:cancelPass()
             self.strategicThrottle = self.strategicThrottle - 0.05
         end
         goalNodePos = self.goalNode.mid
@@ -1948,7 +1959,6 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
         --print("formation node not on track")
         if self.passing.isPassing then
             --print("offtrackStuff?")
-            --self:cancelPass()
             self.strategicThrottle = self.strategicThrottle - 0.05
         end
         goalNodePos = self.goalNode.mid
@@ -2587,11 +2597,11 @@ function Driver.refineBrakeSpeed(self,vMax,segEndNode) -- refines vMax based on 
     -- Track width & position based adjustments
     local tWidth = (segEndNode.width or 10)
     if segEndNode == nil then return vMax end
-    vMax = vMax + tWidth/7.5 -- higher value is more punishment for thinner tracks
+    vMax = vMax + tWidth/7 -- higher value is more punishment for thinner tracks
     
     vMax = vMax - (math.abs(self.trackPosition)/1.5)  -- Adjust max velocity based on closeness to center of track
     
-    if self.passing.isPassing then vMax = vMax +0.5 end -- go a bit slower while passing?
+    if self.passing.isPassing then vMax = vMax +0.8 end -- go a bit slower while passing?
     if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~= 0 then -- slow down when there is car alongside 
         vMax = vMax - 1
     else
@@ -2762,7 +2772,6 @@ end
 function Driver.updateStrategicThrottle(self)
     if self.stuck then return end
     local braking = self:getBraking() -- self:getCollissionBraking
-    --self:debugOutput(1,{"finalBrake",braking})
     local accel = 0
     if braking == 0 then
         accel = self:getAccel()
@@ -2770,40 +2779,9 @@ function Driver.updateStrategicThrottle(self)
         accel = 0
     end
     --print(accel,braking)
-    self.strategicThrottle = accel - braking
-    --print(accel,braking,self.strategicThrottle)
-    --local segID = self.currentNode.segID
-   -- local vMax = calculateMaximumVelocity(self.currentNode,self.mass)
-   -- if self.speed > vMax then 
-   --self.strategicThrottle = -1
-    --else
-    --    self.strategicThrottle = 1
-    --end
-    --print(vMax)
+    self.strategicThrottle = accel - braking + self.colThrottleAdjust
+    --print(self.tagText,"set throt",self.strategicThrottle,self.colThrottleAdjust,self.throttle)
 end
-
-function Driver.updateCautionThrottle(self) -- not necessary I believe
-    if self.stuck then return end
-    local braking = self:getBraking() -- self:getCollissionBraking
-    local accel = 0
-    if braking == 0 then
-        accel = self:getAccel()
-    else
-        accel = 0
-    end
-    --print(accel,braking)
-    self.strategicThrottle = accel - braking
-    --print(accel,braking,self.strategicThrottle)
-    --local segID = self.currentNode.segID
-   -- local vMax = calculateMaximumVelocity(self.currentNode,self.mass)
-   -- if self.speed > vMax then 
-   --self.strategicThrottle = -1
-    --else
-    --    self.strategicThrottle = 1
-    --end
-    --print(vMax)
-end
- 
  
 -- Gearing
 function Driver.updateGearing(self) -- try to calculate the best gear to choose at the time and shift as well
@@ -3033,9 +3011,8 @@ function Driver.processDrafting(self,oppDict)
         return canDraft,draftLane
     end
 
-   if self.carRadar.front and self.carRadar.front < 70 then
-        --print("Radar has something in range",self.carRadar)
-        if (self.carRadar.right and self.carRadar.right <0.2) or (self.carRadar.left and self.carRadar.left > -0.2) then 
+   if self.carRadar.front and (self.carRadar.front < 70 and self.carRadar.front > 1) then
+        if (self.carRadar.right and self.carRadar.right <0.1) or (self.carRadar.left and self.carRadar.left > -0.1) then 
             --print("Radar has car in draft zone LR")
             canDraft = true --TODO: redo this to only set flag for drafting logic func
         else
@@ -3061,17 +3038,28 @@ function Driver.processDrafting(self,oppDict)
 
     for opponentID, opponentData in pairs(oppDict) do
         local oppFlags = opponentData.flags
-        if opponentData.vhDist.vertical and opponentData.vhDist.vertical < 65 and opponentData.vhDist.vertical > 1 then -- In draft range? (globals.draftRange)
+        if opponentData == nil or opponentData.vhDist == nil or opponentData.data.speed == nil then
+            --print("nil something",opponentData.data.speed)
+            break 
+        end-- TODO: instead of using vhDist, use segment/nodeDistance
+        if opponentData.vhDist.vertical and
+            opponentData.vhDist.vertical < 45 and opponentData.vhDist.vertical > 1
+            and math.abs(opponentData.vhDist.horizontal) < self.currentNode.width 
+            
+            then -- In draft range?
             --print(self.tagText,"Draft check",opponentData.vhDist)
-            if opponentData.data.speed > fastestOppSpeed then -- found faster opp
+            if opponentData.data.speed > fastestOppSpeed and self.goalNode.segType == "Straight" and 
+            opponentData.data.goalNode.segID == self.goalNode.segID then -- found faster opp
+                
                 fastestOppSpeed =  opponentData.data.speed
                 fastestOppPos = opponentData.data.trackPosition
                 fastestOpp = opponentID
             end 
-            if opponentData.vhDist.horizontal and (opponentData.vhDist.horizontal < 1 and opponentData.vhDist.horizontal > -1) then -- If overlapping (a little margin)
+            -- TODO: make margin based on car wdith
+            if opponentData.vhDist.horizontal and (opponentData.vhDist.horizontal < 3 and opponentData.vhDist.horizontal > -3) then -- If overlapping (a little margin)
                 oppFlags.drafting = true
                 canDraft = true
-                --print(self.tagText,"hasDraft",canDraft,oppFlags.drafting)
+                --print(self.tagText,"hasDraft",opponentData.vhDist.horizontal)
             else
                 oppFlags.drafting = false
                 canDraft = false
@@ -3081,7 +3069,7 @@ function Driver.processDrafting(self,oppDict)
     end
 
     if fastestOpp ~= nil then -- after fastest opponent found: try to follow
-        --print("FastestOppLane",fastestOpp,fastestOppPos,fastestOppSpeed)
+        --print(self.tagText,"FastestOppLane",fastestOppPos,self.trackPosition)
         -- if fastest opp is > 5 away then draftLane = opp trackpos
         draftLane = fastestOppPos
     end
@@ -3095,55 +3083,60 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     local rearCol = colDict.rearCol
     local leftCol = colDict.leftCol
     local rightCol = colDict.rightCol
-
+    -- TODO: Determine if to do draft offset? track bias offset? pass offset?
     if oppFlags.frontWatch and not oppFlags.pass then -- If car is in front but not too close, 
-        if self.speed - opponent.speed > 5 or opponent.speed < 9 then
+        if self.speed - opponent.speed > 15 or opponent.speed < 10 then
             print(self.tagText,"Approaching front fast",self.speed - opponent.speed)
             -- start moving over slightly for preemptive avoidance
             local passDir = self:checkPassingSpace(opponent)
             if passDir ~= 0 then -- Start moving in that direction
-                local movAdj = passDir * 0.1
-                --colSteer = colSteer + movAdj -- unsure what rio to use here, perhaps use oppDist too>
-                print(self.tagText,"Early Warning moveOver",passDir,movAdj,colSteer)
+                if self.goalNode then 
+                    self.trackPosBias = self.goalNode.width/3 * passDir
+                    self.biasFollowPriority = rampToGoal(1.5,self.biasFollowPriority,0.005)
+                    print(self.tagText,"frontWatch move",passDir,self.trackPosBias)
+                end
             else
                 print(self.tagText,"Early Warning emergency brake",colThrottle)
-                colThrottle = colThrottle - 0.01 -- Still move over??
+                colThrottle = rampToGoal(-1,colThrottle,0.005)
             end
         end
     end
     
     if oppFlags.frontWarning and not oppFlags.pass then -- If car is in front and getting closer (and not already passing)
-        if self.speed - opponent.speed > 4 or opponent.speed < 8 then
+        if self.speed - opponent.speed > 10 or opponent.speed < 10 then
             print(self.tagText,"Warning front fast",self.speed - opponent.speed)
             -- start moving over slightly for preemptive avoidance
             local passDir = self:checkPassingSpace(opponent)
             if passDir ~= 0 then -- Start moving in that direction
-                local movAdj = passDir * 0.2 -- 
-                --colSteer = colSteer + movAdj -- unsure what rio to use here, perhaps use oppDist too>
-                print(self.tagText,"mid Warning moveOver",passDir,movAdj,colSteer)
+                if self.goalNode then 
+                    self.trackPosBias = self.goalNode.width/2.8 * passDir
+                    print(self.tagText,"fronWarning move",passDir,self.passGoalOffsetStrength)
+                end
             else
                 print(self.tagText,"Mid Warning emergency brake",colThrottle)
-                colThrottle = colThrottle - 0.1 -- Still move over??
+                colThrottle = rampToGoal(-1,colThrottle,0.01)
             end
         end
     end
 
     if oppFlags.frontEmergency and not oppFlags.alongSide and not oppFlags.pass then -- If front emergency and opponent is not alongside and not already passing
-        colThrottle = 0.65 - math.abs(opponent.speed/self.speed)  -- REduce speed
-        print(self.tagText,"Close  Emergency Brake!!!",oppFlags.pass)
-    elseif oppFlags.pass then-- If passing
+        colThrottle = rampToGoal(-2,colThrottle,0.1)
+        --print(self.tagText,"Close  Emergency Brake!!!",oppFlags.frontEmergency,colThrottle,self.strategicThrottle)
+    elseif oppFlags.pass and oppFlags.frontEmergency then-- If passing
         -- Check here for speed dif pass cancelation
-        --print(self.tagText,"close emergency pass")
+        print(self.tagText,"close emergency pass cancel",oppFlags.frontEmergency)
+        self:cancelPass()
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-6,2,-0.14,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-7,2,-0.12,0,leftCol) -- Adjust according to distance
+        --print(self.tagText,"leftWarn",leftCol,colSteer)
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/3 -- TODO: use a ratio conversion for this too
         end
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(6,-2,0.14,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(7,-2,0.12,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/3
         end
@@ -3178,25 +3171,28 @@ function Driver.processPassingDetection(self,opponent,oppDict)
     
 
     -- Determine if to cancel pass or not
-    --print(self.tagText,self.passing.isPassing)
+   -- print(self.tagText,self.passing.isPassing)
     if self.passing.isPassing then
-        if self.opponentFlags[self.passing.carID] ~= nil then
+        if oppFlags ~= nil then
             local passCarData = self.opponentFlags[self.passing.carID]
-            if passCarData.vhDist.vertical > 15 or passCarData.vhDist.vertical < -1 then -- If too far or already past
-                if passCarData.pass then
-                    print(self.tagText,"Stopping pass",passCarData.vhDist)
-                    passCarData.pass = false
+            --print(self.tagText,'pp',oppData.vhDist)
+            if oppData.vhDist.vertical >= 15 or oppData.vhDist.vertical < -3 then -- If too far or already past
+                if oppFlags.pass then
+                    print(self.tagText,"Stopping pass",oppData.vhDist)
+                    oppFlags.pass = false
                     self:cancelPass()
                 else
+                    print(self.tagText,"passCar data false",passCarData.pass)
                     self:cancelPass()
                 end
             end
-        else
+        else -- oppData is nil
+            print(self.tagText,"op data nil cancel??")
             self:cancelPass()
         end
     end
 
-    if vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) >=-0.5  and vhDist['vertical'] < 30 then -- if opponent is somewhat close in front
+    if vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) >0  and vhDist['vertical'] < 15 then -- if opponent is somewhat close in front
         --print(self.tagText,"check pass?",self.speed-opponent.speed, self.carRadar.front,vhDist,math.abs(vhDist['horizontal']) <= self.goalNode.width )
         if (self.speed-opponent.speed) > 0.3 then -- If self is approaching apponent
             --print(self.tagText,"approaching",self.speed-opponent.speed,oppFlags.pass,self.passing.isPassing)
@@ -3206,79 +3202,84 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                     --print(self.tagText,"determinen pass Location")
                     local passDirection = self:checkPassingSpace(opponent) -- Check for space to pass
                     if passDirection ~= 0 then -- If theres a direction to pass, assign self the pass and commit to it
+                        --print(self.tagText,"canpass",passDirection)
                         self.passCommit = passDirection
-                        self.goalOffset = self:calculateGoalOffset(oppData,passDirection) -- Calculate lateral movement to pass 
+                        self.passGoalOffsetStrength = self:calculatePassOffset(oppData,passDirection) -- Calculate lateral movement to pass 
                         if (self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)) ~= 0) then -- Uselsess double check TODO: DEPRECIATE/'REMOVE'
                             print(self.tagText,"not closes racer to pass",self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)))
                         end
+                        -- TODO: Wrap this up into a beginPass(opponent.id,passDirection)
                         self.passing.isPassing = true
                         self.passing.carID = opponent.id
                         oppFlags.pass = true -- Maybe make passing function?
-                        print(self.tagText,"SET Passing",self.speed-opponent.speed,vhDist,self.passCommit,oppFlags.pass,self.passing.isPassing)
+                        print(self.tagText,"SET Passing",self.speed-opponent.speed,vhDist,vhDist['vertical'] - (self.frontColDist + opponent.rearColDist))
                     else -- No space to pass, cancel pass (Could go wrong if another car comes in and forces complete cancel, maybe only partial?)
-                        print(self.tagText," no pass dir cancel")
+                        --print(self.tagText," no pass dir cancel")
                         oppFlags.pass = false
                         self:cancelPass()
                     end
                 end -- else: the car is not the closest
             else -- If already passing 
                 local space = self:confirmPassingSpace(opponent,self.passCommit) -- Make sure Passing point is still viable
-                if vhDist.vertical > 30 or vhDist.vertical < -1 then -- Either too far or already passed?
+                --print(self.tagText,space,self.passCommit,oppFlags.pass,self.passing.isPassing)
+                if vhDist.vertical > 15 or vhDist.vertical < -5 then -- Either too far or already passed?
                     if oppFlags.pass then -- This is the proper person to pass
                         print("cancled pass due to ",vhDist.vertical)
                         oppFlags.pass = false
                         self:cancelPass()
                     else
+                        print(self.tagText,"vhdist cancel",vhDist.vertical)
                         if self.passing.isPassing then -- If another person is ther
-                            print("mismatch pass cancel?")
                             --self:cancelPass()
                         end
                     end
                 end
                 if space ~= self.passCommit then -- If the optimal space has changed since initial pass
-                    if vhDist.vertical > 7 then -- If far enough away, cancel the pass
+                    --print(self.tagText,"pass commit changed")
+                    if vhDist.vertical > 14 then -- If far enough away, cancel the pass
                         oppFlags.pass = false
-                        print(self.tagText," Too far cancel")
+                        print(self.tagText,"PC change Too far cancel")
                         self:cancelPass()
                     else -- Too close to cancel?
-                     --print("too late now lol",vhDist.horizontal) -- either keep going or slow down depending on next turn?
+                        --print(self.tagText,"too close to change?",vhDist.horizontal,vhDist.vertical) -- either keep going or slow down depending on next turn?
                         if vhDist.horizontal > -1 or vhDist.horizontal < 1 then -- If directly behind the car (blocked off)
                             if (self.carAlongSide.left ~= 0 and self.carAlongSide.right ~= 0) then -- If there are cars left and rightt
                                 oppFlags.pass = false
                                 self:cancelPass()
                                 print(self.tagText," car alongside cancel")
                             else -- Continue pass
-                             --print("cahrgeAhead")
+                                --self:cancelPass()
+                                --print(self.tagText,"cahrgeAhead")
                             end
                         end
                     end
                 else -- If the space is the same; contineu to pass!
                     --print(self.tagText,'Continueing pass',self.passCommit,vhDist)
-                    self.goalOffset = self:calculateGoalOffset(oppData,self.passCommit)
+                    self.passGoalOffsetStrength = self:calculatePassOffset(oppData,self.passCommit)
                 end
             end
         else -- If not actually approaching this opponent
-            if oppFlags.pass and self.passing.isPassing and self.speed - opponent.speed < -0.3 then
+            if oppFlags.pass and self.passing.isPassing and self.speed - opponent.speed < -0.1 then
                 oppFlags.pass = false
-                print(self.tagText, "Losing ground and speed pass cancel")
+                print(self.tagText, "Losing ground passcancel",self.speed - opponent.speed)
                 self:cancelPass()
             else -- Cancel pass anyways? TODO: can probably remove this
-                --print("cautious continue")
+                --print(self.tagText,"cautious continue")
             end
         end
     else-- If car is somewhat further away Keep eye on car, check speed dif c
-        if (self.speed-opponent.speed) > 4 and vhDist['vertical'] > 0 then --If approaching car rather quickly
+        if (self.speed-opponent.speed) > 2 and vhDist['vertical'] > 3 then --If approaching car rather quickly
             local passDirection = self:calculateClosestPassPoint(opponent)
             if self.raceStatus == 1 then
                 if passDirection ~= 0 then -- This is an emergency pass, execute if possible
                     self.passCommit = passDirection
-                    self.goalOffset = self:calculateGoalOffset(oppData,passDirection)
+                    self.passGoalOffsetStrength = self:calculatePassOffset(oppData,passDirection)
                     print(self.tagText,"Emergency pass",opponent.tagText, self.passCommit,self.speed,opponent.speed,vhDist)
                     self.passing.isPassing = true
                     self.passing.carID = opponent.id
                     oppFlags.pass = true
                 else -- If nowhere to go
-                    print(self.tagText,"Uncertainty???")
+                    print(self.tagText," warning Uncertainty???")
                 end
             end 
         end
@@ -3299,10 +3300,11 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
     local rightCol = colDict.rightCol
     local vhDist = oppDict[opponent.id].vhDist
     
-    
-    if frontCol and frontCol < 50 and frontCol > 10 then -- somewhat close
-        if self.speed - opponent.speed  > 1 then -- moving 1 faster ?
-            if (rightCol and rightCol <0) or (leftCol and leftCol > -0) then -- If overlapping
+    --print(self.tagText,frontCol,leftCol,rightCol)
+    --TODO: chagne to oponend width along with 5 padding?
+    if frontCol and frontCol < 50 and frontCol > -20 then -- somewhat close
+        if self.speed - opponent.speed  > 0 then -- moving 1 faster ?
+            if (rightCol and rightCol <=5) or (leftCol and leftCol > -5) then -- If overlapping
                 oppFlags.frontWatch = true
             else
                 oppFlags.frontWatch = false
@@ -3313,14 +3315,15 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
     else
         oppFlags.frontWatch = false
     end
+    --print(frontCol)
 
-    if frontCol and frontCol <= 20 then -- even closer, check for passing
-        if self.speed - opponent.speed > 0.2 then -- if approaching 
-            if (rightCol and rightCol <0) or (leftCol and leftCol > -0) then -- If overlapping, Makke separate flag?
-                local catchDist = self.speed * vhDist['vertical']/(self.speed-opponent.speed) -- vertical dist *should* be positive and
-                local brakeDist = getBrakingDistance(self.speed*2,self.mass,self.engine.engineStats.MAX_BRAKE/2,opponent.speed) * 2.5 -- dampening? make variable
-                --print("catchDist",catchDist-brakeDist) --TODO: Check this??
-                if catchDist - brakeDist < 18 and catchDist - brakeDist >0 then -- and greater than 0?
+    if frontCol and frontCol <= 20 and frontCol > 2 then -- if close but not overlapping
+        if self.speed - opponent.speed > 0 then -- if approaching 
+            if (rightCol and rightCol <3) or (leftCol and leftCol > -3) then -- If overlapping, Makke separate flag?
+                local catchTime = frontCol/(self.speed - opponent.speed) --TODO: FIgure this out a better way
+                local brakeDist = getBrakingDistance(self.speed,self.mass,self.engine.engineStats.MAX_BRAKE,opponent.speed-3) -- dampening? make variable
+                --print(self.tagText,"catchTime",self.speed - opponent.speed) --TODO: Check this??
+                if self.speed - opponent.speed > 0.4 then -- and greater than 0?
                     oppFlags.frontWarning = true -- check for passing
                 else
                     oppFlags.frontWarning = false
@@ -3335,16 +3338,23 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
         oppFlags.frontWarning = false
     end
     
-    if frontCol and frontCol < 2.9 then -- if real close use 0?
-        if (rightCol and rightCol <0) or (leftCol and leftCol > 0) then -- If overlapping
-            --print(self.tagText,"FrontEmerg",frontCol,self.passing)
-            oppFlags.frontEmergency = true
+    if frontCol and (frontCol <= 2 and frontCol > -2)  then -- if car is slightly overlapping but not directly alongside
+        if (rightCol and rightCol <0.05) or (leftCol and leftCol > -.05) then -- If really close but not alongside
+            if not oppFlags.frontEmergency then
+                print(self.tagText,"FrontEmerg",frontCol,leftCol,rightCol)
+                oppFlags.frontEmergency = true
+            end
         else
-            oppFlags.frontEmergency = false -- good idea??
+            if oppFlags.frontEmergency then -- toggle off
+                print(self.tagText,"Not intersecting Emergency cancel",frontCol,leftCol,rightCol)
+                oppFlags.frontEmergency = false
+            end
         end
     else
-        oppFlags.frontEmergency = false
-
+        if oppFlags.frontEmergency then -- toggle off
+            print(self.tagText,"Ahead/Behind emergency cancel",frontCol,leftCol,rightCol)
+            oppFlags.frontEmergency = false
+        end
     end
 
     if rearCol and rearCol < -2 then
@@ -3514,6 +3524,7 @@ function Driver.updateLocalRadar(self,opponent,oppDict)
 end
 
 -- Updating methods (layers and awhat not) -- Server
+
 function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local radar update and pass determination)
     if self.carData == nil then return end -- not scanned
     --print(self.carData.carDimensions)
@@ -3532,8 +3543,9 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
         return 
     end
     -- GEnerate Flag structure
-    local colThrottle = self.strategicThrottle
-    local colSteer = self.strategicSteering
+    local colThrottleIncrement = self.colThrottleAdjust
+    local throtAdjusted = false -- Flag to determine if throggle was adjusted at all
+    local colSteer = 0--self.strategicSteering
     local passSteer = 0 -- add on to colSteer
     local oppDict = (self.oppDict or {})
     if self.oppDict == nil then  
@@ -3593,10 +3605,15 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
         end
 
         self:processPassingDetection(opponent,oppDict) -- Determines whether to pass nearest opponent or not
-        local colSteerP,colThrottleP = self:processOppFlags(opponent,oppDict,colDict,colSteer,colThrottle) -- Determines what to do with the rest of them 
+        local colSteerP,colThrottleAdj = self:processOppFlags(opponent,oppDict,colDict,colSteer,colThrottleIncrement) -- Determines what to do with the rest of them 
         colSteer = colSteer + colSteerP
-        if colThrottleP < colThrottle then 
-            colThrottle = colThrottleP   -- Focus on the slowest
+        if colThrottleAdj < self.colThrottleAdjust then 
+            self.colThrottleAdjust = colThrottleAdj   -- sets increment to be lowest adjustment
+            throtAdjusted = true
+        else
+            if colThrottleAdj == 0 then -- no slowing down adjusments found
+                
+            end
         end
 
         -- TODO: ADD YELLOW FLAGS Stopped cars will add global yellow flags with segID and trackPos/trackBias
@@ -3605,15 +3622,19 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
     local canDraft, draftLane = self:processDrafting(oppDict)
     self.drafting = canDraft
     --print(self.tagText,self.drafting)
+    if not throtAdjusted and self.colThrottleAdjust < 0 then
+        --print("stop throt adjust",self.colThrottleAdjust)
+        self.colThrottleAdjust = 0
+    end
     if canDraft then
             --print(self.tagText,self.drafting)
     end
-    if draftLane ~= nil then
-        --print("Set draft lane?",draftLane)
-        self.draftPosBias = draftLane
-        self.draftFollowPriority = 1 -- or more?
+    
+    if draftLane ~= nil then -- TODO: Finish when new algo discovered
+        --print(self.tagText,"Set draft lane?",draftLane,self.trackPosition)
+        --self.draftPosBias = rampToGoal(draftLane,self.draftPosBias,0.001)
     else 
-        self.draftFollowPriority = 0
+        --self.draftPosBias = rampToGoal(0,self.draftPosBias,0.01)
     end
 
     -- set Alongside flags
@@ -3627,18 +3648,25 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
     else
         self.carAlongSide.right = 0
     end
-
-    self.strategicThrottle = colThrottle -- ONly take the smallest colThrottle value,   Or return to add priority and "input" to endState throttle and steering
-    self.strategicSteering = self.strategicSteering + colSteer
+    --self.strategicThrottle = colThrottle 
+    self.strategicSteering = self.strategicSteering + colSteer -- need to adjust this
     self.opponentFlags = oppDict
 end
 
 -- Passing functionality
 function Driver.cancelPass(self) -- cancels passing
+    local passCarData = self.oppDict[self.passing.carID]
+    if passCarData == nil then
+        print("no passcarData")
+    else -- TODO: remove the external passcar data flag stuff
+        passCarData.flags.pass = false
+    end
+    --print(self.tagText,"canclel pass called")
     self.passing.isPassing = false
     self.passing.carID = nil
     self.goalOffset = nil
     self.passCommit = 0 
+    self.passGoalOffsetStrength = 0
 end
 
 function Driver.checkPassingSpace(self,opponent) -- calculates the best direction to pass -1 = left, 1 = right, 0 = nope.. bigger numbers will represent confidence level
@@ -4014,65 +4042,81 @@ function Driver.confirmPassingSpace(self,opponent,dir) -- checks if the previus 
     return passDir
 end
 
-function Driver.calculateGoalOffset(self,opponentD,dir) -- calculates goal node offset needed to get around opp
+function Driver.calculatePassOffset(self,opponentD,dir) -- calculates strenght of pass offset
     if self.goalNode == nil then return end
     if self.goalNode.width == nil then return end
     local opponent = opponentD.data
     local oppWidth = (opponent.leftColDist + opponent.rightColDist)
     local selfWidth = self.leftColDist + self.rightColDist
     local speedDif = self.speed - opponent.speed
-    if speedDif < 4 then 
-        speedDif = 4
+    if speedDif < 2 then 
+        speedDif = 2
     elseif speedDif > 20 then
         speedDif = 20
     end
     local goalTrackPos = getNodeVHDist(self.goalNode,self.goalNode).horizontal
-    local desiredTrackPos = opponent.trackPosition + dir * (oppWidth + selfWidth/2)
+    local desiredTrackPos = opponent.trackPosition + (dir * (oppWidth + selfWidth/1.5))
 
     local strength = 0 
-    --print("o[pp",opponentD.vhDist)
+    --print(self.tagText,"o[pp",opponentD.vhDist)
     local distFromOpp = opponentD.vhDist.vertical
-    if distFromOpp < 12 then -- this is generally too close
-        distFromOpp = distFromOpp/1.5
+    if distFromOpp < 7 then -- the closer the distance is, the higher the pass strength ramp is (could do exponential)
+        distFromOpp = distFromOpp/1.6
     end
-    if distFromOpp <= 2 then
-        distFromOpp = 1
+    if distFromOpp <= 3 then
+        distFromOpp = 0.1
     end
 
-    if math.abs(desiredTrackPos) < self.goalNode.width/2.2 then
-        --print("Pos on track")
-        strength = (speedDif/1.2) + math.abs(goalTrackPos-desiredTrackPos)/(distFromOpp)  -- convert by distance away from opp
+    if math.abs(desiredTrackPos) < self.goalNode.width/2 then -- As long as pass pos is within track width
+        strength = (speedDif) + math.abs(goalTrackPos-desiredTrackPos)/(distFromOpp)  -- convert by distance away from opp
+        --print(self.tagText,"Pos on track",speedDif,math.abs(goalTrackPos-desiredTrackPos),distFromOpp)
+
     else
         --print("Out of bounds look",desiredTrackPos,self.goalNode.width/2.1,self.trackPosition)
         strength = 2 -- todo: look at how to properly adjust this
         --self:cancelPass() -- remove flag?
     end
-    local shiftDir = self.goalNode.perp * (dir * strength)
-    --print(self.tagText,"strength",speedDif,distFromOpp,strength)
-
-    return shiftDir
+    local passOffsetStrength = (dir * strength)
+    --print(self.tagText,"pass Stren",dir,strength,passOffsetStrength)
+    return passOffsetStrength
 end
 
-function Driver.calculatePassOffset(self,opponent,direction,oppLoc) --DEPRECIATING TODO: Remove
-    local turnAngle = 0
-    local frontDist = oppLoc.vertical
-    local sideDist = oppLoc.horizontal
-    if direction == 1 then
-        turnAngle = ratioConversion(30,5,0.2,0,frontDist) * 1  -- Convert x to a ratio from a,b to  c,d
-        if sideDist <= -2 and frontDist < 8 then -- or 0?
-            --print("preFilter",turnAngle)
-            turnAngle = turnAngle/math.abs(sideDist-1)
+function Driver.calculateTrackPosBiasStrength(self)
+    local biasDif = 0
+    if self.trackPosition ~= nil then -- we have a location, 
+        if self.trackPosBias == nil then -- we dont have a desired location
+            self.trackPosBias = 0 
         end
-    elseif direction == -1 then
-        turnAngle = ratioConversion(30,5,0.2,0,frontDist)  * -1 -- Convert x to a ratio from a,b to  c,d
-        if sideDist >= 1 and frontDist < 8 then -- or 0?
-            --print("preFilter",turnAngle)
-            turnAngle = turnAngle/math.abs(-sideDist-1)
-        end
+        -- TODO: discover if lerp can go here to prevent rapid cutting??
     end
-    
-    --print("passOffset",direction,frontDist,sideDist,turnAngle)
-    return turnAngle
+    if self.trackPosition ~= nil and self.trackPosBias ~= 0 then -- 0 is just node.mid, use that instead? or TODO: change setting of 0 to nil
+        biasDif = (self.trackPosBias - self.trackPosition)
+    end
+    self.biasGoalOffsetStrength = biasDif
+end
+
+function Driver.calculateDraftPosBiasStrength(self)
+    local biasDif = 0
+    if self.trackPosition ~= nil then -- we have a location, 
+        if self.draftPosBias == nil then -- we dont have a desired location
+            self.draftPosBias = 0 
+        end
+        -- TODO: discover if lerp can go here to prevent rapid cutting??
+    end
+    if self.trackPosition ~= nil and self.draftPosBias ~= 0 then -- 0 is just node.mid, use that instead? or TODO: change setting of 0 to nil
+        biasDif = (self.draftPosBias - self.trackPosition)
+    end
+    self.draftGoalOffsetStrength = biasDif
+    if biasDif ~=0 then
+        --print(self.tagText,"set draft biasDif",self.draftGoalOffsetStrength)
+    end
+end
+
+function Driver.calculateGoalOffset(self) -- calculates goal node offset ( combination of pass, trackpos, draft goal biases)
+    local totalOffset = (self.passGoalOffsetStrength * self.passFollowPriority) + (self.biasGoalOffsetStrength * self.biasFollowPriority) + (self.draftGoalOffsetStrength + self.draftFollowPriority)
+    -- print(self.tagText,self.passGoalOffsetStrength,self.passFollowPriority)
+    self.goalOffset = self.goalNode.perp * totalOffset
+    return self.goalOffset
 end
 
 function Driver.calculateFutureTurn(self) -- calculate future turns
@@ -4158,20 +4202,26 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 		sm.physics.applyImpulse( self.shape.body, stopDir,true,offset)
     end
     -- Check oversteer and understeer
+    --print(self.goalDirectionOffset,math.pi/8)
     if self.oversteer and self.goalNode then
         local offset = self.goalDirectionOffset
         self.rotationCorrect = true
        --print(self.id,"oversteer correct",offset,self.speed, self.strategicThrottle)
         --self.pathGoal = "mid"
         if self.strategicThrottle >= 0 then  
-            self.strategicThrottle = self.strategicThrottle - 0.1 -- begin coast
+            --self.strategicThrottle = self.strategicThrottle - 0.1 -- begin coast
             -- reduce steering?
-            if math.abs(offset) > 14 or self.speed > 23 then
-                --print(self.speed)
-                self.strategicThrottle = ratioConversion(10,35,0.9,1,self.speed) -- Convert x to a ratio from a,b to  c,d
-                print("ovrsteer overspeed thrott",self.speed,self.strategicThrottle)
+            --print("osset",offset)
+            if math.abs(offset) > math.pi/8.5 then
+                self.strategicThrottle = rampToGoal(0, self.strategicThrottle,0.01)
+                --print("ovrsteer losing contol",offset,self.speed,self.strategicThrottle)
+
+            elseif self.speed >= 20 then
+                self.strategicThrottle = rampToGoal(0, self.strategicThrottle,0.02)
+                --print("oversteer high speed adj",offset,self.speed,self.strategicThrottle)
             else
                 self.strategicThrottle =self.strategicThrottle -0.01 -- coast
+
             end
         end
     end
@@ -4328,12 +4378,12 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 
         if hit then
             dist = getDistance(self.location,data.pointWorld) 
-            print("stuck hit dis",dist)
+            --print("stuck hit dis",dist)
         end
             
         if self.rejoining then -- Car is approved and rejoining, check different things
             if self.curGear == -1 then -- If reversing
-                print("CurReverse attemptReverse")
+                --print("CurReverse attemptReverse")
                 if  toVelocity(self.engine.curRPM) < -9 and self.speed <= math.abs(toVelocity(self.engine.curRPM)) -1 then --math.abs(toVelocity(self.engine.curRPM)) -1
                     if self.speed <= 1 then
                         --print("reverse stuck",toVelocity(self.engine.curRPM),self.speed)
@@ -4395,6 +4445,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                             local curentSide = self:getCurrentSide()
                             --print("Rejoining backwards",self.trackPosition,curentSide)
                             self.trackPosBias = curentSide
+                            print(self.tagText,"REjoining on side",curentSide)
                         else
                             self.strategicThrottle = -1
                         end
@@ -4404,11 +4455,11 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                 --print(self.tagText,"rejoining",offset,dist,self.speed,maxSpeed,self.engine.curRPM,self.strategicThrottle)
                 
                 
-                if (self.speed >= maxSpeed - 5 and toVelocity(self.engine.curRPM) >= maxSpeed - 5 and self.offTrack == 0) or (self.curGear >=5 and self.offTrack == 0) then
+                if (self.speed >= maxSpeed - 10 and toVelocity(self.engine.curRPM) >= maxSpeed - 10 and self.offTrack == 0) or (self.curGear >=3 and self.offTrack == 0) then
                     self.rejoining = false
                     self.stuck = false
                     self.pathGoal = "location"
-                    self.trackPosBias = 0
+                    self.trackPosBias = nil
                     self.stuckTimeout = 0
                     print(self.tagText,"rejoin done",self.offTrack,self.stuckTimeout)
                 end
@@ -4425,8 +4476,10 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 
         else -- start rejoin process (only if car has tried going forward)
             if self.engine.curRPM > 1 and self.curGear >=0 then
-                print("slowing to strt reverse",self.engine.curRPM,self.curGear)
+                --print("slowing to strt reverse",self.engine.curRPM,self.curGear)
                 self.strategicThrottle = -1
+                self:shiftGear(0)
+
                 -- THIS IS TOO SLOW, Need to get things going faster
             else -- Check for clear entry point then reverse
 
@@ -4451,7 +4504,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     
     -- Check Offtrack
     if self.offTrack ~= 0 and not self.userControl then
-        print(self.id,"offtrack",self.offTrack)
+        --print(self.tagText,"offtrack",self.offTrack)
         if self.speed < 15 then -- speed rejoin
             self.strategicSteering = self.strategicSteering --+ self.offTrack/90 --? when at high speeds adjust to future turn better?
             --print(self.id,"offtrack correction", print(self.id,"offtrack",self.goalDirectionOffset))
@@ -4487,7 +4540,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                         end
                         self.goalOffsetCorrecting = true
                     end -- Else if speed < 7 then keep throttle at 0 or low power
-                    print(self.tagText,"Spinout??",self.goalDirectionOffset,self.strategicThrottle,self.speed)
+                    --print(self.tagText,"Spinout??",self.goalDirectionOffset,self.strategicThrottle,self.speed)
                     self.goalOffsetCorrecting = true
                 else
                     if self.goalOffsetCorrecting then 
@@ -4635,7 +4688,6 @@ end
 
 function Driver.calculateGoalDirection(self) -- calculates general direciton car should try to go
     if self.currentNode == nil then
-        print("StraightCur node")
         return self.shape.at 
     end -- maybe instead of at, use goalNode?
 
@@ -4790,25 +4842,34 @@ function Driver.calculateNodeFollowStrength(self) -- Calculates strength of node
 end
 
 -- TODO: Do ALL follow priority logic here
-function Driver.calculateNodeFollowPriority(self) -- Calculates strength of node to follow (loose on straights, tight on turns?) INVERSEa
+function Driver.calculatePriorities(self) -- calculates steering priorities for nodeFollowiu
     if self.goalNode == nil then return 0 end
     if self.currentNode == nil then return 0 end 
     local segLen = self:getSegmentLength(self.goalNode.segID)
     -- TODO: get RampStatus (z ><0.1?)
-    
     if self.goalNode.segType == "Straight" then
         if self.passing.isPassing then -- Get even looser while passing
-            self.nodeFollowPriority = 0.05
-        else -- just regular straight
-            self.nodeFollowPriority = 0.1
+            self.passFollowPriority = rampToGoal(1.1,self.nodeFollowPriority,0.005)
+            self.nodeFollowPriority = rampToGoal(0.6,self.nodeFollowPriority,0.01)
+            self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
+
+        else -- Increase node following and draft following priority
+            self.passFollowPriority = rampToGoal(0,self.nodeFollowPriority,0.001)
+            self.draftFollowPriority = rampToGoal(0.1,self.draftFollowPriority,0.001)
+            self.nodeFollowPriority = rampToGoal(0.3,self.nodeFollowPriority,0.01)
         end
     else -- If turning: tighten priority
+        self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
         if self.passing.isPassing then -- Get looser while passing
-            self.nodeFollowPriority = 0.8
+            self.passFollowPriority = rampToGoal(1.2,self.nodeFollowPriority,0.01)
+            self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.007)
         else -- tighten turn
-            self.nodeFollowPriority = 0.9
+            self.passFollowPriority = rampToGoal(0.0,self.nodeFollowPriority,0.01)
+            self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.01)
+            self.nodeFollowPriority = rampToGoal(0.6,self.nodeFollowPriority,0.007)
         end
     end 
+
 end
 
 function Driver.calculateTrackPosBiasTurn(self) --[Unused] tries to make more efficient apex for attacking/defending Uses steering
@@ -5282,8 +5343,8 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     end
     
     if self.speed > 2 and not self.noEngineError and not self.carData['Downforce'] then -- Standard downforce (Also specify for Stock cars only?)
-        local maxForce = -1500
-        local minForce = -500
+        local maxForce = -1200
+        local minForce = -800
         local offset = 0.05 -- offset towards/from front to push down
         local bankAdjust = 0
         if self.goalNode then
@@ -5386,9 +5447,11 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     self.goalDirection = self:calculateGoalDirection()
 
     self.goalDirectionOffset = self:calculateGoalDirOffset()
-
+    
     self.followStrength = self:calculateNodeFollowStrength()
-    self:calculateNodeFollowPriority()
+    self:calculateTrackPosBiasStrength() -- sets self.biasGoalOffsetStrength
+    self:calculateDraftPosBiasStrength() -- sets self.draftGoalOffsetStrength
+    self:calculatePriorities()
     --self.trackPosBias = self:calculateTrackPosBiasTurn()
     self.angularSpeed = self.angularVelocity:length() -- Moving here so we only need to calculate once
     self.mass = self.body.mass -- possibly not need
@@ -5474,13 +5537,13 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
         if not self.noEngineError and self.currentNode ~= nil then
             self:updateStrategicThrottle()
         end
+        --print(self.tagText,"post UST",self.strategicThrottle)
     else
         self:updateNearestNode() -- TODO: Fix this...
         self.speedControl = 0
     end
 
 end
-
 
 function Driver.parseParents( self ) --  [server]TODO: have a client side toggle as well! or it at least update client side data too
     --print("Parsing Parents")
@@ -5537,7 +5600,6 @@ function Driver.parseParents( self ) --  [server]TODO: have a client side toggle
 	
 end
 
-
 function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client too!
     --print(self.id,self.location.z)
     -- First check if driver has seat connectd
@@ -5591,7 +5653,7 @@ function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client t
             self:updateStrategicLayer() -- intermitent?
             -- only run if everything valid?
             self:updateErrorLayer()
-
+            --print(self.tagText,"POST UEL",self.strategicThrottle)
             -- Read character layer here?
             --print(self.racing,self.curGear,self.strategicThrottle,self.curVRPM)
             if self.racing == false and not self.userControl then
@@ -5634,8 +5696,6 @@ function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client t
     
     self.lastClientUpdateTime = CLOCK() -- 
 end
-
-
 
 function Driver.client_onUpdate(self,timeStep) -- lag test
     
@@ -5854,8 +5914,9 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
     local rpos = string.format("%d",self.racePosition)
     local cpos = string.format("%d",self.formationPos)
     local df = string.format("%d",(self.carData['Downforce'] or 0)) -- cl
+    local draftStatus = tostring(self.drafting) -- cl
     local mass = string.format("%d",self.mass) -- cl
-    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..df)
+    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..draftStatus)
     --print(self.shape.worldPosition.z-self.location.z)
     --print(self.shape.right,)
     for j=0, #self.effectsList do local effectD = self.effectsList[j] -- separate out to movable/unmovable fx

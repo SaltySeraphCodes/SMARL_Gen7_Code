@@ -1622,7 +1622,7 @@ function Generator.iterateScan(self)
     --- Check if circut is completed
     local distanceFromStart = getDistance(self.nodeChain[1].pos,newNode.pos)
     --print(distanceFromStart)
-    if distanceFromStart < self.scanSpeed + 1 and self.scanClock > 3 then -- 1is padding just in case?
+    if distanceFromStart < self.scanSpeed + 3 and self.scanClock > 3 then -- 1is padding just in case?
         local firstNode = self.nodeChain[1]
         newNode.next = firstNode -- link back to begining
         newNode.outVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos)

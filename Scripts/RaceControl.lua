@@ -556,6 +556,7 @@ function Control.sv_resetCar(self) -- resetc acar timer
 end
 
 function Control.sv_setHandicaps(self)
+    --print('hc')
     local allDrivers = getAllDrivers()
     local firstNode = 0
     local firtstPlace = nil
@@ -576,7 +577,7 @@ function Control.sv_setHandicaps(self)
         --self:sv_sendCommand({car = driver.id, type="handicap", value=handiCap) honesty unecessary...
         if handicap == nil then handicap = 1 end
         driver.handicap = handicap * self.handiCapMultiplier
-            
+        --print(driver.handicap,self.handiCapMultiplier )
         
     end
 end
@@ -727,6 +728,7 @@ function Control.sv_changeHandiCap(self,ammount) -- changes the game time by amm
     else
         self.handiCapMultiplier = self.handiCapMultiplier + ammount
     end
+    --print("change handimul",self.handiCapMultiplier)
     self.network:setClientData(self.handiCapMultiplier) -- send tagetLaps to clients
 end
 
@@ -1638,7 +1640,7 @@ function Control.sv_ReadQualJson(self)
         print("Got error reading qualifying JSON") -- try again?
         return nil
     else
-        print("Got Qual data",data)
+        print("Got Qual data",#data)
         -- send data to cars
         if data == nil then
             print("qualifying data not found")

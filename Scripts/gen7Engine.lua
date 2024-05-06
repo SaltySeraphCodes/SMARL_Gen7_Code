@@ -236,6 +236,10 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
             local maxAccel = self:getGearAccel(self.curGear) + ((self.driver.handicap or 1)/2000) -- small acceleration boos too
             --print(self.driver.id,self.driver.handiCap,self.driver.handicap/70)
             rpmIncrement = ratioConversion(0,1,maxAccel,0,self.accelInput) --+ (self.driver.handicap/200) -- TODO: replace 70 with max handicap
+        
+        elseif self.curGear == 0 then -- zero gear, stop engine
+            return 0
+        
         else -- If reversing
             if self.curRPM > -300 and not self.driver.userControl then -- if rpm is too high positive, may need to adjust/fix
                 rpmIncrement = -ratioConversion(0,1,self.engineStats.MAX_ACCEL,0,self.accelInput) -- adjust rpmIncrement by throttleInput
@@ -252,7 +256,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
         if self.curRPM > 10 then
             rpmIncrement = ratioConversion(0,-1,-self.engineStats.MAX_BRAKE,0,self.accelInput)
             if self.shape:getVelocity():length() < 1 then
-                print("Reverse speed boost")
+                --print("Reverse speed boost")
                 rpmIncrement = -10
             end
             --print("rpmInc",rpmIncrement)
@@ -276,14 +280,14 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
 -- Drafting handling
 
     local draftTS = 0 -- * global.draftStrengthHow much to increase the top speed by ()
-    if self.driver.drafting and self.accelInput >= 0.8 then -- only work while accelerating, can get in the way of brakes
-        draftTS = 0.3 -- * draftStrength
-        rpmIncrement = rpmIncrement + 0.0002 -- * global.draftStrength
+    if self.driver.drafting and self.accelInput >= 0.9 then -- only work while accelerating, can get in the way of brakes
+        draftTS = 5 -- * draftStrength --TODO: add draft strength UI var in RaceControl
+        rpmIncrement = rpmIncrement + 0.00015 -- * global.draftStrength
     end
     -- handicap handing
     local handiTS = 0
     --print(self.driver.id,self.driver.handiCap)
-    handiTS = (self.driver.handicap or 1)/25
+    handiTS = (self.driver.handicap or 1)/24
     --print(self.driver.id,handiTS)
 
     --print(self.curRPM,rpmIncrement)
@@ -303,31 +307,32 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     --print(self.driver.id,self.driver.handicap,handiTS,draftTS,self.driver.drafting)
 
     -- hard limiter checcks in case of error
-    if nextRPM >= (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS then --TODO: improve drafting cutoff
+    if nextRPM >= (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS and rpmIncrement > 0 then -- If car has reached what should be allowed
         if self.driver.drafting then -- and drafting enabled...
-            --print(self.driver.id,"draftinhg",handiTS,draftTS)
-            nextRPM =nextRPM - 0.1 -- or jjust reduce acceleration to 0
-            if nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS ) +  7 then
-                nextRPM =nextRPM - 0.25
+            --print(self.driver.tagText,"drafting lim reach",nextRPM)
+            nextRPM =nextRPM - (rpmIncrement*1.05)
+            if nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS ) +  5 then -- if over by 5 then increase reduction
+                nextRPM =nextRPM - (rpmIncrement*1.1)
             end
-        elseif self.driver.passing.isPassing then
-            --print(self.driver.id,"passing",nextRPM)
-            nextRPM =nextRPM - 0.25
-        elseif nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS +  handiTS) + 7 then
-            --print(self.driver.id,"elsifa",nextRPM,draftTS,handiTS+1)
-            nextRPM = nextRPM - 0.3
-        else
-            --print(self.driver.id,"else",nextRPM)
-            nextRPM = (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS
+        elseif self.driver.passing.isPassing then -- if driver is passing
+            --print(self.driver.tagText,"Passing lim reach",nextRPM)
+            nextRPM =nextRPM - (rpmIncrement*1.02)
+        elseif nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS +  handiTS) + 5 then -- if generally over speed by 5 then increase reduction
+            nextRPM = nextRPM -  (rpmIncrement*1.1)
+        else -- not drafting or passing ( just cooling down from it)
+            --nextRPM = (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS --old code, hard set
+            nextRPM =nextRPM - (rpmIncrement*1.05) -- could be bad for engines with high acceleration...
+            --print(self.driver.tagText,"General Limit reached",nextRPM,rpmIncrement)
         end
     elseif  nextRPM <= -40 then --(-self.engineStats.MAX_SPEED or -ENGINE_SPEED_LIMIT) then -- Shouldnt go anywhere near this while reversing
         nextRPM = -40 --(-self.engineStats.MAX_SPEED or -ENGINE_SPEED_LIMIT)
     end
     --print(self.driver.id,nextRPM,draftTS,handiTS)
     -- failsafe engine limiter
-    if nextRPM > (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 10 then
-        --print("Engine Limit Reached",nextRPM)
-        nextRPM = (self.engineStats.MAX_SPEED + draftTS + handiTS + 10 or nextRPM - 5) -- may cause issues
+    if nextRPM > (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 10 then -- General overspeed
+        --print(self.driver.tagText,"Engine Limit Reached",nextRPM)
+        --nextRPM = (self.engineStats.MAX_SPEED + draftTS + handiTS +7  or nextRPM - 0.5) -- old
+        nextRPM =nextRPM -  (rpmIncrement*1.5)
     end
     --print(self.driver.tagText,"rp:",nextRPM,self.engineStats.MAX_SPEED,draftTS,handiTS,(self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 10)
     return nextRPM
