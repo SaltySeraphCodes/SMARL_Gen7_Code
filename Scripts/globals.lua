@@ -292,7 +292,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
     local searchDistance = 0 -- how far away to search
     
     --print("getting nearest node",approxRow,approxCol)
-    local searchLimit = 50
+    local searchLimit = 150
     local possibleRow = nodeMap[approxRow]
     if possibleRow ~= nil then
         local possibleCol = nodeMap[approxRow][approxCol]

@@ -321,7 +321,7 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = true
+    self.debug = false
 
 
     -- errorTimeouts
@@ -1434,12 +1434,12 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
                self.lost = false
                self.nodeFindTimeout = 0
                self.strategicThrottle = 1
-               print("set throttle 1 0-")
+               --print("set throttle 1 0-")
             else
                 --print("found node")
                 self.nodeFindTimeout = 0
                 self.strategicThrottle = 1
-                print("set throttle 1 1-")
+                --print("set throttle 1 1-")
             end
         end
 
@@ -3091,17 +3091,17 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     -- TODO: Determine if to do draft offset? track bias offset? pass offset?
     if oppFlags.frontWatch and not oppFlags.pass then -- If car is in front but not too close, 
         if self.speed - opponent.speed > 15 or opponent.speed < 10 then
-            print(self.tagText,"Approaching front fast",self.speed - opponent.speed)
+            --print(self.tagText,"Approaching front fast",self.speed - opponent.speed)
             -- start moving over slightly for preemptive avoidance
             local passDir = self:checkPassingSpace(opponent)
             if passDir ~= 0 then -- Start moving in that direction
                 if self.goalNode then 
                     self.trackPosBias = self.goalNode.width/3 * passDir
                     self.biasFollowPriority = rampToGoal(1.5,self.biasFollowPriority,0.005)
-                    print(self.tagText,"frontWatch move",passDir,self.trackPosBias)
+                    --print(self.tagText,"frontWatch move",passDir,self.trackPosBias)
                 end
             else
-                print(self.tagText,"Early Warning emergency brake",colThrottle)
+                --print(self.tagText,"Early Warning emergency brake",colThrottle)
                 colThrottle = rampToGoal(-1,colThrottle,0.005)
             end
         end
@@ -3118,7 +3118,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
                     --print(self.tagText,"fronWarning move",passDir,self.passGoalOffsetStrength)
                 end
             else
-                print(self.tagText,"Mid Warning emergency brake",colThrottle)
+                --print(self.tagText,"Mid Warning emergency brake",colThrottle)
                 colThrottle = rampToGoal(-1,colThrottle,0.01)
             end
         end
@@ -3136,7 +3136,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-6,1,-0.075,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-8,1,-0.09,0,leftCol) -- Adjust according to distance
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/2 -- TODO: use a ratio conversion for this too
         end
@@ -3145,7 +3145,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(6,-1,0.075,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(8,-1,0.09,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/2
         end
@@ -3155,11 +3155,11 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftEmergency then -- if opponent is too close
-        colSteerL = colSteerL +ratioConversion(-1,1,-0.05,0,leftCol)
+        colSteerL = colSteerL +ratioConversion(-1,1,-0.06,0,leftCol)
         --print(self.tagText,"leftE",colSteerL,leftCol)
     end
     if oppFlags.rightEmergency then -- if opponent is too close
-        colSteerR = colSteerR +ratioConversion(1,-1,0.05,0,rightCol) -- Adjust according to distance
+        colSteerR = colSteerR +ratioConversion(1,-1,0.06,0,rightCol) -- Adjust according to distance
         --print(self.tagText,"rightE",colSteerR,rightCol)
     end
    
@@ -3188,7 +3188,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
     if self.passing.isPassing and self.passing.carID == opponent.id then -- only check if car matches
         if oppFlags ~= nil then
             --local passCarData = self.opponentFlags[self.passing.carID] -- data that the car 
-            if oppData.vhDist.vertical >= 15 or oppData.vhDist.vertical < -3 then -- If too far or already past
+            if oppData.vhDist.vertical >= 15 or oppData.vhDist.vertical < -5 then -- If too far or already past
                 if oppFlags.pass then
                     --print(self.tagText,"Stopping pass",oppData.vhDist)
                     oppFlags.pass = false
@@ -3438,7 +3438,7 @@ function Driver.generateOpponent(self,opponent,oppDict)
     end
     if vhDist['vertical'] < 100 or vhDist['vertical'] > -25 then -- TODO: Look at efficient params for determining if in range
         if oppDict[opponent.id] == nil then
-            print(self.tagText,"gen new opp in",opponent.tagText)
+            --print(self.tagText,"gen new opp in",opponent.tagText)
             oppDict[opponent.id] ={data = opponent, inRange = true,  vhDist = {}, oppWidth = oppWidth, flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
                                         alongSide = false, leftWarning = false,rightWarning = false,leftEmergency = false,rightEmergency = false,
                                         pass = false, letPass = false, drafting = false}               
@@ -4903,8 +4903,8 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         end
     end 
 
-    if self.goalOffsetCorrecting or self.rotationCorrect then
-        --print(self.tagText,"correcting",self.nodeFollowPriority)
+    if (self.goalOffsetCorrecting or self.rotationCorrect) and self.speed > 2 then
+        --print(self.tagText,"correcting",self.nodeFollowPriority,self.speed)
         self.nodeFollowPriority = rampToGoal(0.70,self.nodeFollowPriority,0.01)
     end
     -- testing
