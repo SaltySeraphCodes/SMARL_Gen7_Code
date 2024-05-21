@@ -1,1 +1,59 @@
-{}
+
+[
+	
+	{
+		"best_lap" : 68.58799999999974,
+		"position" : 1.0,
+		"racer_id" : 1.0,
+		"racer_name" : "Torque Master",
+		"split" : "0.000"
+	},
+	
+	{
+		"best_lap" : 67.75299999999970,
+		"position" : 2.0,
+		"racer_id" : 5.0,
+		"racer_name" : "Coffey-Mobile",
+		"split" : "0.251"
+	},
+	
+	{
+		"best_lap" : 67.30099999999993,
+		"position" : 3.0,
+		"racer_id" : 8.0,
+		"racer_name" : "LaZyKnight",
+		"split" : "0.551"
+	},
+	
+	{
+		"best_lap" : 68.18800000000010,
+		"position" : 4.0,
+		"racer_id" : 6.0,
+		"racer_name" : "Oswald",
+		"split" : "1.301"
+	},
+	
+	{
+		"best_lap" : 67.75900000000001,
+		"position" : 5.0,
+		"racer_id" : 7.0,
+		"racer_name" : "Gunnolf",
+		"split" : "2.655"
+	},
+	
+	{
+		"best_lap" : 69.73900000000003,
+		"position" : 6.0,
+		"racer_id" : 2.0,
+		"racer_name" : "Prototype 01- propulsion",
+		"split" : "8.060"
+	},
+	
+	{
+		"best_lap" : 67.75300000000016,
+		"position" : 7.0,
+		"racer_id" : 3.0,
+		"racer_name" : "LAMB-O",
+		"split" : "8.626"
+	}
+]

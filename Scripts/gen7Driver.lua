@@ -1658,8 +1658,9 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     if not onTrack then
         --print("node not track")
         if self.passing.isPassing then
-            print(self.tagText,"off track cancel/slow?")
+            --print(self.tagText,"off track cancel/slow?")
             --self.strategicThrottle = self.strategicThrottle - 0.01
+            self:cancelPass()
         end
         goalNodePos = self.goalNode[pathType]
         self.goalOffset = sm.vec3.new(0,0,0) 
@@ -3000,11 +3001,9 @@ end
 function Driver.processDrafting(self,oppDict)
     local canDraft = false
     local draftLane = 0
-    --TODO
-     -- NEW ALGO: INstead of trying to mimic trackPosition, just try to get vhdist.horzintal as close to 0 at all times as possible
     if not self.raceControlError then
-        if getRaceControl().draftingEnabled == false then -- TODO: add back return
-            --return canDraft,draftLane 
+        if getRaceControl().draftingEnabled == false then
+            return canDraft,draftLane 
         end
     end
     if (self.caution or self.formation) then -- deny draft due to caution and what not
@@ -3133,14 +3132,14 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-7,2,-0.11,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-6,1,-0.05,0,leftCol) -- Adjust according to distance
         --print(self.tagText,"leftWarn",leftCol,colSteer)
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/3 -- TODO: use a ratio conversion for this too
         end
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(7,-2,0.11,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(6,-1,0.05,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/3
         end
@@ -3163,13 +3162,13 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 end
 
 function Driver.processPassingDetection(self,opponent,oppDict)
- -- Real Passing ALGo
+    -- Real Passing ALGo
     local oppData =  oppDict[opponent.id]
     local oppFlags = oppData.flags
     local vhDist = oppData.vhDist
     local catchDist = self.speed * vhDist['vertical']/(self.speed-opponent.speed) -- vertical dist *should* be positive and
     local brakeDist = getBrakingDistance(self.speed*2,self.mass,self.engine.engineStats.MAX_BRAKE/2,opponent.speed) -- dampening? make variable
- -- TODO: CHeck this^
+    -- TODO: CHeck this^
     local oppSpeed = opponent.speed -- TODO: just remove cuz vmax is confusing
     
 
@@ -3240,7 +3239,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                     --print(self.tagText,"pass commit changed")
                     if vhDist.vertical > 14 then -- If far enough away, cancel the pass
                         oppFlags.pass = false
-                        print(self.tagText,"PC change Too far cancel")
+                        --print(self.tagText,"PC change Too far cancel")
                         self:cancelPass()
                     else -- Too close to cancel?
                         --print(self.tagText,"too close to change?",vhDist.horizontal,vhDist.vertical) -- either keep going or slow down depending on next turn?
@@ -3248,7 +3247,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                             if (self.carAlongSide.left ~= 0 and self.carAlongSide.right ~= 0) then -- If there are cars left and rightt
                                 oppFlags.pass = false
                                 self:cancelPass()
-                                print(self.tagText," car alongside cancel")
+                                --print(self.tagText," car alongside cancel")
                             else -- Continue pass
                                 --self:cancelPass()
                                 --print(self.tagText,"cahrgeAhead")
@@ -3263,7 +3262,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
         else -- If not actually approaching this opponent
             if oppFlags.pass and self.passing.isPassing and self.speed - opponent.speed < -0.1 then
                 oppFlags.pass = false
-                print(self.tagText, "Losing ground passcancel",self.speed - opponent.speed)
+                --print(self.tagText, "Losing ground passcancel",self.speed - opponent.speed)
                 self:cancelPass()
             else -- Cancel pass anyways? TODO: can probably remove this
                 --print(self.tagText,"cautious continue")
@@ -3343,18 +3342,18 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
     if frontCol and (frontCol <= 2 and frontCol > -2)  then -- if car is slightly overlapping but not directly alongside
         if (rightCol and rightCol <0.05) or (leftCol and leftCol > -.05) then -- If really close but not alongside
             if not oppFlags.frontEmergency then
-                print(self.tagText,"FrontEmerg",frontCol,leftCol,rightCol)
+                --print(self.tagText,"FrontEmerg",frontCol,leftCol,rightCol)
                 oppFlags.frontEmergency = true
             end
         else
             if oppFlags.frontEmergency then -- toggle off
-                print(self.tagText,"Not intersecting Emergency cancel",frontCol,leftCol,rightCol)
+                --print(self.tagText,"Not intersecting Emergency cancel",frontCol,leftCol,rightCol)
                 oppFlags.frontEmergency = false
             end
         end
     else
         if oppFlags.frontEmergency then -- toggle off
-            print(self.tagText,"Ahead/Behind emergency cancel",frontCol,leftCol,rightCol)
+            --print(self.tagText,"Ahead/Behind emergency cancel",frontCol,leftCol,rightCol)
             oppFlags.frontEmergency = false
         end
     end
@@ -4858,24 +4857,24 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
     -- TODO: get RampStatus (z ><0.1?)
     if self.goalNode.segType == "Straight" then
         if self.passing.isPassing then -- Get even looser while passing
-            self.passFollowPriority = rampToGoal(1.1,self.nodeFollowPriority,0.005)
-            self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.01)
+            self.passFollowPriority = rampToGoal(0.8,self.nodeFollowPriority,0.001)
+            self.nodeFollowPriority = rampToGoal(0.5,self.nodeFollowPriority,0.01)
             self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
 
         else -- Increase node following and draft following priority
-            self.passFollowPriority = rampToGoal(0,self.nodeFollowPriority,0.001)
-            self.draftFollowPriority = rampToGoal(0.1,self.draftFollowPriority,0.001)
+            self.passFollowPriority = rampToGoal(0.8,self.nodeFollowPriority,0.001)
+            self.draftFollowPriority = rampToGoal(1,self.draftFollowPriority,0.001)
             self.nodeFollowPriority = rampToGoal(0.5,self.nodeFollowPriority,0.01)
         end
     else -- If turning: tighten priority
-        self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
+        self.draftFollowPriority = rampToGoal(0.8,self.draftFollowPriority,0.01)
         if self.passing.isPassing then -- Get looser while passing
-            self.passFollowPriority = rampToGoal(1.2,self.nodeFollowPriority,0.01)
-            self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.007)
+            self.passFollowPriority = rampToGoal(1,self.nodeFollowPriority,0.001)
+            self.nodeFollowPriority = rampToGoal(0.6,self.nodeFollowPriority,0.007)
         else -- tighten turn
             self.passFollowPriority = rampToGoal(0.0,self.nodeFollowPriority,0.01)
             self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.01)
-            self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.007)
+            self.nodeFollowPriority = rampToGoal(0.6,self.nodeFollowPriority,0.007)
         end
     end 
     -- testing

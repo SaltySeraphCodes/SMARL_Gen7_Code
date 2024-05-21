@@ -3,64 +3,161 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : 8.0,
+		"lapsLeft" : -262.0,
 		"qualifying" : "true",
-		"status" : 0.0
+		"status" : 1.0
 	},
-	"qd" : null,
+	"qd" : 
+	[
+		
+		{
+			"best_lap" : 68.58799999999974,
+			"position" : 1.0,
+			"racer_id" : 1.0,
+			"racer_name" : "Torque Master",
+			"split" : "0.000"
+		},
+		
+		{
+			"best_lap" : 67.75299999999970,
+			"position" : 2.0,
+			"racer_id" : 5.0,
+			"racer_name" : "Coffey-Mobile",
+			"split" : "0.251"
+		},
+		
+		{
+			"best_lap" : 67.30099999999993,
+			"position" : 3.0,
+			"racer_id" : 8.0,
+			"racer_name" : "LaZyKnight",
+			"split" : "0.551"
+		},
+		
+		{
+			"best_lap" : 68.18800000000010,
+			"position" : 4.0,
+			"racer_id" : 6.0,
+			"racer_name" : "Oswald",
+			"split" : "1.301"
+		},
+		
+		{
+			"best_lap" : 67.75900000000001,
+			"position" : 5.0,
+			"racer_id" : 7.0,
+			"racer_name" : "Gunnolf",
+			"split" : "2.655"
+		},
+		
+		{
+			"best_lap" : 69.73900000000003,
+			"position" : 6.0,
+			"racer_id" : 2.0,
+			"racer_name" : "Prototype 01- propulsion",
+			"split" : "8.060"
+		},
+		
+		{
+			"best_lap" : 67.75300000000016,
+			"position" : 7.0,
+			"racer_id" : 3.0,
+			"racer_name" : "LAMB-O",
+			"split" : "8.626"
+		}
+	],
 	"rt" : 
 	[
 		
 		{
-			"bestLap" : 70.56999999999243,
-			"id" : 3.0,
-			"isFocused" : "false",
-			"lapNum" : 2.0,
-			"lastLap" : 70.56999999999243,
-			"locX" : -216.6112060546875,
-			"locY" : 175.8754577636719,
-			"place" : 1.0,
-			"speed" : 0.0,
-			"timeSplit" : "0.000"
-		},
-		
-		{
-			"bestLap" : 70.78700000000390,
+			"bestLap" : 68.58799999999974,
 			"id" : 1.0,
 			"isFocused" : "false",
-			"lapNum" : 2.0,
-			"lastLap" : 70.78700000000390,
-			"locX" : -217.3522491455078,
-			"locY" : 166.1569061279297,
-			"place" : 2.0,
-			"speed" : 4.685627573053353e-05,
-			"timeSplit" : "0.466"
-		},
-		
-		{
-			"bestLap" : 0.0,
-			"id" : 2.0,
-			"isFocused" : "false",
-			"lapNum" : 0.0,
-			"lastLap" : 0.0,
-			"locX" : -210.0174102783203,
-			"locY" : 215.7898712158203,
-			"place" : 4.0,
-			"speed" : 0.01866632141172886,
+			"lapNum" : 272.0,
+			"lastLap" : 112.9849999999969,
+			"locX" : -216.4125061035156,
+			"locY" : 143.7357177734375,
+			"place" : 1.0,
+			"speed" : 18.42748260498047,
 			"timeSplit" : "0.000"
 		},
 		
 		{
-			"bestLap" : 0.0,
+			"bestLap" : 67.75300000000016,
+			"id" : 3.0,
+			"isFocused" : "false",
+			"lapNum" : 271.0,
+			"lastLap" : 112.9229999999989,
+			"locX" : -214.5514373779297,
+			"locY" : 127.2360458374023,
+			"place" : 3.0,
+			"speed" : 18.21548271179199,
+			"timeSplit" : "114.998"
+		},
+		
+		{
+			"bestLap" : 67.75299999999970,
 			"id" : 5.0,
 			"isFocused" : "false",
-			"lapNum" : 0.0,
-			"lastLap" : 0.0,
-			"locX" : -214.3762359619141,
-			"locY" : 212.7564544677734,
-			"place" : 3.0,
-			"speed" : 0.01053396333009005,
-			"timeSplit" : "0.000"
+			"lapNum" : 271.0,
+			"lastLap" : 113.0910000000003,
+			"locX" : -200.0848693847656,
+			"locY" : 111.5480194091797,
+			"place" : 4.0,
+			"speed" : 18.13286209106445,
+			"timeSplit" : "116.254"
+		},
+		
+		{
+			"bestLap" : 68.18800000000010,
+			"id" : 6.0,
+			"isFocused" : "false",
+			"lapNum" : 271.0,
+			"lastLap" : 113.7619999999988,
+			"locX" : -190.7315979003906,
+			"locY" : 373.7884216308594,
+			"place" : 6.0,
+			"speed" : 18.20316123962402,
+			"timeSplit" : "133.286"
+		},
+		
+		{
+			"bestLap" : 67.75900000000001,
+			"id" : 7.0,
+			"isFocused" : "false",
+			"lapNum" : 271.0,
+			"lastLap" : 113.8460000000014,
+			"locX" : -357.9735107421875,
+			"locY" : 147.1686248779297,
+			"place" : 7.0,
+			"speed" : 18.16698837280273,
+			"timeSplit" : "201.373"
+		},
+		
+		{
+			"bestLap" : 67.30099999999993,
+			"id" : 8.0,
+			"isFocused" : "false",
+			"lapNum" : 271.0,
+			"lastLap" : 113.7479999999996,
+			"locX" : -185.9422302246094,
+			"locY" : 366.9083251953125,
+			"place" : 5.0,
+			"speed" : 18.10762786865234,
+			"timeSplit" : "132.808"
+		},
+		
+		{
+			"bestLap" : 69.73900000000003,
+			"id" : 2.0,
+			"isFocused" : "false",
+			"lapNum" : 272.0,
+			"lastLap" : 112.8239999999969,
+			"locX" : -151.0764617919922,
+			"locY" : 186.316406250,
+			"place" : 2.0,
+			"speed" : 18.12404823303223,
+			"timeSplit" : "9.412"
 		}
 	]
 }
