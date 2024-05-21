@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.6.1" -- Steering and drafting overhaul
+SMAR_VERSION = "1.6.2" -- Steering and drafting adjustments
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -1326,6 +1326,45 @@ function getVmax2(angle,maxSteermminSteer,maxVel,minVel)
 
 end
 
+-- Get maximum Value in a table
+function getMax(arr)
+    local max = nil
+    local i
+    for i=1,#arr do
+        local compare = arr[i]
+        if max == nil then 
+            max = compare
+        else
+            if compare == nil then
+                print("nil compare")
+            end
+            if compare > max then
+                max = compare
+            end
+        end
+    end
+    return max
+end
+
+-- Get Minimum value in a table
+function getMin(arr)
+    local min = nil
+    local i
+    for i=1,#arr do
+        local compare = arr[i]
+        if min == nil then 
+            min = compare
+        else
+            if compare == nil then
+                print("nil compare")
+            end
+            if compare < min then
+                min = compare
+            end
+        end
+    end
+    return min
+end
 
 function checkMax(previous,current)
     if previous == nil and current == nil then

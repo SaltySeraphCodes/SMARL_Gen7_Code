@@ -55,5 +55,45 @@
 		"racer_id" : 3.0,
 		"racer_name" : "LAMB-O",
 		"split" : "8.626"
+	},
+	
+	{
+		"best_lap" : 70.72900000000118,
+		"position" : 1.0,
+		"racer_id" : 2.0,
+		"racer_name" : "Prototype 01- propulsion",
+		"split" : "0.000"
+	},
+	
+	{
+		"best_lap" : 70.82700000000114,
+		"position" : 2.0,
+		"racer_id" : 7.0,
+		"racer_name" : "Gunnolf",
+		"split" : "0.250"
+	},
+	
+	{
+		"best_lap" : 70.82899999999972,
+		"position" : 3.0,
+		"racer_id" : 6.0,
+		"racer_name" : "Oswald",
+		"split" : "0.384"
+	},
+	
+	{
+		"best_lap" : 70.93100000000049,
+		"position" : 4.0,
+		"racer_id" : 3.0,
+		"racer_name" : "LAMB-O",
+		"split" : "0.385"
+	},
+	
+	{
+		"best_lap" : 70.89500000000044,
+		"position" : 5.0,
+		"racer_id" : 1.0,
+		"racer_name" : "Torque Master",
+		"split" : "3.384"
 	}
 ]
