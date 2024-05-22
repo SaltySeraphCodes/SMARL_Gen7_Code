@@ -3,770 +3,168 @@
 	"fd" : null,
 	"md" : 
 	{
-		"lapsLeft" : 9.0,
+		"lapsLeft" : 7.0,
 		"qualifying" : "true",
-		"status" : 1.0
+		"status" : 3.0
 	},
-	"qd" : 
-	[
-		
-		{
-			"best_lap" : 68.58799999999974,
-			"position" : 1.0,
-			"racer_id" : 1.0,
-			"racer_name" : "Torque Master",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 67.75299999999970,
-			"position" : 2.0,
-			"racer_id" : 5.0,
-			"racer_name" : "Coffey-Mobile",
-			"split" : "0.251"
-		},
-		
-		{
-			"best_lap" : 67.30099999999993,
-			"position" : 3.0,
-			"racer_id" : 8.0,
-			"racer_name" : "LaZyKnight",
-			"split" : "0.551"
-		},
-		
-		{
-			"best_lap" : 68.18800000000010,
-			"position" : 4.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "1.301"
-		},
-		
-		{
-			"best_lap" : 67.75900000000001,
-			"position" : 5.0,
-			"racer_id" : 7.0,
-			"racer_name" : "Gunnolf",
-			"split" : "2.655"
-		},
-		
-		{
-			"best_lap" : 69.73900000000003,
-			"position" : 6.0,
-			"racer_id" : 2.0,
-			"racer_name" : "Prototype 01- propulsion",
-			"split" : "8.060"
-		},
-		
-		{
-			"best_lap" : 67.75300000000016,
-			"position" : 7.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "8.626"
-		},
-		
-		{
-			"best_lap" : 70.72900000000118,
-			"position" : 1.0,
-			"racer_id" : 2.0,
-			"racer_name" : "Prototype 01- propulsion",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 70.82700000000114,
-			"position" : 2.0,
-			"racer_id" : 7.0,
-			"racer_name" : "Gunnolf",
-			"split" : "0.250"
-		},
-		
-		{
-			"best_lap" : 70.82899999999972,
-			"position" : 3.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "0.384"
-		},
-		
-		{
-			"best_lap" : 70.93100000000049,
-			"position" : 4.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "0.385"
-		},
-		
-		{
-			"best_lap" : 70.89500000000044,
-			"position" : 5.0,
-			"racer_id" : 1.0,
-			"racer_name" : "Torque Master",
-			"split" : "3.384"
-		},
-		
-		{
-			"best_lap" : 41.33600000000115,
-			"position" : 1.0,
-			"racer_id" : 8.0,
-			"racer_name" : "LaZyKnight",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 41.67199999999866,
-			"position" : 2.0,
-			"racer_id" : 18.0,
-			"racer_name" : "Cain",
-			"split" : "0.085"
-		},
-		
-		{
-			"best_lap" : 42.37999999999920,
-			"position" : 3.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "0.378"
-		},
-		
-		{
-			"best_lap" : 41.50300000000061,
-			"position" : 4.0,
-			"racer_id" : 13.0,
-			"racer_name" : "Dirty Drafter",
-			"split" : "1.060"
-		},
-		
-		{
-			"best_lap" : 40.37700000000041,
-			"position" : 5.0,
-			"racer_id" : 5.0,
-			"racer_name" : "Coffey-Mobile",
-			"split" : "1.393"
-		},
-		
-		{
-			"best_lap" : 40.50499999999738,
-			"position" : 6.0,
-			"racer_id" : 1.0,
-			"racer_name" : "Torque Master",
-			"split" : "2.581"
-		},
-		
-		{
-			"best_lap" : 40.18099999999868,
-			"position" : 7.0,
-			"racer_id" : 12.0,
-			"racer_name" : "FieryDragon",
-			"split" : "2.828"
-		},
-		
-		{
-			"best_lap" : 40.53199999999924,
-			"position" : 8.0,
-			"racer_id" : 14.0,
-			"racer_name" : "LaZyKnight2",
-			"split" : "6.003"
-		},
-		
-		{
-			"best_lap" : 39.49200000000019,
-			"position" : 9.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "6.230"
-		},
-		
-		{
-			"best_lap" : 42.35699999999997,
-			"position" : 10.0,
-			"racer_id" : 11.0,
-			"racer_name" : "A comically long car name",
-			"split" : "9.730"
-		},
-		
-		{
-			"best_lap" : 40.80099999999948,
-			"position" : 11.0,
-			"racer_id" : 10.0,
-			"racer_name" : "Mateo SMARL GT3 M",
-			"split" : "10.097"
-		},
-		
-		{
-			"best_lap" : 41.31000000000131,
-			"position" : 12.0,
-			"racer_id" : 20.0,
-			"racer_name" : "Bah-tomobile",
-			"split" : "14.152"
-		},
-		
-		{
-			"best_lap" : 43.05400000000009,
-			"position" : 1.0,
-			"racer_id" : 12.0,
-			"racer_name" : "FieryDragon",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 40.77399999999761,
-			"position" : 2.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "0.487"
-		},
-		
-		{
-			"best_lap" : 43.32500000000073,
-			"position" : 3.0,
-			"racer_id" : 13.0,
-			"racer_name" : "Dirty Drafter",
-			"split" : "1.359"
-		},
-		
-		{
-			"best_lap" : 43.68099999999686,
-			"position" : 4.0,
-			"racer_id" : 5.0,
-			"racer_name" : "Coffey-Mobile",
-			"split" : "2.072"
-		},
-		
-		{
-			"best_lap" : 40.87200000000303,
-			"position" : 5.0,
-			"racer_id" : 10.0,
-			"racer_name" : "Mateo SMARL GT3 M",
-			"split" : "2.650"
-		},
-		
-		{
-			"best_lap" : 43.52399999999761,
-			"position" : 6.0,
-			"racer_id" : 18.0,
-			"racer_name" : "Cain",
-			"split" : "3.219"
-		},
-		
-		{
-			"best_lap" : 41.89500000000044,
-			"position" : 7.0,
-			"racer_id" : 1.0,
-			"racer_name" : "Torque Master",
-			"split" : "3.449"
-		},
-		
-		{
-			"best_lap" : 41.32500000000073,
-			"position" : 8.0,
-			"racer_id" : 11.0,
-			"racer_name" : "A comically long car name",
-			"split" : "3.886"
-		},
-		
-		{
-			"best_lap" : 40.71700000000055,
-			"position" : 9.0,
-			"racer_id" : 14.0,
-			"racer_name" : "LaZyKnight2",
-			"split" : "4.348"
-		},
-		
-		{
-			"best_lap" : 40.58099999999831,
-			"position" : 10.0,
-			"racer_id" : 20.0,
-			"racer_name" : "Bah-tomobile",
-			"split" : "4.733"
-		},
-		
-		{
-			"best_lap" : 43.25899999999820,
-			"position" : 11.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "5.056"
-		},
-		
-		{
-			"best_lap" : 41.64699999999721,
-			"position" : 12.0,
-			"racer_id" : 8.0,
-			"racer_name" : "LaZyKnight",
-			"split" : "5.140"
-		},
-		
-		{
-			"best_lap" : 41.55899999999997,
-			"position" : 1.0,
-			"racer_id" : 8.0,
-			"racer_name" : "LaZyKnight",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 39.93299999999999,
-			"position" : 2.0,
-			"racer_id" : 13.0,
-			"racer_name" : "Dirty Drafter",
-			"split" : "0.653"
-		},
-		
-		{
-			"best_lap" : 40.71800000000007,
-			"position" : 3.0,
-			"racer_id" : 14.0,
-			"racer_name" : "LaZyKnight2",
-			"split" : "0.969"
-		},
-		
-		{
-			"best_lap" : 40.15200000000004,
-			"position" : 4.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "7.408"
-		},
-		
-		{
-			"best_lap" : 39.88199999999983,
-			"position" : 5.0,
-			"racer_id" : 12.0,
-			"racer_name" : "FieryDragon",
-			"split" : "7.657"
-		},
-		
-		{
-			"best_lap" : 39.67899999999986,
-			"position" : 6.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "10.928"
-		},
-		
-		{
-			"best_lap" : 40.00599999999986,
-			"position" : 7.0,
-			"racer_id" : 18.0,
-			"racer_name" : "Cain",
-			"split" : "11.049"
-		},
-		
-		{
-			"best_lap" : 40.42500000000018,
-			"position" : 8.0,
-			"racer_id" : 5.0,
-			"racer_name" : "Coffey-Mobile",
-			"split" : "11.251"
-		},
-		
-		{
-			"best_lap" : 39.33899999999994,
-			"position" : 9.0,
-			"racer_id" : 10.0,
-			"racer_name" : "Mateo SMARL GT3 M",
-			"split" : "11.296"
-		},
-		
-		{
-			"best_lap" : 40.44900000000007,
-			"position" : 10.0,
-			"racer_id" : 20.0,
-			"racer_name" : "Bah-tomobile",
-			"split" : "16.332"
-		},
-		
-		{
-			"best_lap" : 40.99800000000005,
-			"position" : 11.0,
-			"racer_id" : 11.0,
-			"racer_name" : "A comically long car name",
-			"split" : "20.662"
-		},
-		
-		{
-			"best_lap" : 39.95000000000005,
-			"position" : 12.0,
-			"racer_id" : 1.0,
-			"racer_name" : "Torque Master",
-			"split" : "38.436"
-		},
-		
-		{
-			"best_lap" : 41.49199999999837,
-			"position" : 1.0,
-			"racer_id" : 5.0,
-			"racer_name" : "Coffey-Mobile",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 41.95300000000134,
-			"position" : 2.0,
-			"racer_id" : 18.0,
-			"racer_name" : "Cain",
-			"split" : "0.084"
-		},
-		
-		{
-			"best_lap" : 41.41899999999805,
-			"position" : 3.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "0.317"
-		},
-		
-		{
-			"best_lap" : 43.19900000000052,
-			"position" : 2.0,
-			"racer_id" : 10.0,
-			"racer_name" : "Mateo SMARL GT3 M",
-			"split" : "0.429"
-		},
-		
-		{
-			"best_lap" : 40.97399999999834,
-			"position" : 5.0,
-			"racer_id" : 13.0,
-			"racer_name" : "Dirty Drafter",
-			"split" : "0.935"
-		},
-		
-		{
-			"best_lap" : 40.31000000000131,
-			"position" : 6.0,
-			"racer_id" : 14.0,
-			"racer_name" : "LaZyKnight2",
-			"split" : "1.432"
-		},
-		
-		{
-			"best_lap" : 39.85599999999977,
-			"position" : 7.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "2.921"
-		},
-		
-		{
-			"best_lap" : 40.05999999999767,
-			"position" : 8.0,
-			"racer_id" : 8.0,
-			"racer_name" : "LaZyKnight",
-			"split" : "2.972"
-		},
-		
-		{
-			"best_lap" : 41.52200000000084,
-			"position" : 9.0,
-			"racer_id" : 1.0,
-			"racer_name" : "Torque Master",
-			"split" : "5.659"
-		},
-		
-		{
-			"best_lap" : 40.49000000000160,
-			"position" : 10.0,
-			"racer_id" : 20.0,
-			"racer_name" : "Bah-tomobile",
-			"split" : "7.598"
-		},
-		
-		{
-			"best_lap" : 42.90299999999843,
-			"position" : 11.0,
-			"racer_id" : 11.0,
-			"racer_name" : "A comically long car name",
-			"split" : "43.445"
-		},
-		
-		{
-			"best_lap" : 42.65799999999945,
-			"position" : 1.0,
-			"racer_id" : 13.0,
-			"racer_name" : "Dirty Drafter",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 41.34700000000157,
-			"position" : 2.0,
-			"racer_id" : 8.0,
-			"racer_name" : "LaZyKnight",
-			"split" : "2.116"
-		},
-		
-		{
-			"best_lap" : 42.17200000000230,
-			"position" : 3.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "2.318"
-		},
-		
-		{
-			"best_lap" : 42.49100000000180,
-			"position" : 3.0,
-			"racer_id" : 1.0,
-			"racer_name" : "Torque Master",
-			"split" : "2.418"
-		},
-		
-		{
-			"best_lap" : 40.77200000000084,
-			"position" : 5.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "2.601"
-		},
-		
-		{
-			"best_lap" : 41.58099999999831,
-			"position" : 6.0,
-			"racer_id" : 14.0,
-			"racer_name" : "LaZyKnight2",
-			"split" : "3.221"
-		},
-		
-		{
-			"best_lap" : 42.23800000000119,
-			"position" : 7.0,
-			"racer_id" : 5.0,
-			"racer_name" : "Coffey-Mobile",
-			"split" : "6.699"
-		},
-		
-		{
-			"best_lap" : 40.95700000000215,
-			"position" : 8.0,
-			"racer_id" : 10.0,
-			"racer_name" : "Mateo SMARL GT3 M",
-			"split" : "6.965"
-		},
-		
-		{
-			"best_lap" : 41.30000000000291,
-			"position" : 9.0,
-			"racer_id" : 18.0,
-			"racer_name" : "Cain",
-			"split" : "7.045"
-		},
-		
-		{
-			"best_lap" : 41.44299999999930,
-			"position" : 11.0,
-			"racer_id" : 11.0,
-			"racer_name" : "A comically long car name",
-			"split" : "173.249"
-		},
-		
-		{
-			"best_lap" : 41.67000000000189,
-			"position" : 10.0,
-			"racer_id" : 20.0,
-			"racer_name" : "Bah-tomobile",
-			"split" : "15.497"
-		},
-		
-		{
-			"best_lap" : 42.00200000000041,
-			"position" : 1.0,
-			"racer_id" : 18.0,
-			"racer_name" : "Cain",
-			"split" : "0.000"
-		},
-		
-		{
-			"best_lap" : 42.46199999999953,
-			"position" : 2.0,
-			"racer_id" : 3.0,
-			"racer_name" : "LAMB-O",
-			"split" : "0.249"
-		},
-		
-		{
-			"best_lap" : 42.52899999999499,
-			"position" : 3.0,
-			"racer_id" : 6.0,
-			"racer_name" : "Oswald",
-			"split" : "0.467"
-		},
-		
-		{
-			"best_lap" : 41.87799999999697,
-			"position" : 4.0,
-			"racer_id" : 11.0,
-			"racer_name" : "A comically long car name",
-			"split" : "0.805"
-		},
-		
-		{
-			"best_lap" : 41.24899999999616,
-			"position" : 5.0,
-			"racer_id" : 10.0,
-			"racer_name" : "Mateo SMARL GT3 M",
-			"split" : "5.163"
-		}
-	],
+	"qd" : null,
 	"rt" : 
 	[
 		
 		{
-			"bestLap" : 43.1250,
+			"bestLap" : 41.750,
 			"id" : 10.0,
 			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 43.37700000000041,
-			"locX" : 133.1932220458984,
-			"locY" : 5.527214527130127,
-			"place" : 12.0,
-			"speed" : 29.93780326843262,
-			"timeSplit" : "4.492"
-		},
-		
-		{
-			"bestLap" : 43.80399999999645,
-			"id" : 14.0,
-			"isFocused" : "true",
-			"lapNum" : 16.0,
-			"lastLap" : 44.07299999999668,
-			"locX" : 147.8976287841797,
-			"locY" : 112.4229049682617,
-			"place" : 3.0,
-			"speed" : 29.61197471618652,
-			"timeSplit" : "0.713"
-		},
-		
-		{
-			"bestLap" : 43.55200000000332,
-			"id" : 13.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 43.92599999999948,
-			"locX" : 151.9015350341797,
-			"locY" : 77.22547149658203,
-			"place" : 8.0,
-			"speed" : 27.99851799011230,
-			"timeSplit" : "1.923"
-		},
-		
-		{
-			"bestLap" : 43.39299999999639,
-			"id" : 3.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 44.50600000000122,
-			"locX" : 148.3097534179688,
-			"locY" : 86.97124481201172,
-			"place" : 6.0,
-			"speed" : 29.60378074645996,
-			"timeSplit" : "1.567"
-		},
-		
-		{
-			"bestLap" : 43.40000000000146,
-			"id" : 1.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 43.67699999999604,
-			"locX" : 153.7414398193359,
-			"locY" : 84.99720001220703,
-			"place" : 7.0,
-			"speed" : 29.69450187683105,
-			"timeSplit" : "1.650"
-		},
-		
-		{
-			"bestLap" : 43.11499999999796,
-			"id" : 12.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 44.12800000000425,
-			"locX" : 148.5298919677734,
-			"locY" : 103.8697052001953,
-			"place" : 4.0,
-			"speed" : 28.34452629089355,
-			"timeSplit" : "0.978"
-		},
-		
-		{
-			"bestLap" : 43.81899999999587,
-			"id" : 6.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 44.07700000000477,
-			"locX" : 146.8623809814453,
-			"locY" : 119.7671356201172,
-			"place" : 2.0,
-			"speed" : 29.46473312377930,
-			"timeSplit" : "0.482"
-		},
-		
-		{
-			"bestLap" : 43.20999999999913,
-			"id" : 18.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 43.42699999999604,
-			"locX" : 138.7875366210938,
-			"locY" : 14.89295959472656,
-			"place" : 11.0,
-			"speed" : 29.18456077575684,
-			"timeSplit" : "4.127"
-		},
-		
-		{
-			"bestLap" : 43.13600000000588,
-			"id" : 20.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 43.57999999999447,
-			"locX" : 151.6395111083984,
-			"locY" : 61.52224349975586,
-			"place" : 9.0,
-			"speed" : 28.08856773376465,
-			"timeSplit" : "2.452"
-		},
-		
-		{
-			"bestLap" : 43.64699999999721,
-			"id" : 8.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 43.64699999999721,
-			"locX" : 149.4201965332031,
-			"locY" : 95.77983093261719,
-			"place" : 5.0,
-			"speed" : 29.62646102905273,
-			"timeSplit" : "1.270"
-		},
-		
-		{
-			"bestLap" : 43.82200000000012,
-			"id" : 5.0,
-			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 44.03899999999703,
-			"locX" : 145.4827117919922,
-			"locY" : 133.1877593994141,
+			"lapNum" : 3.0,
+			"lastLap" : 42.97099999999773,
+			"locX" : -29.48647117614746,
+			"locY" : -12.76275825500488,
 			"place" : 1.0,
-			"speed" : 29.53697586059570,
+			"speed" : 10.35119628906250,
 			"timeSplit" : "0.000"
 		},
 		
 		{
-			"bestLap" : 43.33599999999569,
-			"id" : 11.0,
+			"bestLap" : 42.19700000000012,
+			"id" : 14.0,
 			"isFocused" : "false",
-			"lapNum" : 16.0,
-			"lastLap" : 43.62200000000303,
-			"locX" : 144.5198364257812,
-			"locY" : 29.75848007202148,
+			"lapNum" : 3.0,
+			"lastLap" : 42.19700000000012,
+			"locX" : -39.22620391845703,
+			"locY" : -7.107680320739746,
+			"place" : 3.0,
+			"speed" : 10.09971332550049,
+			"timeSplit" : "1.126"
+		},
+		
+		{
+			"bestLap" : 41.86499999999796,
+			"id" : 13.0,
+			"isFocused" : "false",
+			"lapNum" : 3.0,
+			"lastLap" : 43.53700000000390,
+			"locX" : -49.08581161499023,
+			"locY" : -1.46517801284790,
+			"place" : 4.0,
+			"speed" : 10.09412384033203,
+			"timeSplit" : "2.254"
+		},
+		
+		{
+			"bestLap" : 42.09000000000378,
+			"id" : 3.0,
+			"isFocused" : "false",
+			"lapNum" : 3.0,
+			"lastLap" : 42.09000000000378,
+			"locX" : -58.84738540649414,
+			"locY" : 4.092136859893799,
+			"place" : 5.0,
+			"speed" : 10.25768661499023,
+			"timeSplit" : "3.337"
+		},
+		
+		{
+			"bestLap" : 40.76200000000244,
+			"id" : 1.0,
+			"isFocused" : "false",
+			"lapNum" : 2.0,
+			"lastLap" : 40.76200000000244,
+			"locX" : 94.45877075195312,
+			"locY" : 271.6012878417969,
 			"place" : 10.0,
-			"speed" : 29.45953559875488,
-			"timeSplit" : "3.571"
+			"speed" : 10.20346927642822,
+			"timeSplit" : "57090.014"
+		},
+		
+		{
+			"bestLap" : 40.62200000000303,
+			"id" : 12.0,
+			"isFocused" : "false",
+			"lapNum" : 2.0,
+			"lastLap" : 40.62200000000303,
+			"locX" : 96.61800384521484,
+			"locY" : 254.0675506591797,
+			"place" : 12.0,
+			"speed" : 10.41400909423828,
+			"timeSplit" : "57091.345"
+		},
+		
+		{
+			"bestLap" : 40.75499999999738,
+			"id" : 6.0,
+			"isFocused" : "false",
+			"lapNum" : 2.0,
+			"lastLap" : 40.75499999999738,
+			"locX" : 88.36586761474609,
+			"locY" : 277.531738281250,
+			"place" : 11.0,
+			"speed" : 10.07875156402588,
+			"timeSplit" : "57090.260"
+		},
+		
+		{
+			"bestLap" : 40.96800000000076,
+			"id" : 18.0,
+			"isFocused" : "false",
+			"lapNum" : 3.0,
+			"lastLap" : 45.85700000000361,
+			"locX" : -242.6787872314453,
+			"locY" : 111.8046798706055,
+			"place" : 8.0,
+			"speed" : 6.606384754180908,
+			"timeSplit" : "24.367"
+		},
+		
+		{
+			"bestLap" : 41.88599999999860,
+			"id" : 20.0,
+			"isFocused" : "false",
+			"lapNum" : 3.0,
+			"lastLap" : 41.88599999999860,
+			"locX" : -245.4480895996094,
+			"locY" : 111.4533538818359,
+			"place" : 9.0,
+			"speed" : 6.009891986846924,
+			"timeSplit" : "24.382"
+		},
+		
+		{
+			"bestLap" : 40.89600000000064,
+			"id" : 8.0,
+			"isFocused" : "false",
+			"lapNum" : 3.0,
+			"lastLap" : 40.89600000000064,
+			"locX" : 150.3755645751953,
+			"locY" : 59.88194656372070,
+			"place" : 2.0,
+			"speed" : 10.24481105804443,
+			"timeSplit" : "0.000"
+		},
+		
+		{
+			"bestLap" : 41.19499999999971,
+			"id" : 5.0,
+			"isFocused" : "false",
+			"lapNum" : 3.0,
+			"lastLap" : 43.29400000000169,
+			"locX" : -195.0337371826172,
+			"locY" : 80.69583129882812,
+			"place" : 7.0,
+			"speed" : 12.07038307189941,
+			"timeSplit" : "18.840"
+		},
+		
+		{
+			"bestLap" : 41.63300000000163,
+			"id" : 11.0,
+			"isFocused" : "true",
+			"lapNum" : 3.0,
+			"lastLap" : 43.03399999999965,
+			"locX" : -170.1326904296875,
+			"locY" : 66.51437377929688,
+			"place" : 6.0,
+			"speed" : 12.15329933166504,
+			"timeSplit" : "16.053"
 		}
 	]
 }

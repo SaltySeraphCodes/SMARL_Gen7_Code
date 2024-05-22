@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.6.2" -- Steering and drafting adjustments
+SMAR_VERSION = "1.6.3" -- Caution and formation fixes
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -292,7 +292,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
     local searchDistance = 0 -- how far away to search
     
     --print("getting nearest node",approxRow,approxCol)
-    local searchLimit = 150
+    local searchLimit = 250
     local possibleRow = nodeMap[approxRow]
     if possibleRow ~= nil then
         local possibleCol = nodeMap[approxRow][approxCol]
@@ -321,7 +321,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
                         if extendedSearchNodes ~= nil and #extendedSearchNodes > 0 then
                             for j = 1, #extendedSearchNodes do local eNode = extendedSearchNodes[j]
                                 --print(eNode.bank,math.abs(eNode.location.z - location.z), 2 + math.abs(5* eNode.bank))
-                                if math.abs(eNode.location.z - location.z) < 2 + math.abs(5* eNode.bank) then -- make smaller/bigger dif?
+                                if math.abs(eNode.location.z - location.z) < 3 + math.abs(6* eNode.bank) then -- make smaller/bigger dif?
                                     --print(location.z,eNode.location.z)
                                     table.insert(extendedNodes, eNode) -- puts nodes into extendedNode
                                 else
@@ -351,7 +351,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
     for i=1, #availibleNodes do local node = availibleNodes[i]
         --print("nodefilter?",math.abs(node.location.z - location.z))
         if node == nil then print("Bad node") return end
-        if math.abs(node.location.z - location.z) > 2  + math.abs(5* node.bank) then -- TODO: just make lower priority instead of removing...
+        if math.abs(node.location.z - location.z) > 3  + math.abs(6* node.bank) then -- TODO: just make lower priority instead of removing...
             --print(node.id,"not in range")
             table.remove( availibleNodes,i )
         end
@@ -397,11 +397,11 @@ function getNodeClosest(nodeList,location) -- Gets node closest to to {location}
     else
         -- nodes are different
         --print("Found different levels of z node close",location,closestNode.location,closeZNode.location)
-        if math.abs(closestNode.location.z - closeZNode.location.z) < 2 then
+        if math.abs(closestNode.location.z - closeZNode.location.z) < 4 then
             --print("nodes are close enoug", math.abs(closestNode.location.z - closeZNode.location.z))
         else
             --Sprint("possible split in node verticals")
-            if math.abs(location.z - closeZNode.location.z) < 2 then -- Make bigger or smaller?? 
+            if math.abs(location.z - closeZNode.location.z) < 4 then -- Make bigger or smaller?? 
                 closestNode = closeZNode
                 print("moving to closer z node")
             else

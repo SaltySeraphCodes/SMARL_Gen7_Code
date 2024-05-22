@@ -1704,9 +1704,6 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     self.strategicSteering = stratSteer2
     --print(self.tagText,"SA",stratSteer2)
     --print(self.tagText,"SA" ,self.trackPosition,self.trackPosBias," ", (biasDif * self.biasFollowPriority ))--stratSteer2)
-
-    --biasDif * self.biasFollowPriority,draftBiasDif * self.draftFollowPriority,directionOffset * self.passFollowPriority, stratSteer2)
-
 end
 --TODO overhaul this
 function Driver.updateCautionSteering(self,pathType) -- updates broad steering goals based on path parameter [race,mid,pit]
@@ -1910,8 +1907,6 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
         end
     end
 
-    
-
     local biasDif = 0
     local followStren = self.followStrength
     local directionOffset = self.goalDirectionOffset
@@ -1934,14 +1929,14 @@ function Driver.updateCautionSteering(self,pathType) -- updates broad steering g
     if self.curGear <=0  then
         directionOffset = 0
     end
-    --SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) --+ biasDif + directionOffset
+    --SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) --+ biasDif + directionOffset -- OLD way
     --print(self.tagText,goalOffset,biasDif,directionOffset)
     local SteerAngle2 = (posAngleDif4(self.location,self.shape.at,goalNodePos) * self.nodeFollowPriority) --+ biasDif + directionOffset -- Other priorities are set in calculategoalOffset
     local stratSteer2 = radiansToSteering(SteerAngle2) 
-    --self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
     self.strategicSteering = stratSteer2
 end
 
+-- TODO: get track width too
 function posFromLane(lane)
     if lane == 0 then 
         return -9
@@ -1957,7 +1952,7 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
     if self.goalNode == nil then return end
     local formationLane = self.formationPos %2
     local goalNodePos = self.goalNode.mid
-    local goalOffset = (self.goalOffset or sm.vec3.new(0,0,0))
+    local goalOffset = (self:calculateGoalOffset() or sm.vec3.new(0,0,0))
     goalNodePos = self.goalNode.mid + goalOffset-- place goalnode offset here...
     -- check if goalNode pos is offTrack
     local onTrack = self:checkLocationOnTrack(self.goalNode,goalNodePos)
@@ -1973,9 +1968,9 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
             --print("heading offtrack correction",self.strategicThrottle)
         end
     end
-    local baseSpeed = 9 -- Base speed for formation
-    local slowSpeed = 7 -- slow speed for formation
-    local fastSpeed = 11 -- fast speed for formation
+    local baseSpeed = 10 -- Base speed for formation
+    local slowSpeed = 8 -- slow speed for formation
+    local fastSpeed = 12 -- fast speed for formation
     self.speedControl = baseSpeed -- use this to speed up or slow down
     
     self.trackPosBias = 0 -- can use this to let car pick side + = right - = left
@@ -2101,7 +2096,8 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
                 end
 
             elseif self.racePosition > self.formationPos then --  if car is behind desired caution pos 
-                self.trackPosBias = -10 -- put car on left side of track
+                self.trackPosBias = -13 -- put car on left side of track
+                --print(self.tagText,"setLeft",self.trackPosBias,self.biasFollowPriority,self.biasGoalOffsetStrength)
                 self.followStrength = 6 -- loosely follow left side ish
                 -- will continue this until racePosition == caution Pos
                 --print("")
@@ -2129,7 +2125,7 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
                         carDist = getDriverHVDistances(self, frontCar).vertical
                         --print(self.tagText," got frontCar",carDist)
                     end
-                    self.trackPosBias = 2 -- move slighlty to right
+                    self.trackPosBias = 3 -- move slighlty to right
 
                     --print("carDist",carDist)
                     if carDist <  16 then -- make big gap
@@ -2389,9 +2385,12 @@ function Driver.updateFormationSteering(self,pathType) -- updates broad steering
     if self.curGear <=0  then
         directionOffset = 0
     end
-    SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset
+    --SteerAngle = (posAngleDif3(self.location,self.shape.at,goalNodePos)/followStren) + biasDif + directionOffset
     --print("ag",self.trackPosBias,self.trackPosition,biasDif,SteerAngle)
-    self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
+    --self.strategicSteering = degreesToSteering(SteerAngle) -- */ speed?
+    local SteerAngle2 = (posAngleDif4(self.location,self.shape.at,goalNodePos) * self.nodeFollowPriority) --+ biasDif + directionOffset -- Other priorities are set in calculategoalOffset
+    local stratSteer2 = radiansToSteering(SteerAngle2) 
+    self.strategicSteering = stratSteer2
 end
 
 function Driver.getGoalDirAdjustment(self) -- Allows racer to stay relatively straight UNUSED -- DEPRECIATE ?
@@ -4897,8 +4896,15 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         self.nodeFollowPriority = rampToGoal(1,self.nodeFollowPriority,0.001)
         self.biasFollowPriority = rampToGoal(0.8,self.biasFollowPriority,0.001)
     elseif self.formation then
-        self.biasFollowPriority = rampToGoal(0.8,self.biasFollowPriority,0.001)
-        self.nodeFollowPriority = rampToGoal(1,self.nodeFollowPriority,0.001)
+        if self.formationAligned then
+            --print(self.tagText,"aligned",self.nodeFollowPriority)
+            self.nodeFollowPriority = rampToGoal(0.05,self.nodeFollowPriority,0.0001)
+            self.biasFollowPriority = rampToGoal(0.5,self.biasFollowPriority,0.0001)
+        else
+            self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.001)
+            self.biasFollowPriority = rampToGoal(1,self.biasFollowPriority,0.001)
+        end
+
     else
 
         if self.goalNode.segType == "Straight" then
@@ -4911,6 +4917,7 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
                 self.passFollowPriority = rampToGoal(0.01,self.passFollowPriority,0.01)
                 self.draftFollowPriority = rampToGoal(0.7,self.draftFollowPriority,0.001)
                 self.nodeFollowPriority = rampToGoal(0.35,self.nodeFollowPriority,0.1)
+                self.biasFollowPriority = rampToGoal(0.3,self.biasFollowPriority,0.001)
             end
         else -- If turning: tighten node priority, loosen pass
             self.draftFollowPriority = rampToGoal(0.1,self.draftFollowPriority,0.01)
@@ -4924,6 +4931,9 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
             end
         end 
 
+        if self.raceRestart then
+            --self.nodeFollowPriority = rampToGoal(0.1,self.nodeFollowPriority,0.01)
+        end
         if (self.goalOffsetCorrecting or self.rotationCorrect) and self.speed > 2 then
             --print(self.tagText,"correcting",self.nodeFollowPriority,self.speed)
             self.nodeFollowPriority = rampToGoal(0.70,self.nodeFollowPriority,0.01)

@@ -784,6 +784,12 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             driver.raceFinished = true
             self.finishTime = time
             -- TODO: Send Chat message with complete stats nicely formatted
+            if self.qualifying then
+                -- Reset already populated qualResults
+                if #self.qualifyingResults >= 1 then
+                    self.qualifyingResults = {}
+                end
+            end
         end
         -- reduce laps left
         local lapsLeft = getLapsLeft() -- shortcut with driver racepos
@@ -822,6 +828,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
                 ['split'] = time_split
             }
             if self.qualifying then -- insert qualifyingData
+                
                 --print("Qualifyind data inserted",finishData)
                 table.insert(self.qualifyingResults,finishData)
                 if self.qualifyingResults ~= {} then
