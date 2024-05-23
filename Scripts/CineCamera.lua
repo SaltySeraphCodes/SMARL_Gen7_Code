@@ -39,8 +39,8 @@ function SmarlCamera.client_init( self )
 	self.zoomStrength = 60
 	self.zoomIn = false
 	self.zoomOut= false
-	self.zoomSpeed = 0.01
-	self.zoomAccel = 0.001
+	self.zoomSpeed = 0.02 -- how fast to zoom in
+	self.zoomAccel = 0.001 -- how quick to ramp it
 	self.raceStatus = 0
 	self.gameWorld = sm.world.getCurrentWorld()
 	self.player = sm.localPlayer.getPlayer()
@@ -73,11 +73,11 @@ function SmarlCamera.client_init( self )
 		zStrength = 0.0,
 		zBump = 0.0,
 
-		rStrengthX = 0.02,
+		rStrengthX = 0.01,
 		rBumpX = 0.01,
-		rStrengthY = 0.02,
+		rStrengthY = 0.01,
 		rBumpY = 0.01,
-		rStrengthZ = 0.02,
+		rStrengthZ = 0.01,
 		rBumpZ = 0.01,
 
 	}
@@ -108,6 +108,8 @@ function SmarlCamera.client_init( self )
 	self.RaceControlGUI:setButtonCallback( "ColorButtonRed", "cl_onColorButtonClick" )
 	self.RaceControlGUI:setButtonCallback( "ColorButtonYellow", "cl_onColorButtonClick" )
 	self.RaceControlGUI:setButtonCallback( "ColorButtonGreen", "cl_onColorButtonClick" )
+	self.RaceControlGUI:setButtonCallback( "ColorButtonWhite", "cl_onColorButtonClick" )
+
 
 
 	-- etc...
@@ -759,7 +761,10 @@ function SmarlCamera.cl_onColorButtonClick( self, name )
 		colorIndex = 2
 	elseif name == "ColorButtonGreen" then
 		colorIndex = 1
+	elseif name == "ColorButtonWhite" then
+		colorIndex = 3
 	end
+
 	self:cl_set_RaceMode(colorIndex) -- Sends Racemode update to Race Control (if exists)
 	self.network:sendToServer( "sv_updateIcon", { colorIndex = colorIndex } )
 end

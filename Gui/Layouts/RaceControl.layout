@@ -50,6 +50,13 @@
                                 <Property key="NeedKey" value="false" />
                             </Widget>
                         </Widget>
+                        <Widget type="Button" skin="BeaconIconColorBorder" name="ColorButtonWhite" position_real="0.37706 0 0.117647 1">
+                            <Widget type="Widget" skin="BeaconIconColor" position_real="0.142857 0.142857 0.714286 0.714286">
+                                <Property key="Colour" value="#eeeeee" />
+                                <Property key="NeedMouse" value="false" />
+                                <Property key="NeedKey" value="false" />
+                            </Widget>
+                        </Widget>
                     </Widget>
                      
                 </Widget>

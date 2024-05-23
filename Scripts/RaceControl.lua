@@ -671,12 +671,20 @@ function Control.setFormationPositions(self) -- sv sets all driver caution posit
             if driver ~= nil then
                 driver.formationPos = v.position
             else
-                print("missing",v.racer_name)
+                id = v.id 
+                driver = getDriverFromId(id)
+                if driver ~= nil then
+                    driver.formationPos = v.position
+                else 
+                    print("missing",v.racer_name,id)
+                    --TODO: raise error to player
+                end
             end
         end 
     else
         for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k] -- sets driver formation position based index placed
             v.formationPos = k
+            --TODO gather feedback on how to do this better
         end 
     end
 end
@@ -823,6 +831,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             local finishData = {
                 ['position'] = driver.racePosition,
                 ['racer_id'] = driver.carData['metaData']["ID"],
+                ['id'] = driver.id,
                 ['racer_name'] = driver.carData['metaData']["Car_Name"],
                 ['best_lap'] = driver.bestLap,
                 ['split'] = time_split

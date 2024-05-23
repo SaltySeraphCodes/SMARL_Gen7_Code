@@ -3094,7 +3094,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     local colSteerR = 0 -- Right colsteer
     -- TODO: Determine if to do draft offset? track bias offset? pass offset?
     if oppFlags.frontWatch and not oppFlags.pass then -- If car is in front but not too close, 
-        if (self.speed - opponent.speed > 15 or opponent.speed < 8) and (not self.caution and not self.formation) then
+        if (self.speed - opponent.speed > 7 or opponent.speed < 8) and (not self.caution and not self.formation) then
             --print(self.tagText,"Approaching front fast",self.speed - opponent.speed)
             -- start moving over slightly for preemptive avoidance
             local passDir = self:checkPassingSpace(opponent)
@@ -3112,7 +3112,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
     
     if oppFlags.frontWarning and not oppFlags.pass then -- If car is in front and getting closer (and not already passing)
-        if (self.speed - opponent.speed > 10 or opponent.speed < 8) and (not self.caution and not self.formation) then
+        if (self.speed - opponent.speed > 5 or opponent.speed < 8) and (not self.caution and not self.formation) then
             --print(self.tagText,"Warning front fast",self.speed - opponent.speed)
             -- start moving over slightly for preemptive avoidance
             local passDir = self:checkPassingSpace(opponent)
@@ -3222,7 +3222,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
             --print(self.tagText,"approaching",self.speed-opponent.speed,oppFlags.pass,self.passing.isPassing)
             if not oppFlags.pass and not self.passing.isPassing then  -- If not currently passing the opp
                 --print(self.tagText,self.carRadar.front,vhDist['vertical'] - (self.frontColDist + opponent.rearColDist),math.abs(vhDist['horizontal'])) -- Add front padding?
-                if vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) <= self.carRadar.front and math.abs(vhDist['horizontal']) <= self.goalNode.width then -- If this car is the closest front car according to local radar
+                if vhDist['vertical'] - (self.frontColDist + opponent.rearColDist) <= self.carRadar.front and math.abs(vhDist['horizontal']) <= self.goalNode.width*1.5 then -- If this car is the closest front car according to local radar
                     --print(self.tagText,"determinen pass Location")
                     local passDirection = self:checkPassingSpace(opponent) -- Check for space to pass
                     if passDirection ~= 0 then -- If theres a direction to pass, assign self the pass and commit to it
@@ -3343,7 +3343,7 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
 
     if frontCol and frontCol <= 20 and frontCol > 2 then -- if close but not overlapping
         if self.speed - opponent.speed > 0 then -- if approaching 
-            if (rightCol and rightCol <3) or (leftCol and leftCol > -3) then -- If overlapping, Makke separate flag?
+            if (rightCol and rightCol <5) or (leftCol and leftCol > -5) then -- If overlapping, Makke separate flag?
                 local catchTime = frontCol/(self.speed - opponent.speed) --TODO: FIgure this out a better way
                 local brakeDist = getBrakingDistance(self.speed,self.mass,self.engine.engineStats.MAX_BRAKE,opponent.speed-3) -- dampening? make variable
                 --print(self.tagText,"catchTime",self.speed - opponent.speed) --TODO: Check this??
@@ -3362,8 +3362,8 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
         oppFlags.frontWarning = false
     end
     
-    if frontCol and (frontCol <= 2 and frontCol > -2)  then -- if car is slightly overlapping but not directly alongside
-        if (rightCol and rightCol <0.05) or (leftCol and leftCol > -.05) then -- If really close but not alongside
+    if frontCol and (frontCol <= 3 and frontCol > -3)  then -- if car is slightly overlapping but not directly alongside
+        if (rightCol and rightCol <0.08) or (leftCol and leftCol > -.08) then -- If really close but not alongside
             if not oppFlags.frontEmergency then
                 --print(self.tagText,"FrontEmerg",frontCol,leftCol,rightCol)
                 oppFlags.frontEmergency = true
@@ -3381,10 +3381,10 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
         end
     end
 
-    if rearCol and rearCol < -2 then
+    if rearCol and rearCol < -2.5 then
         --print("car behind",rearCol)
         if oppFlags.pass then
-            print(self.tagText,"Pass complete")
+            --print(self.tagText,"Pass complete")
             if self.passing.isPassing then
                 print("Finish pass")
                 oppFlags.pass = false
