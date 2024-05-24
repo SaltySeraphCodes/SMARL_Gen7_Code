@@ -3140,7 +3140,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-8,1,-0.09,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-8,1,-0.1,0,leftCol) -- Adjust according to distance
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/2 -- TODO: use a ratio conversion for this too
         end
@@ -3149,7 +3149,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(8,-1,0.09,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(8,-1,0.1,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/2
         end
@@ -3159,11 +3159,11 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftEmergency then -- if opponent is too close
-        colSteerL = colSteerL +ratioConversion(-1,1,-0.06,0,leftCol)
+        colSteerL = colSteerL +ratioConversion(-1,1,-0.07,0,leftCol)
         --print(self.tagText,"leftE",colSteerL,leftCol)
     end
     if oppFlags.rightEmergency then -- if opponent is too close
-        colSteerR = colSteerR +ratioConversion(1,-1,0.06,0,rightCol) -- Adjust according to distance
+        colSteerR = colSteerR +ratioConversion(1,-1,0.07,0,rightCol) -- Adjust according to distance
         --print(self.tagText,"rightE",colSteerR,rightCol)
     end
    
@@ -4334,26 +4334,26 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local wallSteer = 0
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
-        if dist <= 7 then
-            wallSteer = ratioConversion(7,0,0.028,0,dist)  -- Convert x to a ratio from a,b to  c,d
+        if dist <= 8 then
+            wallSteer = ratioConversion(7,0,0.03,0,dist)  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
         end
         if dist < 1 then
-            self.strategicThrottle = self.strategicThrottle - 0.01
+            self.strategicThrottle = self.strategicThrottle - 0.02
         end
     end
 
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 7  then
+        if dist <= 8  then
             --print("left",dist)
-            wallSteer = ratioConversion(7,0,0.028,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = ratioConversion(7,0,0.03,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",wallSteer)
         end
         if dist < 1 then
             --print(self.tagText,"wallSlowfront")
-            self.strategicThrottle = self.strategicThrottle - 0.01
+            self.strategicThrottle = self.strategicThrottle - 0.02
         end
     end
 
@@ -4365,27 +4365,27 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
-        if dist <= 7 then
-            wallSteer = wallSteer + ratioConversion(7,0,0.028,0,dist) *1  -- Convert x to a ratio from a,b to  c,d
+        if dist <= 8 then
+            wallSteer = wallSteer + ratioConversion(7,0,0.03,0,dist) *1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
 
         end
         if dist < 1 then
-            self.strategicThrottle = self.strategicThrottle - 0.01
+            self.strategicThrottle = self.strategicThrottle - 0.02
         end
     end
 
     if hitL and lData.type == "terrainAsset" then
         local dist = getDistance(self.location,lData.pointWorld) 
         --print(dist)
-        if dist <= 7 then
+        if dist <=8 then
             --print("left",dist)
-            wallSteer = wallSteer +  ratioConversion(7,0,0.028,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = wallSteer +  ratioConversion(7,0,0.03,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",walStwallSteereer)
         end
         if dist < 1 then
             --print(self.tagText,"wallSlowside")
-            self.strategicThrottle = self.strategicThrottle - 0.01
+            self.strategicThrottle = self.strategicThrottle - 0.02
         end
     end
 
@@ -4395,14 +4395,14 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local tDist = sideLimit - math.abs(self.trackPosition)
     if tDist <10 then
         if self.trackPosition > 0 then
-            trackAdj = ratioConversion(10,0,0.15,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
+            trackAdj = ratioConversion(10,0,0.18,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
         else
-            trackAdj = ratioConversion(10,0,0.15,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
+            trackAdj = ratioConversion(10,0,0.18,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
         end
         --print(self.tagText, "track limit",trackAdj,tDist)
     
         if self.passing.isPassing or math.abs(wallSteer) > 0 then -- dampen/strenghen? limits
-            trackAdj = trackAdj *0.3
+            trackAdj = trackAdj *0.5
             --print(self.tagText,"Track lim test",trackAdj)
         end
     end
@@ -4898,8 +4898,8 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
     elseif self.formation then
         if self.formationAligned then
             --print(self.tagText,"aligned",self.nodeFollowPriority)
-            self.nodeFollowPriority = rampToGoal(0.05,self.nodeFollowPriority,0.0001)
-            self.biasFollowPriority = rampToGoal(0.5,self.biasFollowPriority,0.0001)
+            self.nodeFollowPriority = rampToGoal(0.2,self.nodeFollowPriority,0.0001)
+            self.biasFollowPriority = rampToGoal(0.9,self.biasFollowPriority,0.0001)
         else
             self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.001)
             self.biasFollowPriority = rampToGoal(1,self.biasFollowPriority,0.001)
