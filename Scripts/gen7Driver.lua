@@ -321,7 +321,7 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = true
+    self.debug = false
 
 
     -- errorTimeouts
