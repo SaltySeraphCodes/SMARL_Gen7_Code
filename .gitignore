@@ -1,4 +1,5 @@
-JsonData/RaceOutput/
+JsonData/RaceOutput/*
 JsonData/cameraInput.json
+Cache/*
 Cache/
 
