@@ -1,5 +1,5 @@
-JsonData/RaceOutput/*
+JsonData/RaceOutput/
 JsonData/cameraInput.json
-Cache/*
+JsonData/zoomControls.json
 Cache/
 
