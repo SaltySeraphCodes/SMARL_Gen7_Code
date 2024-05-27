@@ -4955,8 +4955,8 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         end 
 
         if self.rotationCorrect then -- TODO: lessen rotationCorrect sensitivity
-            print(self.tagText,"correcting rotation",self.nodeFollowPriority)
-            self.nodeFollowPriority = rampToGoal(0.50,self.nodeFollowPriority,0.01)
+            --print(self.tagText,"correcting rotation",self.nodeFollowPriority)
+            self.nodeFollowPriority = rampToGoal(1,self.nodeFollowPriority,0.009)
             self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.01)
             self.passFollowPriority = rampToGoal(0.01,self.passFollowPriority,0.01)
             self.draftFollowPriority = rampToGoal(0.1,self.draftFollowPriority,0.01)
