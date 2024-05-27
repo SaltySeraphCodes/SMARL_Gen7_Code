@@ -4879,7 +4879,7 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
             self.biasFollowPriority = rampToGoal(0.8,self.biasFollowPriority,0.001)
             self.passFollowPriority = rampToGoal(0.9,self.passFollowPriority,0.01)
             self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.001)
-    
+        end
 
     elseif self.formation then
         if self.raceRestart then -- when turns green
