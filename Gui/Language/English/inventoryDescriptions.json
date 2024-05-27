@@ -19,7 +19,7 @@
       "description" : "Saves Track as a blueprint for later use. \n Place down on memorable spot (like back corner of start/finish line). Make sure you place it down on a separate block so it can become a floating obj. \n Press 'E' To save the track to the block and blueprint. Save block on lift.  ",
       "title" : "SMAR Track Loader"
    },
-   "ab524867-122b-4f98-990b-67ff6d2e9c5c" : {
+   "fbc31377-6081-426d-b518-f676840c407c" : {
       "description" : "Car AI Driver, connect to steering bearings and SMAR Engine. Place anywhere on car with steering wheel (smooth face) facing the front. \n MUST BE PLACED WHILE CAR IS ON LIFT IN ORDER FOR CAR TO BE SCANNED CORRECTLY.",
       "title" : "SMAR Driver"
    },
@@ -31,8 +31,12 @@
       "description" : "[NOT FUNCTIONAL, DO NOT USE]",
       "title" : "SMAR CheckPoint"
    },
-   "fbc31377-6081-426d-b518-f676840c407c" : {
-      "description" : "Place on car and connect to driver to customize where you want the downforces to end up",
+   "ab524867-122b-4f98-990b-67ff6d2e9c5c" : {
+      "description" : "Place on car to apply constant local downforce. \n Press 'E' To increase force, Crouch and press 'E' to decrease",
       "title" : "SMAR Downforce Updater"
+   },
+   "04caa519-f127-4235-a792-7a83a79afd21" : {
+      "description" : "Static camera. Currently not usable without Stream Deck and python",
+      "title" : "SMAR Camera"
    }
 }

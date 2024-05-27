@@ -417,8 +417,10 @@ function SmarlCamera.client_onClientDataUpdate(self,clientData)
 			selectedColor = "ColorButtonYellow"
 		elseif clientData.colorIndex == 1 then -- Green
 			selectedColor = "ColorButtonGreen"
-		else -- White flag
-			selectedColor = "ColorButtonRed" -- TODO: add white
+		elseif clientData.colorIndex == 3 then -- white
+			selectedColor = "ColorButtonWhite"
+		else --Fall Back
+			selectedColor = "ColorButtonRed"
 		end
 	end
 

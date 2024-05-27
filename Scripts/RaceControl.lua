@@ -223,7 +223,7 @@ function Control.server_init(self)
     self.controllerSwitch = nil -- interactable that is connected to swtcgh
 
     -------------------- QUALIFYING SETUP -----------------
-    self.qualifying = true -- whether we are qualifying or not -- dynamic
+    self.qualifying = false -- whether we are qualifying or not -- dynamic
     self.qualifyingFlight = 1 -- which flight to store data as
     self.totalFlights = 1 -- choose how many flights there are (can automate but eh)
     -----------------------------------------------------
@@ -274,7 +274,7 @@ function Control.server_init(self)
     
 
     -- Load previous quaifying data
-    self.qualifyingResults = self:sv_ReadQualJson()
+    self.qualifyingResults = (self:sv_ReadQualJson() or {})
 end
 
 function Control.client_onRefresh( self )
@@ -786,7 +786,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             -- TODO: Send Chat message with complete stats nicely formatted
             if self.qualifying then
                 -- Reset already populated qualResults
-                if #self.qualifyingResults >= 1 then
+                if self.qualifyingResults == nil or (self.qualifyingResults and #self.qualifyingResults >= 1) then
                     self.qualifyingResults = {}
                 end
             end
@@ -822,6 +822,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             local time_split = string.format("%.3f",driver.raceSplit)
             local finishData = {
                 ['position'] = driver.racePosition,
+                ['body_id'] = driver.id, -- TODO: FIx this so it can hold cars with no metadata too
                 ['racer_id'] = driver.carData['metaData']["ID"],
                 ['racer_name'] = driver.carData['metaData']["Car_Name"],
                 ['best_lap'] = driver.bestLap,
@@ -829,7 +830,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             }
             if self.qualifying then -- insert qualifyingData
                 
-                --print("Qualifyind data inserted",finishData)
+                print("Qualifyind data inserted",finishData)
                 table.insert(self.qualifyingResults,finishData)
                 if self.qualifyingResults ~= {} then
                     sm.json.save(self.qualifyingResults,QUALIFYING_DATA)
