@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.7.1" -- New Steering system adjustments and bug fixes
+SMAR_VERSION = "1.7.3" -- Bug Fixes and Adjustments p2
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -738,23 +738,21 @@ end
 
 function getDriverHVDistances(driver,target) -- returns horizontal and vertical distances from driver to target driver
     -- vector angle dif -- Problems: something wierd going on when facing -+x axis with horizontal dist, mismatch distances
-    driver.location.z = target.location.z --- THis setting of z mutates driver and may loead to unwanted consequences
+    local sPos = sm.vec3.new(driver.location.x,driver.location.y,target.location.z) -- making new vector to not mutate current driver location
+    --driver.location.z = target.location.z --- THis setting of z mutates driver and may loead to unwanted consequences
     local goalVec = (target.shape.worldPosition - driver.shape.worldPosition) -- multiply at * velocity? use velocity instead?
     
     local vDist = driver.shape.at:dot(goalVec)
     local hDist = sm.vec3.cross(goalVec,driver.shape.at).z
     
     local vhDifs = {horizontal = hDist, vertical = vDist}
-    if driver.id == 35715 then
-        --print(hDist)
-    end
     return vhDifs
 end
 
 function getNodeVHDist(driver,node) -- returns offset to a node
-    -- vector angle dif -- Problems: something wierd going on when facing -+x axis with horizontal dist, mismatch distances
-    driver.location.z = node.location.z
-    local goalVec = (node.mid - driver.location) -- multiply at * velocity? use velocity instead?
+    local sPos = sm.vec3.new(driver.location.x,driver.location.y,node.location.z) -- making new vector to not mutate current driver location
+    --driver.location.z = node.location.z -- THis used to mutate driver location, gets set in new node
+    local goalVec = (node.mid - sPos) -- multiply at * velocity? use velocity instead?
     
     local hDist = node.perp:dot(goalVec) * -1 -- Left is neg right is pos
     local vDist = sm.vec3.cross(goalVec,node.perp).z
@@ -764,8 +762,9 @@ function getNodeVHDist(driver,node) -- returns offset to a node
 end
 
 function getLocationVHDist(node,location) -- returns vhDist offset based on a node/location (based off of nodes mid)
-    node.location.z = location.z
-    local goalVec = (node.mid - location) -- multiply at * velocity? use velocity instead?
+    local sPos = sm.vec3.new(node.location.x,node.location.y,location.z) -- making new vector to not mutate current driver location
+    --node.location.z = location.z mutated bad
+    local goalVec = (sPos - location) -- multiply at * velocity? use velocity instead?
     
     local hDist = node.perp:dot(goalVec) * -1 -- Left is neg right is pos
     local vDist = sm.vec3.cross(goalVec,node.perp).z
@@ -775,8 +774,9 @@ function getLocationVHDist(node,location) -- returns vhDist offset based on a no
 end
 
 function getRaceNodeVHDist(node,location) -- returns vhDist offset based on a node/location (based off of nodes mid)
-    node.location.z = location.z
-    local goalVec = (node.location - location) -- multiply at * velocity? use velocity instead?
+    local sPos = sm.vec3.new(node.location.x,node.location.y,location.z) -- making new vector to not mutate current driver location
+    --node.location.z = location.z mutated bad
+    local goalVec = (sPos - location) -- multiply at * velocity? use velocity instead?
     
     local hDist = node.perp:dot(goalVec) * -1 -- Left is neg right is pos
     local vDist = sm.vec3.cross(goalVec,node.perp).z

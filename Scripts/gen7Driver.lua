@@ -319,7 +319,7 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = false
+    self.debug = true
 
 
     -- errorTimeouts
@@ -329,7 +329,7 @@ function Driver.server_init( self )
     self.resetPosTimeout = 0
 
     -- Race results state
-    self.displayResults = false -- Whether to actually send the chat messge
+    self.displayResults = true -- Whether to actually send the chat messge
     self.resultsDisplayed = false -- Check if message already displayed
 
     -- Effects 
@@ -3149,6 +3149,10 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     else
         colSteer = colSteer/1.1
     end]]
+    if colSteerR ~= 0 or colSteerL ~= 0 then -- TODO: Shift Bias node or create col avoidance node and colAvoidanceFlag
+        --print(self.tagText,"colAvoidance NP lessen",self.nodeFollowPriority)
+        self.nodeFollowPriority = rampToGoal(0.4,self.nodeFollowPriority,0.001)
+    end
     return colSteerL,colSteerR,colThrottle
 end
 
@@ -3236,7 +3240,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                 end
                 if space ~= self.passCommit then -- If the optimal space has changed since initial pass
                     --print(self.tagText,"pass commit changed")
-                    if vhDist.vertical > 10 then -- If far enough away, cancel the pass
+                    if vhDist.vertical > 7 then -- If far enough away, cancel the pass
                         oppFlags.pass = false
                         --print(self.tagText,"PC change Too far cancel")
                         self:cancelPass()
@@ -3259,7 +3263,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                 end
             end
         else -- If not actually approaching this opponent
-            if oppFlags.pass and self.passing.isPassing and self.speed - opponent.speed <= -0.07 then
+            if oppFlags.pass and self.passing.isPassing and self.speed - opponent.speed <= -0.12 then
                 oppFlags.pass = false
                 --print(self.tagText, "Losing ground passcancel",self.speed - opponent.speed)
                 self:cancelPass()
@@ -3357,12 +3361,12 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
         end
     end
 
-    if rearCol and rearCol < -2.5 then
+    if rearCol and rearCol < -2.3 then
         --print("car behind",rearCol)
         if oppFlags.pass then
             --print(self.tagText,"Pass complete")
             if self.passing.isPassing then
-                print("Finish pass")
+                print(self.tagText, "Finish pass")
                 oppFlags.pass = false
                 self:cancelPass()
             else
@@ -4088,7 +4092,7 @@ function Driver.calculatePassOffset(self,opponentD,dir) -- calculates strenght o
         strength = (speedDif) + math.abs(goalTrackPos-desiredTrackPos)/(distFromOpp)  -- convert by distance away from opp
         --print(self.tagText,"Pos on track",speedDif,math.abs(goalTrackPos-desiredTrackPos),distFromOpp)
     else
-        print(self.tagText,"offtrack Pass",desiredTrackPos,strength)
+        print(self.tagText,"offtrack Pass cancel",desiredTrackPos,strength)
         strength = 0 -- todo: look at how to properly adjust this
         self:cancelPass() -- remove flag?
     end
@@ -4887,9 +4891,9 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         end
     elseif self.formation then
         if self.raceRestart then -- when turns green
-            self.nodeFollowPriority = rampToGoal(0.2,self.nodeFollowPriority,0.001) -- set to 0??
-            self.biasFollowPriority = rampToGoal(0.5,self.biasFollowPriority,0.001)
-            self.passFollowPriority = rampToGoal(0.9,self.passFollowPriority,0.01)
+            self.nodeFollowPriority = 0--rampToGoal(0,self.nodeFollowPriority,0.2) -- set to 0??
+            self.biasFollowPriority = rampToGoal(0,self.biasFollowPriority,0.001)
+            self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.001)
             self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.001)
         else
             self.nodeFollowPriority = rampToGoal(0.9,self.nodeFollowPriority,0.001)    
@@ -4902,20 +4906,20 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         if self.goalNode.segType == "Straight" then -- Racing and on straight
             if self.passing.isPassing then -- If passing
                 if self.carAlongSide.left or self.carAlongSide.right then -- if a car is alongside,
-                    self.nodeFollowPriority = rampToGoal(0.6,self.nodeFollowPriority,0.001)
+                    self.nodeFollowPriority = rampToGoal(0.3,self.nodeFollowPriority,0.0005)
                     self.biasFollowPriority = rampToGoal(0.5,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.001)
+                    self.passFollowPriority = rampToGoal(0.95,self.passFollowPriority,0.01)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.001)
                 else
-                    self.nodeFollowPriority = rampToGoal(0.2,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.6,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.3,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.001)
+                    self.passFollowPriority = rampToGoal(0.95,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.001)
                 end
 
             else -- Not passing
                 if self.carAlongSide.left or self.carAlongSide.right then -- if a car is alongside,
-                    self.nodeFollowPriority = rampToGoal(0.60,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.60,self.nodeFollowPriority,0.0005)
                     self.biasFollowPriority = rampToGoal(0.4,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.3,self.passFollowPriority,0.01)
                     self.draftFollowPriority = rampToGoal(0.3,self.draftFollowPriority,0.001)
@@ -4955,8 +4959,8 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         end 
 
         if self.rotationCorrect then -- TODO: lessen rotationCorrect sensitivity
-            --print(self.tagText,"correcting rotation",self.nodeFollowPriority)
-            self.nodeFollowPriority = rampToGoal(1,self.nodeFollowPriority,0.009)
+            print(self.tagText,"correcting rotation",self.nodeFollowPriority)
+            self.nodeFollowPriority = rampToGoal(0.1,self.nodeFollowPriority,0.01)
             self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.01)
             self.passFollowPriority = rampToGoal(0.01,self.passFollowPriority,0.01)
             self.draftFollowPriority = rampToGoal(0.1,self.draftFollowPriority,0.01)
@@ -5450,7 +5454,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
             end
         end
     else
-        self.onLift = false
+        self.onLift = false -- TODO: only set once?
     end
     if self.engine == nil or self.engine.engineStats == nil then self.noEngineError = true end
     if getDriverFromId(self.id) == nil then
@@ -5466,8 +5470,8 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     end
     
     if self.speed > 2 and not self.noEngineError and not self.carData['Downforce'] then -- Standard downforce (Also specify for Stock cars only?)
-        local maxForce = -1200
-        local minForce = -800
+        local maxForce = -1100
+        local minForce = -900
         local offset = 0.05 -- offset towards/from front to push down
         local bankAdjust = 0
         if self.goalNode then
@@ -5534,14 +5538,12 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
             self.downforceDetect = false
         end
     end
-
    -- HAve flag for when car is airborne, have it stop or slow down wheels
     --print(self.pathGoal)
     
     self.body = self.shape:getBody()
     if self.carDimensions == nil then
         --print("location")
-        --print("updating location",self.location,self.shape.worldPosition)
         self.location = self.shape:getWorldPosition() --self.body.worldPosition
     else
         if self.carDimensions['center'] then
@@ -5560,7 +5562,6 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
         self.cameraPoints = self.cameraPoints +  0.2 -- might be too short lived to be seen
         --print(self.tagText,"crash detected",self.cameraPoints)
     end
-
     self.speed = self.velocity:length()
     -- Camera Points for top speed??
 
@@ -5568,13 +5569,12 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     --print(self.speed,self.curGear,self.engine.VRPM)
     self.trackPosition = self:calculateTrackPos()
     self.goalDirection = self:calculateGoalDirection()
-
     self.goalDirectionOffset = self:calculateGoalDirOffset()
-    
     self.followStrength = self:calculateNodeFollowStrength()
     self:calculateTrackPosBiasStrength() -- sets self.biasGoalOffsetStrength
     self:calculateDraftPosBiasStrength() -- sets self.draftGoalOffsetStrength
     self:calculatePriorities()
+
     --self.trackPosBias = self:calculateTrackPosBiasTurn()
     self.angularSpeed = self.angularVelocity:length() -- Moving here so we only need to calculate once
     self.mass = self.body.mass -- possibly not need
@@ -5596,6 +5596,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
         self:determineRacePos()
         self:checkLapCross()
     end
+
     --print(self.mass)
     -- update Current states
     --print(self.tagText,"End loop",self.cameraPoints)
@@ -6042,7 +6043,7 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
     local df = string.format("%d",(self.carData['Downforce'] or 0)) -- cl
     local draftStatus = tostring(self.drafting) -- cl
     local mass = string.format("%d",self.mass) -- cl
-    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..draftStatus)
+    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..mass)
     --print(self.shape.worldPosition.z-self.location.z)
     --print(self.shape.right,)
     for j=0, #self.effectsList do local effectD = self.effectsList[j] -- separate out to movable/unmovable fx

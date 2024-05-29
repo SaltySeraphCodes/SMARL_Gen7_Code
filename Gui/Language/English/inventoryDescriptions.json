@@ -8,7 +8,7 @@
       "title" : "SMAR Engine"
    },
    "5d8f2445-31bb-4079-94ab-dc1df1e6e3ed" : {
-      "description" : "Scans and attempts to generate a racing line for Auto Racers. Place at start/finish line with target/screen facing the desired circut direciton",
+      "description" : "Scans and attempts to generate a racing line for Auto Racers. Place at start/finish line with target/screen facing the desired circut direciton \n Aim and interact to toggle Race Line Enhancement",
       "title" : "SMAR Track Generator"
    },
    "645fe8aa-2c33-43c9-8859-f6a03374c62a" : {

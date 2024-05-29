@@ -273,6 +273,7 @@ function Loader.getNewCoordinates(self,point,offset,angle) -- tak
     angle = angle * -1 -- inverse angle ()
     local distFromZero = self.trackData.O -- How far away original node is from 0,0
     local centeredPoint = point - distFromZero -- Point centered around 0,0 based on origin
+    --print(point.z - distFromZero.z)
     -- rotate Point(s) around 0,0
     local pointX = (centeredPoint.x*math.cos(angle) - centeredPoint.y*math.sin(angle))
     local pointY = (centeredPoint.x*math.sin(angle) + centeredPoint.y*math.cos(angle))
@@ -295,14 +296,17 @@ function Loader.applyNodeChainOffset(self,tempChain) -- alters temporary chain
     local rotationQuat = sm.vec3.getRotation(self.trackData.D:normalize(),self.direction:normalize()) -- Retu
     for k=1, #tempChain do local node=tempChain[k]
         local newLocation = self:getNewCoordinates(node.location,offset,radians)
+        
+        --print("oldLoc",node.location.z - newLocation.z)
+        
         local newMid = self:getNewCoordinates(node.mid,offset,radians)
         node['tempLoc'] = newLocation
         node['tempMid'] = newMid
         node['tempPerp'] = node.perp:rotateZ(radians) --rotationQuat * node.perp 
         node['tempOut'] = node.outVector:rotateZ(radians) --rotationQuat * node.outVector
     end 
-    local checkIndex = 20
-    print(tempChain[checkIndex].outVector.x,tempChain[checkIndex].tempOut.x)
+    --local checkIndex = 20
+    --print(tempChain[checkIndex].outVector.x,tempChain[checkIndex].tempOut.x)
     return tempChain
 end
 
@@ -446,7 +450,13 @@ end
 
 
 function Loader.client_canTinker( self, character )
-    --print("canTinker")
+    --print("canTinker", sm.gui.getKeyBinding( "Use" ))
+    --print("canTinker2",sm.gui.getKeyBinding('Tinker'))
+    local useText =  sm.gui.getKeyBinding( "Use", true )
+    local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+    --sm.gui.setInteractionText("Save",sm.gui.getKeyBinding("Use"), "Load", sm.gui.getKeyBinding('Tinker'))
+    sm.gui.setInteractionText( useText,"Save Track Scan To Block ", tinkerText,"Save Block's Scan To World","" )
+
 	return true
 end
 

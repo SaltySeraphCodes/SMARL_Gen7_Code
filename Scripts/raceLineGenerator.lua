@@ -563,7 +563,14 @@ function Generator.cl_changeWallSense(self,amnt)
     if self.wallThreshold <= 0 then
         self.wallThreshold = 0 
     end
-    sm.gui.chatMessage("Wall Detection Sensetivity:".. self.wallThreshold)
+    local color = "#ffffff"
+    if amnt < 0 then
+        color = "#ffaaaa"
+    elseif amnt > 0 then
+        color = "#aaffaa"
+    end
+
+    sm.gui.chatMessage("Wall Detection sensitivity: "..color ..self.wallThreshold .. " #ffffffCrouch to decrease")
 end
 
 function Generator.cl_updateWallPadding(self,amnt) -- updates global wall padding var (should be cl)
@@ -1852,6 +1859,17 @@ function Generator.startOptimization(self)
     end
 end
  
+function Generator.sv_toggleRacify(self,toggle) -- Turns off and on racify line
+    self.racifyLine = not self.racifyLine
+    print("Toggling racify",self.racifyLine)
+
+    if self.racifyLine then 
+        sm.gui.chatMessage("Race Line Enhancement Turned #22ee22ON #ffffff(Good for Road Courses)")
+    else
+        sm.gui.chatMessage("Race Line Enhancement Turned #ee2222OFF #ffffff(Good for Ovals)")
+    end
+end
+
 function Generator.printNodeChain(self)
     for k, v in pairs(self.nodeChain) do
 		print(v.id,v.segID)
@@ -1860,7 +1878,9 @@ end
 
 function Generator.client_onInteract(self,character,state)
      if state then
-		if character:isCrouching() then
+        if character:isAiming() then -- if char is aiming then downforce detect
+            self.network:sendToServer('sv_toggleRacify',state)
+        elseif character:isCrouching() then
             self.debug = not self.debug -- togle debug
             self:toggleVisual(self.nodeChain)
             self.instantScan = false
@@ -1868,18 +1888,24 @@ function Generator.client_onInteract(self,character,state)
             self.nodeChain = {}
             self.effectChain = {}
             self:startTrackScan()
+            sm.gui.chatMessage("If scan does not work properly (bad shape or error): Press 'U' (upgrade) on the track scanner block to decrease wall detection sensitivity. Crouch 'U' to increase. then try to scan again. (may need to replace scanner block)")
+            sm.gui.chatMessage("NOTE: Lower sens value = higher sensitivity (better for very flat tracks with sharp/low walls) \n Higher sens value = lower sensitivity (useful for tracks with high walls and/or bumpy roads like offroad sections or banked turns)")
+            
 		else
 			print("Scan already started")
 		end
-        sm.gui.chatMessage("If scan does not work properly (bad shape or error): Press 'U' (upgrade) on the track scanner block to decrease wall detection sensitivity. Crouch 'U' to increase. then try to scan again. (may need to replace scanner block)")
-        sm.gui.chatMessage("NOTE: Lower sens value = higher sensitivity (better for very flat tracks with sharp/low walls) \n Higher sens value = lower sensitivity (useful for tracks with high walls and/or bumpy roads like offroad sections or banked turns)")
-	end
+    end
 end
 
 
 
 function Generator.client_canTinker( self, character )
-	return true
+	local useText =  sm.gui.getKeyBinding( "Use", true )
+    local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+    --sm.gui.setInteractionText("Save",sm.gui.getKeyBinding("Use"), "Load", sm.gui.getKeyBinding('Tinker'))
+    sm.gui.setInteractionText( useText,"Start Scan", tinkerText,"Set Sensitivity","")
+    
+    return true
 end
 
 function Generator.client_onTinker( self, character, state )

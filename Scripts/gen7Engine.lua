@@ -347,8 +347,9 @@ function Engine.updateEffect(self) -- TODO: Un comment this when ready
     if self.driver == nil or self.noDriverError == true then
        
         if self.effect then
-            print("no driver stop",self.effect)
+            
             if self.effect:isPlaying() then
+                print("no driver stop Effect",self.effect)
                 self.effect:setParameter( "load", 0 )
                 self.effect:setParameter( "rpm", 0 )
                 self.effect:stop()

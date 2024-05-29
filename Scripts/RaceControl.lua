@@ -1901,7 +1901,7 @@ function Control.droneExecuteFollowRacer(self) -- runs onfixedupdate and focuses
 		return
 	end
     -- If self.droneFollowRacer vs pos?
-    --print(self.droneLocation.x,racer.location.x,self.droneOffset.x)
+    --print(self.droneOffset)
     self.droneLocation = racer.location + self.droneOffset -- puts initial location a bit off and higher than racer`
 	
 end
@@ -2298,7 +2298,7 @@ function Control.updateCameraPos(self,goal,dt)
         local smooth = 1
         local mSmooth = 1
         if self.frameCountTime > 5 then
-            smooth =dt *0.2
+            smooth =dt --*0.2
             mSmooth = dt
         end
 
