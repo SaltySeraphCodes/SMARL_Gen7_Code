@@ -1,8 +1,9 @@
--- This will Generate the racing line generator, hoepfuly it works
+-- This block scans the walls of a track and creates a virtual track for cars to understand and follow
 --- This is just a non function draft to get the mnath down
 -- TODO: IDEA, Possibly load nodes based off of scanned terrain tile UUID from preset stored nodes (prevents bad scans on user side)
     -- Have preset track nodes saved in folder, and open them if track scanner senes the tile uuid
 -- TODO: Make Scanner more sensitive to corners/straights
+-- TODO: Change names to Track Scanner and Scanner class
 dofile "Timer.lua" 
 local nodePrev = {loc= sm.vec3.new(0,1,1), id = 1, pevious = nil, next = node, totalForce = 0, energy = 0}
 local nodeNext = {loc= sm.vec3.new(0,1,1), id = 1, pevious = node, next = nil, totalForce = 0, energy = 0}

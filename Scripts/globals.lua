@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.7.3" -- Bug Fixes and Adjustments p2
+SMAR_VERSION = "1.7.5" --  Situational Awareness 1.5 Update
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -292,7 +292,7 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
     local searchDistance = 0 -- how far away to search
     
     --print("getting nearest node",approxRow,approxCol)
-    local searchLimit = 250
+    local searchLimit = 100
     local possibleRow = nodeMap[approxRow]
     if possibleRow ~= nil then
         local possibleCol = nodeMap[approxRow][approxCol]

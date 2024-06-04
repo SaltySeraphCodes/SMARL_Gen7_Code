@@ -3,13 +3,17 @@
       "description" : "Connect any logic input to this block to start and stop the racers remotely. \n Press 'E' (interact) on object to view various race settings",
       "title" : "SMAR Race Control"
    },
+   "04caa519-f127-4235-a792-7a83a79afd21" : {
+      "description" : "Static camera. Currently not usable without Stream Deck and python",
+      "title" : "SMAR Camera"
+   },
    "42dd8836-3cbb-495c-86b4-44fb9c9916b3" : {
       "description" : "SMAR Engine - Connect Driver to this block and connect this block to wheel bearings. Can be placed anywhere. \n Paint Black, grey, light grey, or white To change engine speeds from slowest to fastest.",
       "title" : "SMAR Engine"
    },
    "5d8f2445-31bb-4079-94ab-dc1df1e6e3ed" : {
       "description" : "Scans and attempts to generate a racing line for Auto Racers. Place at start/finish line with target/screen facing the desired circut direciton \n Aim and interact to toggle Race Line Enhancement",
-      "title" : "SMAR Track Generator"
+      "title" : "SMAR Track Scanner"
    },
    "645fe8aa-2c33-43c9-8859-f6a03374c62a" : {
       "description" : "BETA: \n  Press 'Q' While holding to open up Race Control UI. \n Press 'E' or 'ESC' to exit (Race Control must be placed down)",
@@ -19,9 +23,9 @@
       "description" : "Saves Track as a blueprint for later use. \n Place down on memorable spot (like back corner of start/finish line). Make sure you place it down on a separate block so it can become a floating obj. \n Press 'E' To save the track to the block and blueprint. Save block on lift.  ",
       "title" : "SMAR Track Loader"
    },
-   "fbc31377-6081-426d-b518-f676840c407c" : {
-      "description" : "Car AI Driver, connect to steering bearings and SMAR Engine. Place anywhere on car with steering wheel (smooth face) facing the front. \n MUST BE PLACED WHILE CAR IS ON LIFT IN ORDER FOR CAR TO BE SCANNED CORRECTLY.",
-      "title" : "SMAR Driver"
+   "ab524867-122b-4f98-990b-67ff6d2e9c5c" : {
+      "description" : "Place on car to apply constant local downforce. \n Press 'E' To increase force, Crouch and press 'E' to decrease",
+      "title" : "SMAR Downforce Updater"
    },
    "b20d3826-3235-459c-a4c9-ef1438caaed9" : {
       "description" : "Connect Driver block to this and then connect this to brake lights (only braking)",
@@ -31,12 +35,8 @@
       "description" : "[NOT FUNCTIONAL, DO NOT USE]",
       "title" : "SMAR CheckPoint"
    },
-   "ab524867-122b-4f98-990b-67ff6d2e9c5c" : {
-      "description" : "Place on car to apply constant local downforce. \n Press 'E' To increase force, Crouch and press 'E' to decrease",
-      "title" : "SMAR Downforce Updater"
-   },
-   "04caa519-f127-4235-a792-7a83a79afd21" : {
-      "description" : "Static camera. Currently not usable without Stream Deck and python",
-      "title" : "SMAR Camera"
+   "fbc31377-6081-426d-b518-f676840c407c" : {
+      "description" : "Car AI Driver, connect to steering bearings and SMAR Engine. Place anywhere on car with steering wheel (smooth face) facing the front. \n MUST BE PLACED WHILE CAR IS ON LIFT IN ORDER FOR CAR TO BE SCANNED CORRECTLY.",
+      "title" : "SMAR Driver"
    }
 }
