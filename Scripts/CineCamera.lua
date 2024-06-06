@@ -90,7 +90,7 @@ function SmarlCamera.client_init( self )
 	self.fovValue = 70
 
 	self.externalControlsEnabled = false -- whether kepyress reader is active
-
+	self.clickCamOn = false -- Whether the user used left click to turn on freecam (allows teleporting)
 
 	-- GUI 
 	--print("loading gui")
@@ -166,7 +166,7 @@ function SmarlCamera.cl_recieveCommand(self,com) -- takes in string commands and
 			self:activateFreecam()
 			self:deactivateRaceCam()
 		elseif com.value == 1 then
-			self:deactivateFreecam()
+			--self:deactivateFreecam()
 			self:activateRaceCam()
 		end -- Add drone cam??
 	elseif com.command == "ExitCam" then
@@ -249,6 +249,7 @@ function SmarlCamera.cl_setPosition(self,position) -- sets race camera to specif
 	if not self.feezeCam then
 		sm.camera.setPosition(position) -- sets position immediately was commented out for some reason (possibly for camera shake reasons)
 		self.raceCamLocation = position
+		self.freeCamLocation = position
 	end
 	--print("setPosR",self.raceCamLocation,self.raceCamDirection)
 	--print("setPosA",sm.camera.getPosition(),sm.camera.getDirection())
@@ -256,8 +257,9 @@ end
 
 function SmarlCamera.cl_setDirection(self,direciton) -- sets race camera to specified -position, resets zoom to 70
 	if not self.feezeCam then 
-		self.raceCamDirection = direciton
 		sm.camera.setDirection(direciton)
+		self.raceCamDirection = direciton
+		self.freeCamDirection = direciton
 	end
 	--print("setDirR",self.raceCamLocation,self.raceCamDirection)
 	--print("setDirA",sm.camera.getPosition(),sm.camera.getDirection())
@@ -330,7 +332,7 @@ function SmarlCamera.switchCam(self,cam) -- Actually does the teleporting
 end
 
 
-function SmarlCamera.teleportCharacter(self,location) -- teleports character to vec3 location
+function SmarlCamera.cl_teleportCharacter(self,location) -- Client teleports character to vec3 location
 	self.network:sendToServer( "server_teleportPlayer", location)
 end
 
@@ -434,13 +436,16 @@ end
 function SmarlCamera.client_onUpdate( self, timeStep )
 	--print("Actual",sm.camera.getPosition(),sm.camera.getDirection())
 	self.location = self.character:getWorldPosition() -- Make this only move according to camera mode
-	self.freeCamDirection = sm.camera.getDirection()
+	
 
 	if not self.freeCamActive then -- if nothing active  
 		--print("wut")
 		self.freeCamLocation = self.character:getWorldPosition()
 		self.freeCamLocation.z = self.freeCamLocation.z + 2
+	else
+		self.freeCamDirection = sm.camera.getDirection() -- only allow mouse move when mouse move abvle
 	end
+
 	--print(sm.camera.getCameraState())
 	local goalPos = sm.vec3.new(self.freeCamLocation.x,self.freeCamLocation.y,self.freeCamLocation.z)
 	local goalDir = nil-- self.character:getDirection()
@@ -477,18 +482,18 @@ function SmarlCamera.client_onUpdate( self, timeStep )
 
 		-- rotation noise
 		--print(self.freeCamOffset)
-		goalDir = self.character:getDirection()  --  self.freeCamOffset
+		goalDir = self.character:getDirection()  --  TODO: Fix issue here... free cam toggle on always points to char position which does not follow cur cam
 		goalDir.x = goalDir.x + xNoiseR
 		goalDir.y = goalDir.y + yNoiseR
 		goalDir.z = goalDir.z + zNoiseR
 
 		if self.freeCamActive then 
 			--print("update1",self.freeCamDirection,sm.localPlayer.getDirection())
-			self.freeCamLocation = sm.vec3.lerp(self.freeCamLocation,goalPos,timeStep*2)
-			self.freeCamDirection = sm.vec3.lerp(self.freeCamDirection,goalDir,timeStep*2)	
+			self.freeCamLocation = sm.vec3.lerp(self.freeCamLocation,goalPos,timeStep)--*2)
+			self.freeCamDirection = sm.vec3.lerp(self.freeCamDirection,goalDir,timeStep*2)--*2)	
 			sm.camera.setPosition(self.freeCamLocation) -- FAULT: Camera shake will not be triggered or be bumpy since camera is being set on immediate callback, both are called onUpdate, this is being called after
 														-- TODO: Fix: bake this into the direct clientCall ( separate this whole thing into separete function and call directly with new pos as param)
-			--print("FREcam",self.freeCamDirection, sm.camera.getDirection())
+														--print("FREcam",self.freeCamDirection, sm.camera.getDirection())
 			sm.camera.setDirection(self.freeCamDirection)--self.freeCamDirection) -- less shaky in dir (tacky)
 			--print("update2",self.freeCamDirection,sm.localPlayer.getDirection())
 
@@ -582,16 +587,20 @@ function SmarlCamera.client_onEquippedUpdate( self, primaryState, secondaryState
 	--print(primaryState,secondaryState)
 	if primaryState ~= self.primaryState then
 		if primaryState == 1 then
-			--print("left clicked",primaryState)
-			--self:activateFreecam()
+			print("left clicked",primaryState)
+			self:activateFreecam()
+			self.clickCamOn = true
 		end
 		self.primaryState = primaryState
 	end
 
 	if secondaryState ~= self.secondaryState then
 		if secondaryState == 1 then
-			--print("right clicked",secondaryState)
-			--self:deactivateFreecam()
+			print("right clicked",secondaryState)
+			if self.clickCamOn then 
+				self:deactivateFreecam()
+				self.clickCamOn = false
+			end
 		end
 		self.secondaryState = secondaryState
 	end
@@ -612,13 +621,23 @@ end
 
 
 function SmarlCamera.activateFreecam(self)
-	print("freecam Activated")
 	--print("activate1",self.freeCamDirection,sm.localPlayer.getDirection())
 	self.feezeCam = false -- disable freezecam in case
 	self.debugCounter = 0
-	self.freeCamLocation = sm.camera.getPosition()
-	self.freeCamDirection = sm.camera.getDirection() -- Free cam should activate wherever it is
-	sm.localPlayer.setDirection(self.freeCamDirection)
+	if self.freeCamLocation == nil then 
+		self.freeCamLocation = sm.camera.getPosition()
+	else -- use last or current pos?
+
+	end
+	if self.freeCamDirection == nil then 
+		self.freeCamDirection = sm.camera.getDirection() -- Free cam should activate wherever player is facing
+	else
+		-- use last or current direction?>
+		
+	end
+	print("freecam Activated",self.freeCamDirection)
+
+	--sm.localPlayer.setDirection(self.freeCamDirection)
 	self.freeCamOffset = self.freeCamDirection
 	--print("activate2",self.freeCamDirection,sm.localPlayer.getDirection())
 	--sm.camera.setPosition(self.freeCamLocation) 
@@ -642,12 +661,11 @@ end
 
 function SmarlCamera.deactivateFreecam(self)
 	self.freeCamActive = false
-	--print("freecam Deacivated")
-	--self.character:setLockingInteractable(nil)
-	--self.tool:updateFpCamera( 70.0, sm.vec3.new( 0.0, 0.0, 0.0 ), 1, 1 ) -- aimwaiit?
-	--sm.camera.setCameraState(1)
-	-- teleport character only if direct clic
-		--self:teleportCharacter(self.freeCamLocation)
+	print("freecam Deacivated")
+	self.character:setLockingInteractable(nil)
+	self.tool:updateFpCamera( 70.0, sm.vec3.new( 0.0, 0.0, 0.0 ), 1, 1 ) -- aimwaiit?
+	sm.camera.setCameraState(1)
+	self:cl_teleportCharacter(self.freeCamLocation) -- teleports char to cam loc
 end
 
 function SmarlCamera.exitFreecam(self)

@@ -1861,10 +1861,10 @@ function Generator.startOptimization(self)
 end
  
 function Generator.sv_toggleRacify(self,toggle) -- Turns off and on racify line
-    self.racifyLine = not self.racifyLine
-    print("Toggling racify",self.racifyLine)
+    self.racifyLineOpt = not self.racifyLineOpt
+    print("Toggling racify",self.racifyLineOptw)
 
-    if self.racifyLine then 
+    if self.racifyLineOpt then 
         sm.gui.chatMessage("Race Line Enhancement Turned #22ee22ON #ffffff(Good for Road Courses)")
     else
         sm.gui.chatMessage("Race Line Enhancement Turned #ee2222OFF #ffffff(Good for Ovals)")
