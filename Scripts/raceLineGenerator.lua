@@ -494,7 +494,7 @@ function Generator.generatePerpVector2(self,direction,location,node) -- generate
 end
 
 function Generator.getWallFlatUp(self,location,perp,cycle) -- Scans directly out to the sides to determine wall location (starts at node then goes up) good with tunnels, bad with uneven terrain
-    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodechain[#self.nodeChain]].lastNode.width/2
+    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodeChain[#self.nodeChain]].lastNode.width/2
     if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].width then
         searchLimit = (self.nodeChain[self.nodeIndex-1].width * 0.9 or 60)
     end
@@ -528,7 +528,7 @@ function Generator.getWallFlatUp(self,location,perp,cycle) -- Scans directly out
 end
 
 function Generator.getWallAngleDown(self,location,perp,cycle) -- finds wall from scanning from ground to up and down (Bad with tunnels and uneven terrain)
-    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodechain[#self.nodeChain]].lastNode.width/2
+    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodeChain[#self.nodeChain]].lastNode.width/2
     if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].width then
         searchLimit = (self.nodeChain[self.nodeIndex-1].width * 0.9 or 60)
     end
@@ -713,7 +713,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
     --if self.nodeChain == nil then return end
     -- TODO: figure out loopdy loops, will need to look forward instead of straight down in order to find ramps/inclines. have upsidedown tag for node aswell
     -- TODO: FIgure out fixes for bugs like goin in tunnels,scanner will break
-    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodechain[#self.nodeChain]].lastNode.width/2
+    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodeChain[#self.nodeChain]].lastNode.width/2
     local inTunnel = false
     if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].width then
         searchLimit = (self.nodeChain[self.nodeIndex-1].width * 0.8 or 60)
@@ -844,7 +844,7 @@ function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method
     ]]
     -- ALSO: Potentially get VHDif of lastWall/curWall to determine direction of turn & etc
 
-    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodechain[#self.nodeChain]].lastNode.width/2
+    local searchLimit = 60 -- how far to look for walls, dynamic: self.nodeChain[#self.nodeChain]].lastNode.width/2
     local scanFromHeight = 2 --* self.shape.up
     if self.nodeChain[self.nodeIndex -1] ~= nil and self.nodeChain[self.nodeIndex-1].width then
         searchLimit = (self.nodeChain[self.nodeIndex-1].width * 0.8 or 60)
@@ -1777,7 +1777,7 @@ end
 
 function Generator.startTrackScan(self)
     self.scanError = false -- reset error
-    self.nodeChain = {} -- reset nodechain
+    self.nodeChain = {} -- reset chain
     self.scanClock = 0 -- reset scanclock
     self.started = clock()
     self.nodeIndex = 1

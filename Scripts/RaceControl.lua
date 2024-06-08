@@ -978,6 +978,7 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
                         --print(totalNodes - firstCar.currentNode.id)
                         if totalNodes - firstCar.currentNode.id < 20 and totalNodes - firstCar.currentNode.id > 5 then
                             chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
+                            if chosenCamera == nil then return end
                             local focusSpot = firstCar.nodeChain[1].mid
                             local camSpot = chosenCamera.location
                             local goalOffset = focusSpot - camSpot
@@ -2348,7 +2349,7 @@ function Control.updateCameraPos(self,goal,dt)
             local rotation  =  racer.carDimensions['center']['rotation']
             local newRot =  rotation * racer.shape:getAt()
             location = racer.shape:getWorldPosition() + (newRot * racer.carDimensions['center']['length']) -- centerlcoation
-            rearLength = racer.carDimensions['rear']:length() *0.9 -- mor padding
+            rearLength = racer.carDimensions['rear']:length() *0.3 -- mor padding
         end
         local rearLoc = location + (carDir*-rearLength) -- whats freecam speed supposed to do?
         
@@ -2358,7 +2359,7 @@ function Control.updateCameraPos(self,goal,dt)
         local newCamPos = rearLoc + sm.vec3.new(0,0,4) --+ TODO: dynamic height??
         local newCamDir = camDir + (dvel *2)
         local dirSmooth = dt * 0.8
-        local locSmooth = dt * 1.4 -- 1.1
+        local locSmooth = dt * 1.5 -- 1.1
         if self.frameCountTime < 2 then -- if resent switch, then don't update camera dir, just pos?
             --have some transition effect here??
         else

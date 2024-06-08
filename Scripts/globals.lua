@@ -281,10 +281,16 @@ function displayNodeMap(nodeMap,location) -- attempts to display nodemap
     print(mapString)
 end
 
+function findClosestNode(nodeChain,location)
+    print("fnn")
+    -- New way, search towards near
+    local closestPhysicalNode = getNodeClosest(nodeChain,location)
+    print("closest",closestPhysicalNode.id,closestPhysicalNode.location,location,getDistance(closestPhysicalNode.location,location))
+    return closestPhysicalNode
+end
 -- possibly use areaTrigger?
 -- Get closest nodes to the nearest location?
 function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, detect if outside, instead of searching all, just search for nearest node in general direction
-    --print("gnn")
     local availibleNodes = {}
     local approxRow = round(location.y)
     local approxCol = round(location.x)
@@ -292,16 +298,17 @@ function getNearestNode(nodeMap,location) -- TODO: Get outer bounds of nodeMap, 
     local searchDistance = 0 -- how far away to search
     
     --print("getting nearest node",approxRow,approxCol)
-    local searchLimit = 100
     local possibleRow = nodeMap[approxRow]
     if possibleRow ~= nil then
         local possibleCol = nodeMap[approxRow][approxCol]
         if possibleCol ~= nil then
             availibleNodes = nodeMap[approxRow][approxCol] -- posssibly index even more?
-            --print("imediate nodes",availibleNodes)
+            print("imediate nodes",availibleNodes)
         end
-    end -- else
+    end 
 
+    -- Just general ineffeciient track can that should only be called last resourt
+    local searchLimit = 200
     while availibleNodes == nil or #availibleNodes == 0 do
         --print("while",searchDistance)
         searchDistance = searchDistance + 1
@@ -972,6 +979,7 @@ end
 
 
 function ratioConversion(a,b,c,d,x) -- Convert x to a ratio from a,b to  c,d
+    --TODO: add a clamp here so it does nor exceed max/min ratios
 	return c+ (d - c) * (x - b) / (a - b)  -- Scale equation
 end
 
