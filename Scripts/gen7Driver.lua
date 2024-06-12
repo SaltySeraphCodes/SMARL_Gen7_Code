@@ -3282,7 +3282,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-9,2,-0.13,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-9,2,-0.15,0,leftCol) -- Adjust according to distance
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/2 -- TODO: use a ratio conversion for this too
         end
@@ -3291,7 +3291,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(9,-2,0.13,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(9,-2,0.15,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/2
         end
@@ -3301,11 +3301,11 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftEmergency then -- if opponent is too close
-        colSteerL = colSteerL +ratioConversion(-2,2,-0.14,0,leftCol)
+        colSteerL = colSteerL +ratioConversion(-2,2,-0.16,0,leftCol)
         --print(self.tagText,"leftE",colSteerL,leftCol)
     end
     if oppFlags.rightEmergency then -- if opponent is too close
-        colSteerR = colSteerR +ratioConversion(2,-2,0.14,0,rightCol) -- Adjust according to distance
+        colSteerR = colSteerR +ratioConversion(2,-2,0.16,0,rightCol) -- Adjust according to distance
         --print(self.tagText,"rightE",colSteerR,rightCol)
     end
    
@@ -5158,7 +5158,7 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         if checkNode.segType == "Straight" or checkNode.segType == "Fast_Left" or checkNode.segType == "Fast_Right" or segLen > 20 then -- Racing and on straight
             if self.passing.isPassing then -- If passing
                 if math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0 then -- if a car is alongside, TODO: go into depth of where exactly car is and what turn it is, EG: If turning left and a car on left, depengin on how close it is, loosen turn, if car on right, tighten turn?)
-                    self.nodeFollowPriority = rampToGoal(0.3,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.1,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
@@ -5173,13 +5173,13 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
 
             else -- Not passing
                 if math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0 then -- if a car is alongside,
-                    self.nodeFollowPriority = rampToGoal(0.35,self.nodeFollowPriority,0.1)
+                    self.nodeFollowPriority = rampToGoal(0.1,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0.5,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.01) -- unsure what to do with this
                 else -- No cars alongside
-                    self.nodeFollowPriority = rampToGoal(0.35,self.nodeFollowPriority,0.1)
+                    self.nodeFollowPriority = rampToGoal(0.2,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0.8,self.draftFollowPriority,0.01)
@@ -5189,13 +5189,13 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         else -- If turning: tighten node priority, loosen pass
             if self.passing.isPassing then -- Get looser while passing
                 if  math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0  then -- if a car is alongside,
-                    self.nodeFollowPriority = rampToGoal(0.60,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.60,self.nodeFollowPriority,0.001)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.01) --?? what do here
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.001)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.001) -- unsure what to do with this
                 else
-                    self.nodeFollowPriority = rampToGoal(0.85,self.nodeFollowPriority,0.1)
+                    self.nodeFollowPriority = rampToGoal(0.85,self.nodeFollowPriority,0.001)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.7,self.passFollowPriority,0.005)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
