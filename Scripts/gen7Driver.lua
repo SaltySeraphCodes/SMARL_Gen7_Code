@@ -3395,6 +3395,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
             --local passCarData = self.opponentFlags[self.passing.carID] -- data that the car 
             if oppData.vhDist.vertical >= 15 or oppData.vhDist.vertical < -5 then -- If too far or already past
                 if oppFlags.pass then
+                    
                     --print(self.tagText,"Stopping pass",oppData.vhDist)
                     oppFlags.pass = false
                     self:cancelPass()
@@ -3419,19 +3420,19 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                     --print(self.tagText,"determinen pass Location")
                     local passDirection = self:checkPassingSpace(opponent) -- Check for space to pass
                     if passDirection ~= 0 then -- If theres a direction to pass, assign self the pass and commit to it
-                        --print(self.tagText,"canpass",passDirection)
+                        print(self.tagText,"canpass",passDirection)
                         self.passCommit = passDirection
                         self.passGoalOffsetStrength = self:calculatePassOffset(oppData,passDirection) -- Calculate lateral movement to pass 
                         if (self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)) ~= 0) then -- Uselsess double check TODO: DEPRECIATE/'REMOVE'
-                            --print(self.tagText,"not closes racer to pass",self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)))
+                            print(self.tagText,"not closes racer to pass",self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)))
                         end
                         -- TODO: Wrap this up into a beginPass(opponent.id,passDirection)
                         self.passing.isPassing = true
                         self.passing.carID = opponent.id
                         oppFlags.pass = true -- Maybe make passing function?
-                        --print(self.tagText,"SET Passing",opponent.tagText,self.passGoalOffsetStrength,self.passCommit,self.passFollowPriority)
+                        print(self.tagText,"SET Passing",opponent.tagText,self.passGoalOffsetStrength,self.passCommit,self.passFollowPriority)
                     else -- No space to pass, cancel pass (Could go wrong if another car comes in and forces complete cancel, maybe only partial?)
-                        --print(self.tagText," no pass dir cancel")
+                        print(self.tagText," no pass dir cancel")
                         oppFlags.pass = false
                         self:cancelPass()
                     end
@@ -3520,7 +3521,7 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
     --print(self.tagText,frontCol,leftCol,rightCol)
     --TODO: chagne to oponend width along with 5 padding?
     if frontCol and frontCol < 50 and frontCol > 20 then -- somewhat close
-        if self.speed - opponent.speed  > 0 then -- moving 1 faster ?
+        if self.speed - opponent.speed  > 0.5 then -- moving 1 faster ?
             if (rightCol and rightCol <=6) or (leftCol and leftCol >= -6) then -- If overlapping
                 oppFlags.frontWatch = true
             else
@@ -3540,7 +3541,7 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
                 local catchTime = frontCol/(self.speed - opponent.speed) --TODO: FIgure this out a better way
                 local brakeDist = getBrakingDistance(self.speed,self.mass,self.engine.engineStats.MAX_BRAKE,opponent.speed-3) -- dampening? make variable
                 --print(self.tagText,"catchTime",self.speed - opponent.speed) --TODO: Check this??
-                if self.speed - opponent.speed > 0.2 then -- and greater than 0?
+                if self.speed - opponent.speed > 1 then -- and greater than 0?
                     oppFlags.frontWarning = true -- check for passing
                 else
                     oppFlags.frontWarning = false
@@ -4619,7 +4620,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         else
             trackAdj = ratioConversion(6,0,0.1,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
         end
-        --print(self.tagText, "track limit",trackAdj,tDist)
+        --[]print(self.tagText, "track limit",trackAdj,tDist)
     
         if self.passing.isPassing then -- dampen track adjustment --TODO Also adjust fo car oalongside?
             trackAdj = trackAdj -- * 0.8 
