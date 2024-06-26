@@ -1239,7 +1239,7 @@ function Driver.checkOffTrack(self) -- check if car is offtrack based on trackPo
     if self.currentNode == nil or self.trackPosition == nil then self.offTrack = 0 return end
     if self.currentNode.width == nil then print("setting default width",self.currentNode) self.currentNode.width = 20 end -- Default width?
     local limit = self.currentNode.width/2
-    local margin = 5 -- could be dynamic
+    local margin = 6 -- could be dynamic
     local status = math.abs(self.trackPosition) - limit
     if status > margin then
         self.offTrack = status * getSign(self.trackPosition)
@@ -1262,11 +1262,11 @@ function Driver.checkLocationOnTrack(self,currentNode,location) -- checks if loc
     local vhDist = getLocationVHDist(currentNode,location)
     local nodePos = vhDist.horizontal
     local limit = currentNode.width/2
-    local margin = -0.5 -- maybe smaller?
+    local margin = -3 -- smaller into negatives = more padding to wall
     local status = math.abs(nodePos) - limit
     --print("status",math.abs(nodePos),limit,status,margin)
     if status > margin then
-        --print("Node off track",status)
+        --print(self.tagText,"Node off track",status,nodePos,limit)
         --print(string.format("GoalNode Location %.2f %.2f %.2f",nodePos,limit,status))
         --print("------------------------\n")
         return false
@@ -1514,8 +1514,8 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
         lookAheadConst = 8
         lookAheadHeur = 0.5
     else
-        lookAheadConst = 5
-        lookAheadHeur = 0.4
+        lookAheadConst = 3
+        lookAheadHeur = 0.2
     end
     
     if self.offTrack ~= 0 then  -- we also had self.rotation correct making things go beyond line, but it did not permachangge
@@ -1689,7 +1689,7 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     -- check if goalNode pos is offTrack
     local onTrack = self:checkLocationOnTrack(self.goalNode,goalNodePos)
     if not onTrack then
-        --print(self.tagText,"offtrack goal")
+        print(self.tagText,"offtrack goal")
         if self.passing.isPassing then
             --self.strategicThrottle = self.strategicThrottle - 0.01
             self:cancelPass()
@@ -3222,14 +3222,14 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     local colSteerR = 0 -- Right colsteer
     -- TODO: Determine if to do draft offset? track bias offset? pass offset?
     if oppFlags.frontWatch and not oppFlags.pass then -- If car is in front but not too close, 
-        if (self.speed - opponent.speed > 8 or opponent.speed < 7) and (not self.caution and not self.formation) then
+        if (self.speed - opponent.speed > 9 or opponent.speed < 7) and (not self.caution and not self.formation) then
             --print(self.tagText,"Approaching front fast",self.speed - opponent.speed)
             -- start moving over slightly for preemptive avoidance
             local passDir = self:checkPassingSpace(opponent)
             if passDir ~= 0 then -- Start moving in that direction
                 if self.goalNode then 
-                    self.trackPosBias = self.goalNode.width/3 * passDir
-                    print(self.tagText,"frontWatch move",passDir,self.trackPosBias)
+                    self.trackPosBias = self.goalNode.width/2.5 * passDir
+                    print(self.tagText,"frontWatch move",opponent.tagText,opponent.speed,self.speed - opponent.speed,passDir,self.trackPosBias)
                 end
             else
                 if not self.caution and not self.formation then 
@@ -3250,12 +3250,12 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
             if passDir ~= 0 then -- Start moving in that direction
                 if self.goalNode then 
                     self.trackPosBias = self.goalNode.width/3 * passDir
-                    print(self.tagText,"fronWarning move",passDir,self.passGoalOffsetStrength)
+                    print(self.tagText,"fronWarning move",opponent.tagText,opponent.speed,passDir,self.trackPosBias)
                 end
             else
                 if not self.caution and not self.formation then 
                     --print(self.tagText,"Mid Warning emergency brake",colThrottle)
-                    colThrottle = rampToGoal(-1,colThrottle,0.01)
+                    colThrottle = rampToGoal(-1,colThrottle,0.001)
                 end
             end
         end
@@ -3275,14 +3275,14 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         if self.caution or self.formation then 
             colThrottle = rampToGoal(1,colThrottle,0.01) 
         else
-            colThrottle = rampToGoal(-2,colThrottle,0.01) 
+            colThrottle = rampToGoal(-2,colThrottle,0.001) 
         end
         -- OR TODO: Maybe determine aggressive ness to decide what to do?
         --self:cancelPass() -- TODO: Determine how useful this is
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-9,2,-0.15,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-9,2,-0.14,0,leftCol) -- Adjust according to distance
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/2 -- TODO: use a ratio conversion for this too
         end
@@ -3291,7 +3291,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(9,-2,0.15,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(9,-2,0.14,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/2
         end
@@ -3301,11 +3301,11 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftEmergency then -- if opponent is too close
-        colSteerL = colSteerL +ratioConversion(-2,2,-0.16,0,leftCol)
+        colSteerL = colSteerL +ratioConversion(-2,2,-0.1,0,leftCol)
         --print(self.tagText,"leftE",colSteerL,leftCol)
     end
     if oppFlags.rightEmergency then -- if opponent is too close
-        colSteerR = colSteerR +ratioConversion(2,-2,0.16,0,rightCol) -- Adjust according to distance
+        colSteerR = colSteerR +ratioConversion(2,-2,0.1,0,rightCol) -- Adjust according to distance
         --print(self.tagText,"rightE",colSteerR,rightCol)
     end
    
@@ -3420,7 +3420,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                     --print(self.tagText,"determinen pass Location")
                     local passDirection = self:checkPassingSpace(opponent) -- Check for space to pass
                     if passDirection ~= 0 then -- If theres a direction to pass, assign self the pass and commit to it
-                        print(self.tagText,"canpass",passDirection)
+                        --print(self.tagText,"canpass",passDirection)
                         self.passCommit = passDirection
                         self.passGoalOffsetStrength = self:calculatePassOffset(oppData,passDirection) -- Calculate lateral movement to pass 
                         if (self.carRadar.front - (vhDist['vertical'] - (self.frontColDist + opponent.rearColDist)) ~= 0) then -- Uselsess double check TODO: DEPRECIATE/'REMOVE'
@@ -3432,7 +3432,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                         oppFlags.pass = true -- Maybe make passing function?
                         print(self.tagText,"SET Passing",opponent.tagText,self.passGoalOffsetStrength,self.passCommit,self.passFollowPriority)
                     else -- No space to pass, cancel pass (Could go wrong if another car comes in and forces complete cancel, maybe only partial?)
-                        print(self.tagText," no pass dir cancel")
+                        --print(self.tagText," no pass dir cancel")
                         oppFlags.pass = false
                         self:cancelPass()
                     end
@@ -3947,7 +3947,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
         passeligible = false
     end
 
-    local marginRatio = ratioConversion(20,5,-0.7,-3.3,oppDist) -- Convert x to a ratio from a,b to  c,d
+    local marginRatio = ratioConversion(20,5,3,0,oppDist) -- Convert x to a ratio from a,b to  c,d
     local turnDir = getSign(self.futureLook.direction)
     local oppTPos = opponent.trackPosition -- OOOR Just take the opponents distance from left/right wall
     local width = (opponent.currentNode.width or 20)
@@ -3984,7 +3984,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
             else
                 if not (opponent.carRadar.left > -selfWidth and (opponent.carRadar.front < 0)) then --if there is no car in front/on left of opponent (may need to figure out how to split difference)
                     if self.carAlongSide.left == 0 or self.carAlongSide.left < -selfWidth then -- if no car to your left (may need to mess with negatives?)
-                        --print("Passing on outise")
+                        print(self.tagText,"Passing on outise",turnDir,self.currentNode.segType)
                         passDir = -1
                     else
                         --print("car on your outside")
@@ -3992,7 +3992,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
                 else
                     local laneWidth = width/3 
                     if math.abs(opponent.trackPosition) > laneWidth then -- check if possibility for three wide
-                        --print('checking for three wide')
+                        print(self.tagText,"Passing on outise 3wide",turnDir,self.currentNode.segType)
                         passDir = -1 -- should then switch over to next opponent eventually
                     end
                 end
@@ -4027,7 +4027,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
                 if not (opponent.carRadar.left > -selfWidth and (opponent.carRadar.front < 0)) then --if there is no car in front/on right of opponent (may need to figure out how to split difference)
                     --print("Passing on outside")
                     if self.carAlongSide.right == 0 or self.carAlongSide.right > selfWidth then -- if no car to your righty
-                        --print("Passing on inside")
+                        print(self.tagText,"Passing on outiseR",turnDir,self.currentNode.segType)
                         passDir = 1
                     else
                         --print("car on your inside")
@@ -4035,7 +4035,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
                 else
                     local laneWidth = width/3 
                     if math.abs(opponent.trackPosition) > laneWidth then -- check if possibility for three wide
-                        --print('checking for three wide')
+                        print(self.tagText,"Passing on outiseR 3wid",turnDir,self.currentNode.segType)
                         passDir = 1 -- should then switch over to next opponent eventually
                     end
                 end
@@ -4068,7 +4068,7 @@ function Driver.calculateClosestPassPoint(self,opponent) -- oppLoc = diver vh di
     local selfWidth = self.leftColDist + self.rightColDist + 0.1 -- small margin, TODO: Make adjustable with aggression
     local optimalDir = getSign(oppLoc.horizontal) -- easiest direction to move
     local mostSpace = -getSign(self.trackPosition) -- more space to move
-    local margin = -0.7 -- decrease (into negatives) to reduce required space to attack, TODO: Make adjustable with aggression
+    local margin = 0 -- decrease (into negatives) to reduce required space to attack, TODO: Make adjustable with aggression
 
     if optimalDir == mostSpace and optimalDir == 1 then -- the world aligns to the right
         local spaceLeft = ((width/2) - oppTPos - oppWidth) + margin
@@ -4185,8 +4185,8 @@ function Driver.confirmPassingSpace(self,opponent,dir) -- checks if the previus 
     if oppDist <=4 then -- Maximum  margin will be at 1
         oppDist = 4
     end
-    local marginRatio = ratioConversion(15,4,-0.6,-3,oppDist) -- Convert x to a ratio from a,b to  c,d
-    
+    local marginRatio = ratioConversion(15,1,2,0,oppDist) -- Convert x to a ratio from a,b to  c,d
+    -- TODO: also check if currently on a turn
     local oppTPos = opponent.trackPosition -- OOOR Just take the opponents distance from left/right wall
     local width = (opponent.currentNode.width or 20)
     local oppWidth = (opponent.leftColDist + opponent.rightColDist)
@@ -4310,7 +4310,7 @@ function Driver.calculatePassOffset(self,opponentD,dir) -- calculates strenght o
         distFromOpp = 0.9
     end
     if math.abs(desiredTrackPos) < self.goalNode.width/2.5 then -- As long as pass pos is within track width
-        strength = speedDif + math.abs(goalTrackPos-desiredTrackPos)*(2/distFromOpp) -- convert by distance away from opp
+        strength = speedDif + math.abs(goalTrackPos-desiredTrackPos)*(3/distFromOpp) -- convert by distance away from opp
         --print(self.tagText,"Pos on track",speedDif,math.abs(goalTrackPos-desiredTrackPos),distFromOpp)
     
     else
@@ -5166,7 +5166,7 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
                 else
                     self.nodeFollowPriority = rampToGoal(0.3,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.9,self.passFollowPriority,0.001)
+                    self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.1) -- unsure what to do with this
                 end
@@ -5189,27 +5189,27 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         else -- If turning: tighten node priority, loosen pass
             if self.passing.isPassing then -- Get looser while passing
                 if  math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0  then -- if a car is alongside,
-                    self.nodeFollowPriority = rampToGoal(0.60,self.nodeFollowPriority,0.001)
+                    self.nodeFollowPriority = rampToGoal(0.60,self.nodeFollowPriority,0.002)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.01) --?? what do here
+                    self.passFollowPriority = rampToGoal(0.7,self.passFollowPriority,0.01) --?? what do here
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.001)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.001) -- unsure what to do with this
                 else
-                    self.nodeFollowPriority = rampToGoal(0.85,self.nodeFollowPriority,0.001)
+                    self.nodeFollowPriority = rampToGoal(0.70,self.nodeFollowPriority,0.002)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.7,self.passFollowPriority,0.005)
+                    self.passFollowPriority = rampToGoal(0.6,self.passFollowPriority,0.005)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.01) -- unsure what to do with this
                 end
             else -- if not passing  while on a turn
                 if math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0  then -- if a car is alongside, prioritize node follow left
-                    self.nodeFollowPriority = rampToGoal(0.50,self.nodeFollowPriority,0.001)
+                    self.nodeFollowPriority = rampToGoal(0.55,self.nodeFollowPriority,0.002)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.001) -- unsure what to do with this
                 else
-                    self.nodeFollowPriority = rampToGoal(0.55,self.nodeFollowPriority,0.001)
+                    self.nodeFollowPriority = rampToGoal(0.55,self.nodeFollowPriority,0.002)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
