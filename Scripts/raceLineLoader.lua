@@ -61,6 +61,10 @@ function Loader.client_init( self )  -- Only do if server side???
     self.errorLocation = nil
 
     self.showWalls = false -- show wall effects (reduces total allowed effects)
+    local useText =  sm.gui.getKeyBinding( "Use", true )
+    local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+    sm.gui.setInteractionText( useText,"Save Track Scan To Block ", tinkerText,"Save Block's Scan To World","" )
+
 	print("Track Loader V2.0 Client Initialized")
 end
 
@@ -446,6 +450,9 @@ end
 
 function Loader.client_onFixedUpdate( self, timeStep ) 
     self:updateVisualization()
+    local useText =  sm.gui.getKeyBinding( "Use", true )
+    local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+    --sm.gui.setInteractionText( useText,"Save Track Scan To Block ", tinkerText,"Save Block's Scan To World","" )
 end
 
 

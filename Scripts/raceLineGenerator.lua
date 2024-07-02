@@ -1592,13 +1592,13 @@ function Generator.iterateScan(self)
     lastNode.outVector = getNormalVectorFromPoints(lastNode.pos,newNode.pos)
     lastNode.force = vectorAngleDiff(lastNode.inVector,lastNode.outVector)
     if math.abs(lastNode.force) < 0.05 then
-        self.scanSpeed = 5 -- 5?
+        self.scanSpeed = 5.5 -- 5?
     elseif math.abs(lastNode.force) > 0.3 then
-        self.scanSpeed = 3
+        self.scanSpeed = 3.5
     elseif math.abs(lastNode.force) > 0.5 then
-        self.scanSpeed = 2
-    else
         self.scanSpeed = 4
+    else
+        self.scanSpeed = 4.5
     end
     -- use rolling average force?
     --print("Last Node",lastNode.inVector,lastNode.outVector,lastNode.force)

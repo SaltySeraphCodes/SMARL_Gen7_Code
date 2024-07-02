@@ -1038,9 +1038,9 @@ function  Driver.shiftGear(self,gear) --sets the gear for engine
 end
 
 function Driver.updateControlLayer(self) -- Min angle for F1 cars is 40
-    --if self.nodeMap ~= nil then --TODO: USe this to figue ouyt better way to findNearestNode
-    --    displayNodeMap(self.nodeMap,self.location)
-    --end
+    if self.nodeMap ~= nil then --TODO: USe this to figue ouyt better way to findNearestNode
+        --displayNodeMap(self.nodeMap,self.location)
+    end
     --print(self.tagText,"steer",self.strategicSteering)
     if not self.userControl then 
         local angle = steeringToDegrees((self.strategicSteering or 0))-- In Degrees
@@ -1228,7 +1228,7 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
         end
     end
     if self.rejoining == false and self.stuck and self.offTrack == 0 and self.speed > 2.5 then -- check this
-        --print("Toggle stuck",self.offTrack,self.stuckTimeout)
+        --print(self.tagText,"Stuck Off",self.offTrack,self.stuckTimeout)
         self.stuck = false
         self.stuckTimeout = 0
     end
@@ -1239,30 +1239,39 @@ function Driver.checkOffTrack(self) -- check if car is offtrack based on trackPo
     if self.currentNode == nil or self.trackPosition == nil then self.offTrack = 0 return end
     if self.currentNode.width == nil then print("setting default width",self.currentNode) self.currentNode.width = 20 end -- Default width?
     local limit = self.currentNode.width/2
-    local margin = 6 -- could be dynamic
+    local margin = 5 -- could be dynamic
     local status = math.abs(self.trackPosition) - limit
     if status > margin then
+    else
+    end
+
+    -- Double checking
+    local onTrack = self:checkLocationOnTrack(self.currentNode,self.location,0)
+    --print(self.tagText,"Offtrack Check",chot,status > margin,self.offTrack)
+    if status > margin and not onTrack then
+        --print(self.tagText,"Definitely Off track")
         self.offTrack = status * getSign(self.trackPosition)
-        --print(self.tagText,"off track")
     else
         if self.offTrack ~= 0 then
             --print(self.tagText,"Back on track")
             self.offTrack = 0
         end
     end
+
     if self.offTrack < -5 then -- adjut limits
         self.offTrack = -5
     elseif self.offTrack > 5 then
         self.offTrack = 5
     end
+
 end
 
-function Driver.checkLocationOnTrack(self,currentNode,location) -- checks if location is on track or not based on width of currentNode(needs update eventually)
+function Driver.checkLocationOnTrack(self,currentNode,location, margin) -- checks if location is on track or not based on width of currentNode(needs update eventually)
     if currentNode.width == nil then return true end -- or set currentNode.width = 20
     local vhDist = getLocationVHDist(currentNode,location)
     local nodePos = vhDist.horizontal
     local limit = currentNode.width/2
-    local margin = -3 -- smaller into negatives = more padding to wall
+    local margin = (margin or -3) -- smaller into negatives = more padding to wall
     local status = math.abs(nodePos) - limit
     --print("status",math.abs(nodePos),limit,status,margin)
     if status > margin then
@@ -1297,21 +1306,25 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
         local nearestNode = nil
         if self.nodeFindTimeout < 9 and self.speed <= 2 and not self.onLift and not self.nudging then -- if at least mmoving
             --print(self.tagText,'gnn1')
-            nearestNode = getNearestNode(self.nodeMap,self.shape.worldPosition)
+            --nearestNode = getNearestNode(self.nodeMap,self.shape.worldPosition)
+            --print(self.tagText,'fcn-1')
+            nearestNode = findClosestNode(self.nodeChain,self.location)
         elseif self.speed > 2 and self.stuckTimeout < 7  and not self.onLift and not self.nudging and not self.userControl then -- dont search while nudging
             --print(self.tagText,'gnn2')
-            nearestNode = getNearestNode(self.nodeMap,self.shape.worldPosition)
+            --nearestNode = getNearestNode(self.nodeMap,self.shape.worldPosition)
+            --print(self.tagText,'fcn0')
+            nearestNode = findClosestNode(self.nodeChain,self.location)
+
         end
         if nearestNode == nil then -- try again with new algo
-            print(self.tagText,'fcn1')
+            --print(self.tagText,'fcn1')
             nearestNode = findClosestNode(self.nodeChain,self.location)
         end
         --print("nilCurrent",self.nodeFindTimeout,nearestNode == nil)
         if nearestNode == nil then -- IS actually lost
-            --print("Heh?")
             if not self.onLift then
                 self.nodeFindTimeout = self.nodeFindTimeout + 1
-                --print("NFT",self.nodeFindTimeout)
+                --print(self.tagText,"NFT",self.nodeFindTimeout)
                 if self.nodeFindTimeout > 10 then
                     self.strategicThrottle = -1
                     if not self.userControl then 
@@ -1323,13 +1336,13 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
             return
         else
             if self.lost and nearestNode ~= nil then
-                --print(self.tagText, "Is no longer lost")
+                print(self.tagText, "Is no longer lost",nearestNode.id)
                 self.lost = false
                 self.nodeFindTimeout = 0
                 self:setCurrentNode(nearestNode)
                 self.resetNode = nearestNode
             elseif nearestNode ~= nil then
-                --print("Setting new loca")
+                --print(self.tagText,"Setting new node",nearestNode.id)
                 self.nodeFindTimeout = 0
                 self:setCurrentNode(nearestNode)
                 self.resetNode = nearestNode
@@ -1359,11 +1372,12 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
                 print("nilnewrest nnew node")
                 self.nodeFindTimeout = self.nodeFindTimeout + 1
             else
+                --print(self.tagText,"stuck Set new node",nearestNode.id)
                 self:setCurrentNode(nearestNode)
             end
 
-        elseif self.stuckTimeout >= 5 and not self.shape:getBody():isStatic() and self.currentNode ~= nil then
-            --print("nudge car",getDistance(self.location,self.currentNode.mid))
+        elseif self.stuckTimeout >= 4 and not self.shape:getBody():isStatic() and self.currentNode ~= nil then
+            --print(self.tagText,"nudge car",getDistance(self.location,self.currentNode.mid))
             self.strategicThrottle = 0
             local nudgeDir = sm.vec3.new(0,0,0)
             if math.abs(self.shape:getWorldPosition().z - self.currentNode.mid.z) <= 3  and not self.nudging then -- bring up then send over
@@ -1385,7 +1399,7 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
                     self.stuckTimeout = 0
                 else
                     if not self.nudging then
-                        self.stuckTimeout = self.stuckTimeout + 0.1
+                        self.stuckTimeout = self.stuckTimeout + 0.2
                     end
                 end
                 self.strategicThrottle = 0
@@ -1413,12 +1427,12 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
         self.resetNode = lastNode
     end
 
-    local distanceThreshold = 40 
+    local distanceThreshold = 30 
 
     if curNodeDist > distanceThreshold and lastNodeDist > distanceThreshold and nextNodeDist > distanceThreshold then
-        --print(self.id," car jumped nodes, searching",self.nodeFindTimeout)
+        --print(self.tagText," car jumped nodes, searching",self.currentNode.id)
         local closestNode = self.currentNode
-        if self.nodeFindTimeout < 7 and self.speed <= 1 and not self.onLift and not self.nudging  then -- if at least mmoving
+        if self.nodeFindTimeout < 6 and self.speed <= 1 and not self.onLift and not self.nudging  then -- if at least mmoving
             if closestNode == nil then
                 print(self.tagText,'fcn3')
                 closestNode = findClosestNode(self.nodeChain,self.location)
@@ -1428,9 +1442,11 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
             self.nodeFindTimeout = self.nodeFindTimeout + 1
             --print("nonilstopped" ,self.nodeFindTimeout,self.speed, closestNode == nil)
         elseif self.speed > 2 and not self.nudging then
-            --print(self.tagText,'gnn5')
             if closestNode == nil then
                 print(self.tagText,'fcn4')
+                closestNode = findClosestNode(self.nodeChain,self.location)
+            else
+                --print(self.tagText,'fcn5')
                 closestNode = findClosestNode(self.nodeChain,self.location)
             end
             --closestNode = getNearestNode(self.nodeMap,self.shape.worldPosition)
@@ -1441,7 +1457,7 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
         if closestNode == nil and not self.onLift and self.racing == true and not self.userControl then 
             print("Node finding error",self.nodeFindTimeout) 
             self.nodeFindTimeout = self.nodeFindTimeout + 1
-            if self.nodeFindTimeout > 10 then
+            if self.nodeFindTimeout > 8 then
                 print(self.tagText,"am lost",closestNode == nil,lastNode == nil,nextNode == nil)
                 if lastNode ~= nil then 
                     self.resetNode = lastNode
@@ -1475,25 +1491,26 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
         end
         -- TODO: Fix this, when user control goes too far, closestNode is nil!
         local closestNodeDist = getDistance(closestNode.location,self.location)
-        --print("nodedist",closestNodeDist)
+        --print("CheckDist",closestNode.id,nextNode.id)
         if closestNode.id ~= nextNode.id then -- something strange
-            if math.abs(closestNode.id - nextNode.id) > 30 then -- way too far of a jump
-                --print("car jump",curNodeDist,nextNodeDist,closestNodeDist)
+            if math.abs(closestNode.id - nextNode.id) > 20 then -- way too far of a jump
+                --print(self.tagText,"car jump",closestNode.id,nextNode.id)
                 self:setCurrentNode(closestNode)
             else
-                self:setCurrentNode(nextNode)
+                --print(self.tagText,"car increment",closestNode.id,nextNode.id)
+                self:setCurrentNode(closestNode) -- used to be next node
             end
         end
         
     elseif nextNodeDist < curNodeDist then
-        --print("Moving on to nextNode")
+        --print(self.tagText,"MoveForward?",self.currentNode.id,lastNode.id)
         self:setCurrentNode(nextNode) 
         if self.racing and self.speedControl ~= 0 and self.raceFinished == false then
             --print("speed back")
             self.speedControl = 0
         end
     elseif lastNodeDist < curNodeDist then
-        --print("Movingbackwards?",self.currentNode.id,lastNode.id)
+        --print(self.tagText,"Movingbackwards?",self.currentNode.id,lastNode.id)
         self.setCurrentNode(lastNode)
         if self.racing then
             self.speedControl = 10
@@ -1508,14 +1525,14 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     local lookAheadHeur = 0.4 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     
     if self.goalNode and self.goalNode.segType == "Straight" then -- Look further down road for straights
-        lookAheadConst = 16
+        lookAheadConst = 15
         lookAheadHeur = 0.5
     elseif self.goalNode and (self.goalNode.segType == "Fast_Right" or self.goalNode.segType== "Fast_Left") then 
-        lookAheadConst = 8
-        lookAheadHeur = 0.5
+        lookAheadConst = 7
+        lookAheadHeur = 0.7
     else
-        lookAheadConst = 3
-        lookAheadHeur = 0.2
+        lookAheadConst = 4
+        lookAheadHeur = 0.6
     end
     
     if self.offTrack ~= 0 then  -- we also had self.rotation correct making things go beyond line, but it did not permachangge
@@ -1525,7 +1542,7 @@ function Driver.updateGoalNode(self) -- Updates self.goalNode based on speed heu
     
     local lookaheadDist = lookAheadConst + self.speed*lookAheadHeur
     local goalNode = self:getNodeInDistance(lookaheadDist)
-    --print(self.tagText,goalNode.id,lookaheadDist,self.speed)
+    --print(self.tagText,"GoalCurrent",goalNode.id,self.currentNode.id)
     self.goalNode = goalNode
 end
 
@@ -1536,8 +1553,8 @@ function Driver.updateGoalNodeMid(self) -- Updates self.goalNode to mid node (ov
     local lookAheadConst = 4 -- play around until perfect -- SHould be dynamic depending on downforce?
     local lookAheadHeur = 0.3 -- same? Dynamic on downforce, more downforce == less const/heuristic?
     if self.rotationCorrect or self.offTrack ~= 0 then 
-        lookAheadConst = 15
-        lookAheadHeur = 2
+        --lookAheadConst = 15
+        --lookAheadHeur = 2
     end
     
     local lookaheadDist = lookAheadConst + self.speed*lookAheadHeur
@@ -1569,9 +1586,10 @@ function Driver.setCurrentNode(self,node)
         end
         --print(nodeAdd)
         if nodeAdd < 0 then 
-            --print (self.id,"Node Moving backwards?",nodeAdd)
+            --print (self.tagText,"Node Moving backwards?",nodeAdd)
         end
         self.totalNodes = self.totalNodes + nodeAdd
+        --print("Setting current node",node.id)
         self.currentNode = node
         
         if not self.raceControlError and self.racePosition == 1 then -- I  know this wont work well but whatever
@@ -1689,7 +1707,7 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
     -- check if goalNode pos is offTrack
     local onTrack = self:checkLocationOnTrack(self.goalNode,goalNodePos)
     if not onTrack then
-        print(self.tagText,"offtrack goal")
+        --print(self.tagText,"offtrack goal")
         if self.passing.isPassing then
             --self.strategicThrottle = self.strategicThrottle - 0.01
             self:cancelPass()
@@ -2734,21 +2752,21 @@ function Driver.refineBrakeSpeed(self,vMax,segBeginNode,segEndNode) -- refines v
     vMax = vMax - math.abs(self.trackPosition)/1.4  --- TODO: figure out racing line closeness/ trackPos  Adjust max velocity based on closeness to center of track
     if self.passing.isPassing then vMax = vMax +0.8 end -- go a bit slower while passing?
     if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~= 0 then -- slow down when there is car alongside 
-        vMax = vMax - 1
+        vMax = vMax - 2
     else
-        vMax = vMax + .5 -- speeds up if clear air
+        vMax = vMax + .8 -- speeds up if clear air
     end
     if tWidth <= 30 then -- if track is thinner, slow down more
         vMax = vMax - (vMax/6)
     end
 
     if tWidth <= 15 then -- if track is thinner, slow down even more
-        vMax = vMax - (vMax/2.5)
+        vMax = vMax - (vMax/2.3)
     end
 
     if self.offline then
         --print('vmax slow')
-        vMax = vMax - 2   
+        vMax = vMax - 3   
     end
 
     -- Potential collision based slowing
@@ -3229,7 +3247,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
             if passDir ~= 0 then -- Start moving in that direction
                 if self.goalNode then 
                     self.trackPosBias = self.goalNode.width/2.5 * passDir
-                    print(self.tagText,"frontWatch move",opponent.tagText,opponent.speed,self.speed - opponent.speed,passDir,self.trackPosBias)
+                    --print(self.tagText,"frontWatch move",opponent.tagText,opponent.speed,self.speed - opponent.speed,passDir,self.trackPosBias)
                 end
             else
                 if not self.caution and not self.formation then 
@@ -3250,7 +3268,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
             if passDir ~= 0 then -- Start moving in that direction
                 if self.goalNode then 
                     self.trackPosBias = self.goalNode.width/3 * passDir
-                    print(self.tagText,"fronWarning move",opponent.tagText,opponent.speed,passDir,self.trackPosBias)
+                    --print(self.tagText,"fronWarning move",opponent.tagText,opponent.speed,passDir,self.trackPosBias)
                 end
             else
                 if not self.caution and not self.formation then 
@@ -3282,7 +3300,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-9,2,-0.14,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-8,2,-0.11,0,leftCol) -- Adjust according to distance
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/2 -- TODO: use a ratio conversion for this too
         end
@@ -3291,7 +3309,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(9,-2,0.14,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(8,-2,0.11,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/2
         end
@@ -3301,11 +3319,11 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftEmergency then -- if opponent is too close
-        colSteerL = colSteerL +ratioConversion(-2,2,-0.1,0,leftCol)
+        colSteerL = colSteerL +ratioConversion(-1.5,1.5,-0.09,0,leftCol)
         --print(self.tagText,"leftE",colSteerL,leftCol)
     end
     if oppFlags.rightEmergency then -- if opponent is too close
-        colSteerR = colSteerR +ratioConversion(2,-2,0.1,0,rightCol) -- Adjust according to distance
+        colSteerR = colSteerR +ratioConversion(1.5,-1.5,0.09,0,rightCol) -- Adjust according to distance
         --print(self.tagText,"rightE",colSteerR,rightCol)
     end
    
@@ -3348,17 +3366,17 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
                 colSteerR = colSteerR/(1+dampMult)
             end
             
-            if turnType >= 2 and  colSteerL ~= 0 then -- If avoiding to Right on right banked turn
+            if turnType >= 2 and  colSteerL ~= 0 then -- If avoiding to Right on right  turn
                 colSteerL = colSteerL/(1+dampMult)
             end
 
-            if turnType >= 2 and  colSteerR ~= 0 then -- If avoiding to left on right banked turn
-                dampMult = dampMult + 0.02 -- reduce reduction because traveling against turn
+            if turnType >= 2 and  colSteerR ~= 0 then -- If avoiding to left on right  turn
+                dampMult = dampMult + 0.01 -- reduce reduction because traveling against turn
                 colSteerR = colSteerR/(1+(dampMult))
             end
             
-            if turnType <= -2 and  colSteerL ~= 0 then -- If avoiding to Right on left banked turn
-                dampMult =  dampMult + 0.02
+            if turnType <= -2 and  colSteerL ~= 0 then -- If avoiding to Right on left  turn
+                dampMult =  dampMult + 0.01
                 colSteerL = colSteerL/(1+(dampMult))
             end
         else -- Do something about straights based on futur turn??
@@ -3430,7 +3448,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                         self.passing.isPassing = true
                         self.passing.carID = opponent.id
                         oppFlags.pass = true -- Maybe make passing function?
-                        print(self.tagText,"SET Passing",opponent.tagText,self.passGoalOffsetStrength,self.passCommit,self.passFollowPriority)
+                        --print(self.tagText,"SET Passing",opponent.tagText,self.passGoalOffsetStrength,self.passCommit,self.passFollowPriority)
                     else -- No space to pass, cancel pass (Could go wrong if another car comes in and forces complete cancel, maybe only partial?)
                         --print(self.tagText," no pass dir cancel")
                         oppFlags.pass = false
@@ -3556,7 +3574,7 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
         oppFlags.frontWarning = false
     end
     
-    if frontCol and (frontCol <= 3.5 and frontCol > -3)  then -- if car is slightly overlapping but not directly alongside
+    if frontCol and (frontCol <= 3.6 and frontCol > -3)  then -- if car is slightly overlapping but not directly alongside
         if (rightCol and rightCol <0.08) or (leftCol and leftCol > -.08) then -- If really close but not alongside
             if not oppFlags.frontEmergency then
                 --print(self.tagText,"FrontEmerg",frontCol,leftCol,rightCol)
@@ -3600,25 +3618,25 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
             oppFlags.alongSide = false
         end
 
-        if (leftCol and leftCol >= -9) then
+        if (leftCol and leftCol >= -8) then
             oppFlags.leftWarning = true
         else
             oppFlags.leftWarning = false
         end
 
-        if (rightCol and rightCol <= 9) then
+        if (rightCol and rightCol <= 8) then
             oppFlags.rightWarning = true
         else
             oppFlags.rightWarning = false
         end
 
-        if (leftCol and leftCol >=-2) then
+        if (leftCol and leftCol >=-1.5) then
             oppFlags.leftEmergency = true
          else
             oppFlags.leftEmergency = false
         end
 
-        if (rightCol and rightCol <= 2) then
+        if (rightCol and rightCol <= 1.5) then
             oppFlags.rightEmergency = true
          else
             oppFlags.rightEmergency = false
@@ -3984,7 +4002,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
             else
                 if not (opponent.carRadar.left > -selfWidth and (opponent.carRadar.front < 0)) then --if there is no car in front/on left of opponent (may need to figure out how to split difference)
                     if self.carAlongSide.left == 0 or self.carAlongSide.left < -selfWidth then -- if no car to your left (may need to mess with negatives?)
-                        print(self.tagText,"Passing on outise",turnDir,self.currentNode.segType)
+                        --print(self.tagText,"Passing on outise",turnDir,self.currentNode.segType)
                         passDir = -1
                     else
                         --print("car on your outside")
@@ -3992,7 +4010,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
                 else
                     local laneWidth = width/3 
                     if math.abs(opponent.trackPosition) > laneWidth then -- check if possibility for three wide
-                        print(self.tagText,"Passing on outise 3wide",turnDir,self.currentNode.segType)
+                        --print(self.tagText,"Passing on outise 3wide",turnDir,self.currentNode.segType)
                         passDir = -1 -- should then switch over to next opponent eventually
                     end
                 end
@@ -4027,7 +4045,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
                 if not (opponent.carRadar.left > -selfWidth and (opponent.carRadar.front < 0)) then --if there is no car in front/on right of opponent (may need to figure out how to split difference)
                     --print("Passing on outside")
                     if self.carAlongSide.right == 0 or self.carAlongSide.right > selfWidth then -- if no car to your righty
-                        print(self.tagText,"Passing on outiseR",turnDir,self.currentNode.segType)
+                        --print(self.tagText,"Passing on outiseR",turnDir,self.currentNode.segType)
                         passDir = 1
                     else
                         --print("car on your inside")
@@ -4035,7 +4053,7 @@ function Driver.checkPassingSpace(self,opponent) -- calculates the best directio
                 else
                     local laneWidth = width/3 
                     if math.abs(opponent.trackPosition) > laneWidth then -- check if possibility for three wide
-                        print(self.tagText,"Passing on outiseR 3wid",turnDir,self.currentNode.segType)
+                        --print(self.tagText,"Passing on outiseR 3wid",turnDir,self.currentNode.segType)
                         passDir = 1 -- should then switch over to next opponent eventually
                     end
                 end
@@ -4527,7 +4545,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         --print(self.id,"fix rotate",self.angularVelocity:length(),self.goalDirectionOffset, self.speed,self.strategicThrottle)
         if self.speed < 15 and  math.abs(self.goalDirectionOffset) > 3 and self.angularVelocity:length() > 0.7 then -- counter steer
             --self.strategicSteering = self.strategicSteering / -5
-            print(self.tagText,"counterSteer?")
+            --print(self.tagText,"counterSteer?")
         end
         
         if self.speed < 17 or self.angularVelocity:length() < 1 and math.abs(self.goalDirectionOffset) < 1 then
@@ -4557,7 +4575,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
         if dist <= 7 then
-            wallSteer = ratioConversion(7,0,0.01,0,dist)  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = ratioConversion(7,0,0.10,0,dist)  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right",dist,wallSteer)
         end
         if dist < 1 then
@@ -4570,7 +4588,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         --print(dist)
         if dist <= 7  then
             --print("left",dist)
-            wallSteer = ratioConversion(7,0,0.01,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = ratioConversion(7,0,0.10,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left",wallSteer)
         end
         if dist < 1 then
@@ -4579,8 +4597,8 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         end
     end
 
-    local frontPredictR = frontLoc + (self.shape.at *8 + self.shape.right *6)
-    local frontPredictL = frontLoc + (self.shape.at *8 + self.shape.right *-6)
+    local frontPredictR = frontLoc + (self.shape.at *7 + self.shape.right *6)
+    local frontPredictL = frontLoc + (self.shape.at *7 + self.shape.right *-6)
 
     local hitR,rData = sm.physics.raycast(frontLoc,frontPredictR,self.body) 
     local hitL,lData = sm.physics.raycast(frontLoc,frontPredictL,self.body)
@@ -4588,7 +4606,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     if hitR and rData.type == "terrainAsset" then
         local dist = getDistance(self.location,rData.pointWorld) 
         if dist <= 7 then
-            wallSteer = wallSteer + ratioConversion(7,0,0.01,0,dist) *1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = wallSteer + ratioConversion(7,0,0.14,0,dist) *1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"right2",dist,wallSteer)
         end
         if dist < 1 then
@@ -4601,7 +4619,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         --print(dist)
         if dist <=7 then
             --print("left",dist)
-            wallSteer = wallSteer +  ratioConversion(7,0,0.01,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
+            wallSteer = wallSteer +  ratioConversion(7,0,0.14,0,dist) * -1  -- Convert x to a ratio from a,b to  c,d
             --print(self.tagText,"left2",walStwallSteereer)
         end
         if dist < 1 then
@@ -4614,11 +4632,11 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
     local trackAdj = 0
     --if self.trackPosition == nil then return end
     local tDist = sideLimit - math.abs(self.trackPosition)
-    if tDist <6 then
+    if tDist <=8 then
         if self.trackPosition > 0 then
-            trackAdj = ratioConversion(6,0,0.1,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
+            trackAdj = ratioConversion(8,0,0.16,0,tDist) *1  -- Convert x to a ratio from a,b to  c,d    
         else
-            trackAdj = ratioConversion(6,0,0.1,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
+            trackAdj = ratioConversion(8,0,0.16,0,tDist) *-1 -- Convert x to a ratio from a,b to  c,d 
         end
         --[]print(self.tagText, "track limit",trackAdj,tDist)
     
@@ -4648,10 +4666,10 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
             
         if self.rejoining then -- Car is approved and rejoining, check different things
             if self.curGear == -1 then -- If reversing
-                --print("CurReverse attemptReverse")
+                --print(self.tagText,"CurReverse attemptReverse")
                 if  toVelocity(self.engine.curRPM) < -9 and self.speed <= math.abs(toVelocity(self.engine.curRPM)) -1 then --math.abs(toVelocity(self.engine.curRPM)) -1
                     if self.speed <= 1 then
-                        --print("reverse stuck",toVelocity(self.engine.curRPM),self.speed)
+                        --print(self.tagText,"reverse stuck",toVelocity(self.engine.curRPM),self.speed)
                         local distanceThreshold = -50 -- make dynamic?
                         local clearFlag = self:checkForClearTrack(distanceThreshold)
                         if clearFlag then
@@ -4667,8 +4685,8 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                         end
                     end
                 end
-                self.strategicSteering = self.strategicSteering * -1.1 -- Inverse steering
-                --print("Reverse rejoin",self.speed,self.engine.curRPM, math.abs(toVelocity(self.engine.curRPM)),math.abs(offset),dist)
+                self.strategicSteering = self.strategicSteering * -0.9 -- Inverse steering
+                --print(self.tagText,"Reverse rejoin",self.speed,self.engine.curRPM, math.abs(toVelocity(self.engine.curRPM)),math.abs(offset),dist)
                 if (math.abs(offset) < 13  and  dist >= 25) or dist >=35 then -- If facing right way and not in wall
                     if self.speed > 1 then -- TEMPORARY FIX for leaning against wall, check tilt and rotation as well 
                         self.curGear = 1
@@ -4676,7 +4694,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                         self.strategicThrottle = 0.95
                         -- stay mid until up to speed?
                         -- check for wall in front?
-                        --print("aligned/Finish reverse",offset,dist)
+                        --print(self.tagText,"aligned/Finish reverse",offset,dist)
                     end
                 end
 
@@ -4700,27 +4718,26 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                 --print(self.tagText,"gear > 0",self.strategicThrottle,toVelocity(self.engine.curRPM))
                 if toVelocity(self.engine.curRPM) > 5 and  self.speed <= math.abs(toVelocity(self.engine.curRPM)) -1 then -- Stuck going forward
                     if self.speed <= 2 then
-                        --print("rejoin stuck",toVelocity(self.engine.curRPM),self.speed,self.trackPosBias)
-                        local distanceThreshold = -50 -- make dynamic?
+                        --print(self.tagText,"rejoin stuck",toVelocity(self.engine.curRPM),self.speed,self.trackPosBias)
+                        local distanceThreshold = -60 -- make dynamic?
                         local clearFlag = self:checkForClearTrack(distanceThreshold)
                         if clearFlag then
-                            --print("cleaaar")
                             self.stuckTimeout = self.stuckTimeout + 1
                             self.curGear = -1
                             self:shiftGear(-1)
-                            self.strategicThrottle = 0.95
+                            self.strategicThrottle = 1
                             local curentSide = self:getCurrentSide()
                             --print("Rejoining backwards",self.trackPosition,curentSide)
-                            self.trackPosBias = curentSide
-                            print(self.tagText,"REjoining on side",curentSide)
+                            --self.trackPosBias = curentSide
+                            --TODO: have flag that increases node priority
                         else
-                            --print(self.tagText,"strat-1")
+                            print(self.tagText,"strat-1")
                             self.strategicThrottle = -1
                         end
                     end
                 end
-                self.strategicThrottle = 0.5 -- until otherwise?
-                --print(self.tagText,"rejoining",offset,dist,self.speed,maxSpeed,self.engine.curRPM,self.strategicThrottle)
+                self.strategicThrottle = 0.6 -- until otherwise?
+                --print(self.tagText,"rejoiningForward?",offset,dist,self.speed,maxSpeed,self.engine.curRPM,self.strategicThrottle)
                 
                 
                 if (self.speed >= maxSpeed - 10 and toVelocity(self.engine.curRPM) >= maxSpeed - 10 and self.offTrack == 0) or (self.curGear >=3 and self.offTrack == 0) then
@@ -4729,7 +4746,11 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                     self.pathGoal = "location"
                     self.trackPosBias = nil
                     self.stuckTimeout = 0
-                    print(self.tagText,"rejoin done",self.offTrack,self.stuckTimeout)
+                    --print(self.tagText,"rejoin done",self.offTrack,self.stuckTimeout)
+                end
+                if self.engine.curRPM < -10 then
+                    --print("still going backwards",self.engine.curRPM,self.curGear)
+                    self.strategicSteering = self.strategicSteering * -0.3 -- Inverse steering
                 end
             else -- something wong
                print(self.tagText,"SOmething wrong",self.curGear)
@@ -4741,7 +4762,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                self.trackPosBias = 0 -- reset bias...
                self.stuckTimeout = self.stuckTimeout + 5
             end
-
+           
         else -- start rejoin process (only if car has tried going forward)
             if self.engine.curRPM > 1 and self.curGear >=0 then
                 --print(self.tagText,"slowing to strt reverse",self.engine.curRPM,self.curGear)
@@ -4755,36 +4776,37 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                 local clearFlag = self:checkForClearTrack(distanceThreshold)
                 if clearFlag then
                     local curentSide =0 -- 0 self:getCurrentSide() TODO:get right and finsih
-                    --print("Rejoining",self.trackPosition,curentSide)
+                    --print(self.tagText,"reverse clear Rejoining",self.trackPosition,curentSide)
                     self.trackPosBias = curentSide
                     self.rejoining = true
                     self.curGear = -1
                     self:shiftGear(self.curGear)
                     --print("reeversing begin",self.curGear,self.engine.curRPM)
                     self.strategicThrottle = 0.6
-                    self.strategicSteering = self.strategicSteering * -1.4
+                    self.strategicSteering = self.strategicSteering * -1.1
                 else -- stay stopped
                     --print(self.tagText,"staying Stopped")
                     self.strategicThrottle = -1
                 end
             end
+
         end
     end
     
-    -- Check Offtrack
+    -- Check Offtrack TODO: figure this out, sometimes car thinks it is off track when it is not
     if self.offTrack ~= 0 and not self.userControl then
         --print(self.tagText,"offtrack",self.offTrack)
         if self.speed < 15 then -- speed rejoin
             --self.strategicSteering = self.strategicSteering --+ self.offTrack/90 --? when at high speeds adjust to future turn better?
-            --print(self.id,"offtrack correction", print(self.id,"offtrack",self.goalDirectionOffset))
+            --print(self.tagText,"offtrack correction", print(self.id,"offtrack",self.goalDirectionOffset))
             self.strategicSteering = self.strategicSteering - (self.goalDirectionOffset/(math.abs(self.offTrack) +0.1))
-            --self.strategicThrottle = 0.8 -- if less than 1
+            if self.speed < 1 then
+                --print(self.tagText,"stuck offtrack?")
+                --self.stuck = true
+            end
         else -- just use nodefollow?
             self.strategicThrottle = 0.1 -- was -0.2, why?
-            if self.speed < 1 then
-                --print(self.id,"stuck offtrack")
-                self.stuck = true
-            end
+            
         end
         --print(self.id,"offtrack",self.offTrack,self.strategicSteering)
     end
@@ -4806,7 +4828,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                         else
                             print(self.tagText,"outside",-self.goalDirectionOffset)
                             self.strategicThrottle = -0.1
-                            self.strategicSteering = self.strategicSteering - self.goalDirectionOffset
+                            self.strategicSteering = self.strategicSteering - (self.goalDirectionOffset / adjustmenDampener)
                         end
                         self.goalOffsetCorrecting = true
                     end -- Else if speed < 7 then keep throttle at 0 or low power
@@ -4851,9 +4873,9 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
         end
     end
     if self.rejoining then -- what going on?
-        --print("rejoining")
-        if  self.curGear >= 4 then
-            print("rejoin complete")
+        --print(self.tagText, "Actually moving forward rejoining")
+        if  self.curGear >= 3 then -- TODO: have a better metric than just gear...
+            print(self.tagText,"rejoin complete")
             self.rejoining = false
             self.stuck = false
             self.pathGoal = "location"
@@ -5158,28 +5180,28 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         if checkNode.segType == "Straight" or checkNode.segType == "Fast_Left" or checkNode.segType == "Fast_Right" or segLen > 20 then -- Racing and on straight
             if self.passing.isPassing then -- If passing
                 if math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0 then -- if a car is alongside, TODO: go into depth of where exactly car is and what turn it is, EG: If turning left and a car on left, depengin on how close it is, loosen turn, if car on right, tighten turn?)
-                    self.nodeFollowPriority = rampToGoal(0.1,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.3,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.001)
+                    self.passFollowPriority = rampToGoal(0.85,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.01) -- unsure what to do with this
                 else
                     self.nodeFollowPriority = rampToGoal(0.3,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.8,self.passFollowPriority,0.001)
+                    self.passFollowPriority = rampToGoal(0.85,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.1) -- unsure what to do with this
                 end
 
             else -- Not passing
                 if math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0 then -- if a car is alongside,
-                    self.nodeFollowPriority = rampToGoal(0.1,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.2,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0.5,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.01) -- unsure what to do with this
                 else -- No cars alongside
-                    self.nodeFollowPriority = rampToGoal(0.2,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.3,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0.8,self.draftFollowPriority,0.01)
@@ -5189,29 +5211,29 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         else -- If turning: tighten node priority, loosen pass
             if self.passing.isPassing then -- Get looser while passing
                 if  math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0  then -- if a car is alongside,
-                    self.nodeFollowPriority = rampToGoal(0.60,self.nodeFollowPriority,0.002)
+                    self.nodeFollowPriority = rampToGoal(1.2,self.nodeFollowPriority,0.002)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.7,self.passFollowPriority,0.01) --?? what do here
+                    self.passFollowPriority = rampToGoal(0.2,self.passFollowPriority,0.02) --?? what do here
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.001)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.001) -- unsure what to do with this
                 else
-                    self.nodeFollowPriority = rampToGoal(0.70,self.nodeFollowPriority,0.002)
-                    self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.6,self.passFollowPriority,0.005)
+                    self.nodeFollowPriority = rampToGoal(1,self.nodeFollowPriority,0.002) -- TODO: base it on track width too?
+                    self.biasFollowPriority = rampToGoal(0.2,self.biasFollowPriority,0.001)
+                    self.passFollowPriority = rampToGoal(0.2,self.passFollowPriority,0.005)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.01) -- unsure what to do with this
                 end
             else -- if not passing  while on a turn
                 if math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0  then -- if a car is alongside, prioritize node follow left
-                    self.nodeFollowPriority = rampToGoal(0.55,self.nodeFollowPriority,0.002)
+                    self.nodeFollowPriority = rampToGoal(1.2,self.nodeFollowPriority,0.002)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
+                    self.passFollowPriority = rampToGoal(0.2,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.001) -- unsure what to do with this
                 else
-                    self.nodeFollowPriority = rampToGoal(0.55,self.nodeFollowPriority,0.002)
+                    self.nodeFollowPriority = rampToGoal(0.9,self.nodeFollowPriority,0.002)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
-                    self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
+                    self.passFollowPriority = rampToGoal(0.2,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.001) -- unsure what to do with this
                 end
@@ -5229,9 +5251,9 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
         
         if self.goalOffsetCorrecting then -- TODO: lessen rotationCorrect sensitivity
             --print(self.tagText,"correcting goal Offset",self.nodeFollowPriority)
-            self.nodeFollowPriority = rampToGoal(0.8,self.nodeFollowPriority,0.01)
+            self.nodeFollowPriority = rampToGoal(0.9,self.nodeFollowPriority,0.01)
             self.biasFollowPriority = rampToGoal(0.3,self.biasFollowPriority,0.01)
-            self.passFollowPriority = rampToGoal(0.7,self.passFollowPriority,0.01)
+            self.passFollowPriority = rampToGoal(0.4,self.passFollowPriority,0.01)
             self.draftFollowPriority = rampToGoal(0.1,self.draftFollowPriority,0.01)
         end
 
@@ -5242,6 +5264,10 @@ function Driver.calculatePriorities(self) -- calculates steering priorities for 
             self.draftFollowPriority = rampToGoal(0,self.draftFollowPriority,0.01)
             -- TODO: measure how far off track
             self.nodeFollowPriority = rampToGoal(2,self.nodeFollowPriority,0.1)
+        end
+
+        if self.rejoining then 
+            self.nodeFollowPriority = rampToGoal(1,self.nodeFollowPriority,0.1)
         end
 
         if self.raceFinished then -- at end of race
@@ -5840,7 +5866,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     self.trackPosition = self:calculateTrackPos()
     self.goalDirection = self:calculateGoalDirection()
     self.goalDirectionOffset = self:calculateGoalDirOffset()
-    self.followStrength = self:calculateNodeFollowStrength()
+    --self.followStrength = self:calculateNodeFollowStrength()
     self:calculateTrackPosBiasStrength() -- sets self.biasGoalOffsetStrength
     self:calculateDraftPosBiasStrength() -- sets self.draftGoalOffsetStrength
     self:calculatePriorities()

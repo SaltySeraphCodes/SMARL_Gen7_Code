@@ -137,6 +137,27 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
     }
 
 }
+
+TIRE_TYPES = {
+    {
+        TYPE = "soft",
+        LIFE = 100,
+        GRIP = 50,
+    },
+    {
+        TYPE = "medium",
+        LIFE = 200,
+        GRIP = 35,
+    },
+    {
+        TYPE = "hard",
+        LIFE = 300,
+        GRIP = 20,
+    }
+}
+
+-- What Tuning data will look like
+
 -- Data managment
 function saveData(data,channel) -- gather more params
     TEMP_TRACK_STORAGE[channel] = data
@@ -282,10 +303,10 @@ function displayNodeMap(nodeMap,location) -- attempts to display nodemap
 end
 
 function findClosestNode(nodeChain,location)
-    print("fnn")
+    --print("fnn")
     -- New way, search towards near
     local closestPhysicalNode = getNodeClosest(nodeChain,location)
-    print("closest",closestPhysicalNode.id,closestPhysicalNode.location,location,getDistance(closestPhysicalNode.location,location))
+    --print("FCN",closestPhysicalNode.id,closestPhysicalNode.location,location,getDistance(closestPhysicalNode.location,location))
     return closestPhysicalNode
 end
 -- possibly use areaTrigger?
@@ -421,6 +442,7 @@ function getNodeClosest(nodeList,location) -- Gets node closest to to {location}
     if closestNode == nil then
         --print("Could not determine closest node, z difference?")
     end
+    --print("getNodeClosest",closestNode.id,closestNode.location,location)
     return closestNode
 end
 
