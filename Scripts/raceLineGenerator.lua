@@ -68,6 +68,9 @@ function Generator.client_init( self )  -- Only do if server side???
     self.effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
     self.effect:setPosition(self.location)
     self.visualizing = false
+    self.useText =  sm.gui.getKeyBinding( "Use", true )
+    self.tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+    self.onHover = false
     self.showSpeeds = false
     self.showSegments = true
     self.started = 0
@@ -1749,6 +1752,7 @@ function Generator.client_onFixedUpdate( self, timeStep )
     self:tickClock()
     self:calculateApproxSpeeds()
     self:updateVisualization()
+    self.onHover = cl_checkHover(self.shape)
 end
 
 function Generator.tickClock(self)
@@ -1898,13 +1902,19 @@ function Generator.client_onInteract(self,character,state)
     end
 end
 
+function Generator.client_onUpdate(self,timeStep)
+    if self.onHover then 
+        sm.gui.setInteractionText( useText,"Start Scan", tinkerText,"Set Sensitivity","")
+    else
+    end
 
+end
 
 function Generator.client_canTinker( self, character )
-	local useText =  sm.gui.getKeyBinding( "Use", true )
-    local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+	--local useText =  sm.gui.getKeyBinding( "Use", true )
+    --local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
     --sm.gui.setInteractionText("Save",sm.gui.getKeyBinding("Use"), "Load", sm.gui.getKeyBinding('Tinker'))
-    sm.gui.setInteractionText( useText,"Start Scan", tinkerText,"Set Sensitivity","")
+    --sm.gui.setInteractionText( useText,"Start Scan", tinkerText,"Set Sensitivity","")
     
     return true
 end

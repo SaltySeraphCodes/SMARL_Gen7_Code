@@ -61,10 +61,9 @@ function Loader.client_init( self )  -- Only do if server side???
     self.errorLocation = nil
 
     self.showWalls = false -- show wall effects (reduces total allowed effects)
-    local useText =  sm.gui.getKeyBinding( "Use", true )
-    local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
-    sm.gui.setInteractionText( useText,"Save Track Scan To Block ", tinkerText,"Save Block's Scan To World","" )
-
+    self.useText =  sm.gui.getKeyBinding( "Use", true )
+    self.tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+    self.onHover = false
 	print("Track Loader V2.0 Client Initialized")
 end
 
@@ -450,20 +449,17 @@ end
 
 function Loader.client_onFixedUpdate( self, timeStep ) 
     self:updateVisualization()
-    local useText =  sm.gui.getKeyBinding( "Use", true )
-    local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
-    --sm.gui.setInteractionText( useText,"Save Track Scan To Block ", tinkerText,"Save Block's Scan To World","" )
+    self.onHover = cl_checkHover(self.shape)
 end
 
+function Loader.client_onUpdate(self, timeStep)
+    if self.onHover then 
+        sm.gui.setInteractionText( self.useText,"Save Track Scan To Block ", self.tinkerText,"Save Block's Scan To World","" )
+    else
+    end
+end
 
 function Loader.client_canTinker( self, character )
-    --print("canTinker", sm.gui.getKeyBinding( "Use" ))
-    --print("canTinker2",sm.gui.getKeyBinding('Tinker'))
-    local useText =  sm.gui.getKeyBinding( "Use", true )
-    local tinkerText = sm.gui.getKeyBinding( "Tinker", true )
-    --sm.gui.setInteractionText("Save",sm.gui.getKeyBinding("Use"), "Load", sm.gui.getKeyBinding('Tinker'))
-    sm.gui.setInteractionText( useText,"Save Track Scan To Block ", tinkerText,"Save Block's Scan To World","" )
-
 	return true
 end
 

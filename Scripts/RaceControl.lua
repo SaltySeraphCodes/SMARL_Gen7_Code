@@ -15,6 +15,9 @@ QUALIFYING_DATA = MOD_FOLDER .. "/JsonData/raceOutput/qualifyingData.json" --
 OUTPUT_DATA = MOD_FOLDER .. "/JsonData/RaceOutput/raceData.json" -- All race data
 FINISH_DATA = MOD_FOLDER .. "/JsonData/raceOutput/finishData.json"
 QUALIFYING_FLIGHT_DATA = MOD_FOLDER .. "/JsonData/qualifying_flight_" -- depreciated?
+MAP_DATA = MOD_FOLDER .. "/JsonData/TrackData/"
+
+
 Control = class( nil )
 Control.maxChildCount = -1
 Control.maxParentCount = -11
@@ -234,7 +237,10 @@ function Control.server_init(self)
     self.leaderID = nil -- race leader id
     self.leaderTime = 0 -- takes splits from leader
     self.leaderNode = 0 -- ? keeps track of which node leader is on
-    
+    self.trackName = "Test Oval"
+    self.trackID = 1
+
+
     self.resetCarTimer = Timer()
     self.resetCarTimer:start(5)
 
@@ -2380,6 +2386,53 @@ function Control.updateCameraPos(self,goal,dt)
     self.camTransTimer = dirDT -- works only with 1 frame yasss!
 
 end
+-- Race line Export
+function Control.exportSimplifyChain(nodeChain)
+    local simpChain = {}
+    --sm.log.info("simping node chain") -- TODO: make sure all seg IDs are consistance
+    for k=1, #chain do local v=chain[k]
+        local newNode = {id = v.id, mid = v.mid, width = v.width, }
+        table.insert(simpChain,newNode)
+    end
+    return simpChain
+end
+
+
+
+function Control.sv_export_nodeChain(self)
+    print("exporting node chain")
+    print("nc",self.nodeChain)
+    if self.nodeChain then -- might need to simplify first...
+        print("nc found")
+        local exportableChain = self:exportSimplifyChain(self.nodeChain)
+        local savePath = MAP_DATA .. self.trackID .. "_" ..self.trackName .. ".json"
+        print("saving chain to",savePath)
+        sm.json.save(exportableChain,savePath)
+    else
+        print('no nodechian found')
+    end
+end
+
+
+function Control.client_canTinker( self, character )
+    return true
+end
+
+function Control.client_onTinker( self, character, state )
+	if state then
+        if character:isCrouching() then
+           
+        else
+            print('Exporting track')
+            self.network:sendToServer("sv_export_nodeChain")
+        end
+	end
+end
+
+
+
+
+
 -- UI
 
 function Control.client_buttonPress( self, buttonName )

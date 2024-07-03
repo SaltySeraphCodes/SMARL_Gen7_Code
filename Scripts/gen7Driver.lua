@@ -321,7 +321,20 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = true
+    self.debug = false
+
+    -- TUNING States
+    self.Tire_Health = 0
+    self.Final_Drive = 0
+    self.Tire_Pressure = 0
+    self.Fuel_Level = 0
+    self.Tire_Type = 0
+    
+    -- Pit states
+    self.isPitting = false
+    self.plannedPitLap = 5
+    self.nextTire = 0
+    self.fuelToAdd = 0
 
 
     -- errorTimeouts
@@ -436,6 +449,9 @@ function Driver.client_init(self)
     self.idTag:setHost(self.shape)
 	self.idTag:setRequireLineOfSight( false )
 	self.idTag:setMaxRenderDistance( 500 )
+
+    self.onHover = false
+
     if self.carData['metaData'] ~= nil then
         local text = (self.carData['metaData'].Car_Name or '')
         self.tagText = (text or self.id)
@@ -3337,50 +3353,51 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         -- Goal here is to dampen collision avoidance when on banks
         -- TODO: Do this for turns too??
         local bankAdjust = 0
-        local dampMult = 1.5
+        local dampMult = 1.5 -- Higher the number, the less the cars adjust
         if self.currentNode and self.currentNode.bank ~= 0 then 
             if getSign(self.currentNode.bank) == -1 and  colSteerR ~= 0 then -- If avoiding to left on left banked turn
-                dampMult = 0.5
+                dampMult = 0.9
                 colSteerR = colSteerR/(1+dampMult*math.abs(self.currentNode.bank))
             end
             
             if getSign(self.currentNode.bank) == 1 and  colSteerL ~= 0 then -- If avoiding to Right on right banked turn
-                dampMult = 0.5
+                dampMult = 0.9
                 colSteerL = colSteerL/(1+dampMult*math.abs(self.currentNode.bank))
             end
 
             if getSign(self.currentNode.bank) == 1 and  colSteerR ~= 0 then -- If avoiding to left on right banked turn
-                dampMult = dampMult + 1 -- reduce reduction because traveling 'up'
+                dampMult = dampMult + 2 -- reduce reduction because traveling 'up'
                 colSteerR = colSteerR/(1+(dampMult*math.abs(self.currentNode.bank)))
             end
             
             if getSign(self.currentNode.bank) == -1 and  colSteerL ~= 0 then -- If avoiding to Right on left banked turn
-                dampMult = dampMult + 1
+                dampMult = dampMult + 2
                 colSteerL = colSteerL/(1+(dampMult*math.abs(self.currentNode.bank)))
             end
-        end
-        if self.currentNode and getSegTurn(self.currentNode.segType) ~= 0 then  -- on not banked tracks but regular turns
-            local turnType = getSegTurn(self.currentNode.segType)
-            dampMult = 0.01 -- slightly less pronounced
-            if turnType <= -2 and  colSteerR ~= 0 then -- If avoiding to left on left turn (only medium and sharper, use -1 for fast left)
-                colSteerR = colSteerR/(1+dampMult)
-            end
-            
-            if turnType >= 2 and  colSteerL ~= 0 then -- If avoiding to Right on right  turn
-                colSteerL = colSteerL/(1+dampMult)
-            end
+        else
+            if self.currentNode and getSegTurn(self.currentNode.segType) ~= 0 then  -- on not banked tracks but regular turns
+                local turnType = getSegTurn(self.currentNode.segType)
+                dampMult = 0.01 -- slightly less pronounced
+                if turnType <= -2 and  colSteerR ~= 0 then -- If avoiding to left on left turn (only medium and sharper, use -1 for fast left)
+                    colSteerR = colSteerR/(1+dampMult)
+                end
+                
+                if turnType >= 2 and  colSteerL ~= 0 then -- If avoiding to Right on right  turn
+                    colSteerL = colSteerL/(1+dampMult)
+                end
 
-            if turnType >= 2 and  colSteerR ~= 0 then -- If avoiding to left on right  turn
-                dampMult = dampMult + 0.01 -- reduce reduction because traveling against turn
-                colSteerR = colSteerR/(1+(dampMult))
-            end
-            
-            if turnType <= -2 and  colSteerL ~= 0 then -- If avoiding to Right on left  turn
-                dampMult =  dampMult + 0.01
-                colSteerL = colSteerL/(1+(dampMult))
-            end
-        else -- Do something about straights based on futur turn??
+                if turnType >= 2 and  colSteerR ~= 0 then -- If avoiding to left on right  turn
+                    dampMult = dampMult + 0.01 -- reduce reduction because traveling against turn
+                    colSteerR = colSteerR/(1+(dampMult))
+                end
+                
+                if turnType <= -2 and  colSteerL ~= 0 then -- If avoiding to Right on left  turn
+                    dampMult =  dampMult + 0.01
+                    colSteerL = colSteerL/(1+(dampMult))
+                end
+            else -- Do something about straights based on futur turn??
 
+            end
         end
 
     end
@@ -6129,7 +6146,10 @@ function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client t
 end
 
 function Driver.client_onUpdate(self,timeStep) -- lag test
-    
+    if self.onHover then 
+        sm.gui.setInteractionText( self.useText,"reset?", self.tinkerText,"start downforce detection","" )
+    else
+    end
 end
 
 function Driver.client_onClientDataUpdate(self,data)
