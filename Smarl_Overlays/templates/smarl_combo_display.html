@@ -1,0 +1,637 @@
+{% extends 'overlay_base.html' %}
+{% block title %}
+Smarl Combo Display
+{% endblock %}
+{% block content %}
+<div id="lapDisplay">
+</div>
+	<script>	
+	function reloadChart(){
+		d3.select("#lapDisplay").selectAll("svg").remove();
+		reloadGraphic();
+	}
+
+	function reloadGraphic(data){
+			drawData(data);
+	}
+	// Global chart element vars
+	// data helpers
+
+	var yScale;
+	var xScale;
+	var chart_area;
+	var interactive_chart;
+	var chartSettings;
+
+	// Visible elements
+	var racerBG; // The background squares that contain the data
+	var posRects;
+
+	var all_elements = []
+	function createBoard(data) {
+		boardCreated = true
+		totalCars = data.length // Find out somehow
+		chartSettings = { width: 300, height: 400, margin: {left: 30, right:30, top: 20, bottom:20}}
+		//Scales
+		xScale = d3.scaleLinear()
+			.domain([0,(data.length)])
+			.range([0,chartSettings.width]);
+
+		yScale = d3.scaleLinear()
+			.domain([0,totalCars + 1])// Total cars racing
+			.range([chartSettings.margin.top,chartSettings.height - chartSettings.margin.bottom]); // May need to reverse...
+			//.domain([d3.max(data, function(d){return d['total_trades']}),0])
+			//.range([0,chartSettings.height - chartSettings.margin.top]);
+
+		chart_area = d3.select("#lapDisplay").append("svg")
+			.attr('width', chartSettings.width)
+			.attr('height',chartSettings.height)
+		interactive_chart = chart_area.append('g')
+		
+
+		var bgRect = interactive_chart.append('rect')
+		.attr("x",0)
+		.attr('y',0)
+		.attr("rx",5)
+		.attr('ry',5)
+		.attr('width',chartSettings.width)
+		.attr('height',0)
+		.attr('opacity',0)
+		.attr('fill','light-grey')
+		.transition()
+		.attr('height',chartSettings.height)
+		.attr("opacity",0.70)
+		.duration(500)
+
+		//Header
+		var header = interactive_chart.append("text")
+		.attr('class','headerText')
+		.attr("x", chartSettings.width/2)
+		.attr("y", 15)
+		.attr("opacity",0)
+		.text("Lap Analysis")
+		.attr('text-anchor', 'middle')
+		.attr('alignment-baseline', 'central')
+		.attr('font-family',"sans-serif")
+		.attr('font-size','32px')
+		.attr('fill','white')
+		.transition()
+		.attr("opacity",1)
+		.duration(1000)
+
+
+		// Title labes
+
+		labels= interactive_chart.append("text")
+		.attr('class','labelText')
+		.attr("x", 10)
+		.attr("y", 42)
+		.attr("opacity",0)
+		.text('P___Tag___Last Lap____Best Lap')
+		.attr('text-anchor', 'left')
+		.attr('alignment-baseline', 'central')
+		.attr('font-family',"sans-serif")
+		.attr('font-size','18px')
+		.attr('fill','white')
+		.transition()
+		.attr("opacity",1)
+		.duration(1000)
+
+		// Separator line
+		var sepLine = interactive_chart.append("line")
+		.attr("x1", 0)
+		.attr("y1", 52)
+		.attr("x2", chartSettings.width)
+		.attr("y2", 52)
+		.attr('stroke-width',3)
+		.attr("stroke",'white')
+		.transition()
+		.attr("opacity",1)
+		.duration(1000)
+
+		drawData(data)
+	}
+	function drawData(data){
+		// bgRect
+		// Bckground rects
+		racerBG = interactive_chart.selectAll(".bgRect")
+		.data(data)
+		
+		// Enter
+		racerBG.enter()
+		.append("rect")
+		.attr("class","bgRect racerEl")
+		.attr('rx',3)
+		.attr('ry',3)
+		.attr("x",200)
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		})
+		.attr("opacity",0)
+		.attr("width",chartSettings.width-15)
+		.attr("height",30)
+		.attr("fill",function (d,i){
+			var color = 'black';
+			return color}
+		)
+		.attr('stroke','black')
+		.transition()
+		.attr("x",10)
+		.attr("opacity",0.40)
+		.duration(1300)
+
+		//Transition update
+		racerBG.transition()
+		.attr('y', function(d,i){
+			return yScale(d['pos']) // Rememeber to update this to the proper name
+		})
+		.attr("fill",function (d,i){
+			var color = 'black';
+			return color}
+		)
+		.attr("x",10)
+		.attr("opacity",0.40)
+		.duration(1300)
+
+		racerBG.exit()
+		.transition()
+		.attr("x",200)
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+
+
+		all_elements.push(racerBG)
+
+		//Racer Positions
+		posRects = interactive_chart.selectAll(".posRect")
+		.data(data)
+
+		posRects.enter()
+		.append("rect")
+		.attr("class","posRect racerEl")
+		.attr("rx", 7)
+		.attr("ry", 7)
+		.attr("x",205)
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		})
+		.attr("width",25)
+		.attr("height",30)
+		.attr("fill",'white')
+		.attr('stroke','black')
+		.attr("opacity",0)
+		.transition()
+		.attr("x",5)
+		.attr("opacity",1)
+		.duration(1300)
+		
+		posRects.transition()
+		.attr('y', function(d,i){
+			return yScale(d['pos']) // Rememeber to update this to the proper name
+		})
+		.attr("x",5)
+		.attr("opacity",1)
+		.duration(1300)
+	
+		
+		posRects.exit()
+		.transition()
+		.attr("x",205)
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+		
+		all_elements.push(posRects)
+
+		// Racer Position Text
+		posText = interactive_chart.selectAll(".posText")
+		.data(data)
+
+		posText.enter()
+		.append('text')
+		.attr('class','posText racerEl')
+		.attr("x", 210)
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		}) 
+		.attr('dx',".1em")
+		.attr('dy',".38em")
+		.text(function(d,i){ return d['pos']})
+		.attr('font-family',"sans-serif")
+		.attr('font-size','20px')
+		.attr('fill','black')
+		.attr('text-anchor', 'center')
+		.attr('alignment-baseline', 'hanging')
+		.attr("opacity",0)
+		.transition()
+		.attr("x",function(d,i){
+			if (d['pos'] > 9 ){
+				return 5
+			}else{
+				return 10
+			}})
+		.attr("opacity",1)
+		.duration(1300)
+
+		posText.transition()
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		}) 
+		.text(function(d,i){ return d['pos']})
+		.attr("x",function(d,i){
+			if (d['pos'] > 9 ){
+				return 5
+			}else{
+				return 10
+			}})
+		.attr("opacity",1)
+		.duration(1300)
+		
+		posText.exit()
+		.transition()
+		.attr("x",210 )
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+		
+		
+		all_elements.push(posText)
+
+		// Racer name text -- Willkeep here but uneeded, i really need tag and color
+		/*
+		nameText = interactive_chart.selectAll(".nameText")
+		.data(data)
+
+		nameText.enter()
+		.append('text')
+		.attr('class','nameText racerEl')
+		.attr("x", 230)
+		.attr("opacity",0)
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		})
+		.attr('dx',".1em")
+		.attr('dy',".50em")
+		.text(function(d,i){ return d['name']})
+		.attr('font-family',"sans-serif")
+		.attr('font-size','15px')
+		.attr('fill','white')
+		.attr('text-anchor', 'center')
+		.attr('alignment-baseline', 'hanging')
+		.transition()
+		.attr("x",30 )
+		.attr("opacity",1)
+		.duration(1300)
+
+		nameText.transition()
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		}) 
+		.text(function(d,i){ return d['name']})
+		.duration(1300)
+
+
+		nameText.exit()
+		.transition()
+		.attr("x",230 )
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+		all_elements.push(nameText)
+		*/
+		
+		//Racer color - small rect that matches racer color
+		colRect = interactive_chart.selectAll(".colRect")
+		.data(data)
+
+		colRect.enter()
+		.append('rect')
+		.attr("class","colRect racerEl")
+		.attr("x",235)
+		.attr("opacity",0)
+		.attr('y',function(d,i){
+			return yScale(d['pos'])+5
+		})
+
+		.attr("width",10)
+		.attr("height",20)
+		.attr("fill",function(d,i){
+			return "#"+d['primary_color']
+		})
+		.attr('stroke-width',2)
+		.attr('stroke','tertiary_color')
+		.transition()
+		.attr("x",35 )
+		.attr("opacity",1)	
+		.duration(1300)
+
+		colRect.transition()
+		.attr('y',function(d,i){
+			return yScale(d['pos']) +5
+		}) 
+		.attr("x",35 )
+		.attr("opacity",1)	
+		.duration(1300)
+
+		colRect.exit()
+		.transition()
+		.attr("x",235 )
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+
+		all_elements.push(colRect)
+		//Secondary color - small triangle/corner that represents racer's secondary color
+		var lineGenerator = d3.line()
+					.x(function(d) { return d[0]+37.5})
+                    .y(function(d) { return d[1] });
+		
+		function triangleGenerator(posY,width,height){
+			return [ [0,posY], [width,posY], [width,posY + height]]
+		}
+		
+		//var triangle = lineGenerator() 
+		secondary = interactive_chart.selectAll(".secondary")
+		.data(data)
+		secondary.enter()
+		.append("path")
+		.attr("d", function(d) {
+			var triangleP = triangleGenerator(yScale(Number(d['pos'])) +5,7,15)
+			 return lineGenerator(triangleP);})
+		.attr("class","secondary racerEl")
+		.attr('stroke','black')
+		.attr('stroke-width',1)
+		.attr("opacity",0)
+		.attr('y',function(d,i){
+			return yScale(d['qPos']) +10
+		})
+		.attr("fill",function(d,i){
+			return "#"+d['secondary_color'] // TODO Change to secondary color
+		})
+		.transition()
+		.attr("fill",function(d,i){
+			return "#"+d['secondary_color'] // TODO Change to secondary color
+		})
+		.attr("opacity",1)	
+		.duration(1300)
+     	.delay(1300)
+		secondary.transition()
+		.attr("d", function(d) {
+		var triangleP = triangleGenerator(yScale(Number(d['pos'])) +5,7,15)
+		return lineGenerator(triangleP);})
+		.attr("fill",function(d,i){
+			return "#"+d['secondary_color'] // TODO Change to secondary color
+		})
+		.attr("opacity",1)	
+		.duration(1300)
+
+		secondary.exit()
+		.transition()
+		
+		.attr("x",xScale(1900))
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+
+		all_elements.push(secondary)
+		//Racer Tag (3 letter tag)
+		tagText = interactive_chart.selectAll(".tagText")
+		.data(data)
+		
+		tagText.enter()
+		.append('text')
+		.attr('class','tagText racerEl')
+		.attr('id','tagText')
+		.attr("x", 250)
+		.attr("opacity",0)
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		})
+		.attr('dy',".65em")
+		.text(function(d,i){
+			return d['tag']})
+		.attr('font-family',"sans-serif")
+		.attr('font-size','17px')
+		.attr('fill','white')
+		.attr('text-anchor', 'center')
+		.attr('alignment-baseline', 'hanging')
+		.transition()
+		.attr("x", 50)
+		.attr("opacity",1)
+		.duration(1300)
+		all_elements.push(tagText)
+
+
+		tagText.transition()
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		}) 
+		.attr("x", 50)
+		.attr("opacity",1)
+		.duration(1300)
+
+		tagText.exit()
+		.transition()
+		.attr("x", 250)
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+
+		
+		
+
+		// Lap time -- last lap time
+		lastLapText = interactive_chart.selectAll(".lastLapText")
+		.data(data)
+
+		lastLapText.enter()
+		.append('text')
+		.attr('class','lastLapText racerEl')
+		.attr("x", 290)
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		})
+		.attr("opacity",0)
+		.attr('dy',".65em")
+		.text(function(d,i){ return d['lastLap']})
+		.attr('font-family',"sans-serif")
+		.attr('font-weight',"bold")
+		.attr('font-size','17px')
+		.attr('fill',function(d,i){
+			var color = 'white';
+			if (d['lastLap'] == d['bestLap']){
+				color = '#1b70ba' 
+			}
+			return color
+		})
+		.attr('text-anchor', 'center')
+		.attr('alignment-baseline', 'hanging')
+		.transition()
+		.attr("x", 110)
+		.attr("opacity",1)
+		.duration(1300)
+		all_elements.push(lastLapText)
+
+		lastLapText.transition()
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		}) 
+		.attr("x", 110)
+		.attr("opacity",1)
+		.text(function(d,i){ return d['lastLap']})
+		.attr('fill',function(d,i){
+			var color = 'white';
+			if (d['lastLap'] == d['bestLap']){
+				color = '#1b70ba' 
+			}
+			return color
+		})
+		.duration(1300)
+
+		lastLapText.exit()
+		.transition()
+		.attr("x", 290)
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+
+
+		bestLapText = interactive_chart.selectAll(".bestLapText")
+		.data(data)
+
+		bestLapText.enter()
+		.append('text')
+		.attr('class','bestLapText racerEl')
+		.attr("x", 400)
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		})
+		.attr("opacity",0)
+		.attr('dy',".65em")
+		.text(function(d,i){ return d['bestLap']})
+		.attr('font-family',"sans-serif")
+		.attr('font-weight',"bold")
+		.attr('font-size','17px')
+		.attr('fill',function(d,i){
+			var color = '#663399'
+			var timeStr = d['bestLap']
+			var minutes = timeStr.substring(0,2)
+			var seconds = timeStr.substring(3,5)
+			var milliseconds = timeStr.substring(6,9)
+			var myTime = new Date(2019,7,12,1,minutes,seconds,milliseconds);
+			// loop through the thing
+			for( var i = 0; i <data.length; i ++){ //filter out self index?
+				var ch_tStr = data[i]['bestLap']
+				var ch_minutes = ch_tStr.substring(0,2)
+				var ch_seconds = ch_tStr.substring(3,5)
+				var ch_milliseconds = ch_tStr.substring(6,9)
+				var chTime = new Date(2019,7,12,1,ch_minutes,ch_seconds,ch_milliseconds);
+				if (chTime < myTime){
+					color = 'white';
+				}
+			}
+			// determines best lap and colors purple
+			return color
+			
+		})
+		.attr('text-anchor', 'center')
+		.attr('alignment-baseline', 'hanging')
+		.transition()
+		.attr("x", 215)
+		.attr("opacity",1)
+		.duration(1300)
+		all_elements.push(lastLapText)
+
+		bestLapText.transition()
+		.attr('y',function(d,i){
+			return yScale(d['pos'])
+		}) 
+		.attr("x", 215)
+		.attr("opacity",1)
+		.text(function(d,i){ return d['bestLap']})
+		.attr('fill',function(d,i){
+			var color = '#663399'
+			var timeStr = d['bestLap']
+			var minutes = timeStr.substring(0,2)
+			var seconds = timeStr.substring(3,5)
+			var milliseconds = timeStr.substring(6,9)
+			var myTime = new Date(2019,7,12,1,minutes,seconds,milliseconds);
+			// loop through the thing
+			for( var i = 0; i <data.length; i ++){ //filter out self index?
+				var ch_tStr = data[i]['bestLap']
+				var ch_minutes = ch_tStr.substring(0,2)
+				var ch_seconds = ch_tStr.substring(3,5)
+				var ch_milliseconds = ch_tStr.substring(6,9)
+				var chTime = new Date(2019,7,12,1,ch_minutes,ch_seconds,ch_milliseconds);
+				if (chTime < myTime){
+					color = 'white';
+				}
+			}
+			// determines best lap and colors purple
+			return color
+		})
+		.duration(1300)
+
+		bestLapText.exit()
+		.transition()
+		.attr("x", 390)
+		.attr("opacity",0)
+		.duration(1300)
+		.remove()
+	}
+
+	</script>
+	<script> 
+	var boardCreated = false
+	// loads,parses, and calls all chart creation
+	function findObjectByKey(array, key, value) {
+      for (var i = 0; i < array.length; i++) {
+          if (array[i][key] === value) {
+              return array[i];
+          }
+      }
+      return null;
+	}
+	function findIndexByKey(array, key, value) {
+      for (var i = 0; i < array.length; i++) {
+          if (array[i][key] === value) {
+              return i;
+          }
+      }
+      return null;
+  	}
+	  
+  // SOCKET FUNCTIONS
+  var socket = io.connect('http://' + document.domain + ':' + location.port);
+    socket.on( 'connect', function() {
+      socket.emit( 'getRace', {
+        data: 'getRace'
+      } )
+	})
+     
+    socket.on( 'raceData', function( data ) {
+		console.log("GOT JSON",data)
+		data = data['realtime_data']
+		smarl_data = data.filter(function(d,i){return (Number(d.pos) <= 16 && Number(d.pos) != 0)} )
+	  if (smarl_data.length > 0 && !boardCreated){
+		initialize(smarl_data)
+	  } else if(smarl_data.length > 0 && boardCreated){
+		  updateGraphic(smarl_data)
+	  }else{
+		  console.log("No data yet??")
+	  }
+		function initialize(data){
+				createBoard(data);
+		}
+		function updateGraphic(data){
+			// Do whatever too
+			reloadGraphic(data)
+		}
+		$(document).ready(function() {
+		});
+	})
+	</script>
+
+{% endblock %}
+

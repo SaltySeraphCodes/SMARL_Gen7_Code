@@ -1,0 +1,88 @@
+{% extends 'overlay_base.html' %}
+{% block title %}
+Smarl O dash
+{% endblock %}
+{% block content %}
+<style>
+  #wrap { width: 600px; height: 390px; padding: 0; overflow: hidden; }
+  #fullFrame { width: 1000; height: 1000; border: 1px solid black; }
+  #fullFrame { zoom: 0.9; -moz-transform: scale(0.5); -moz-transform-origin: 0 0;  }
+  #sideFrame { width: 500; height: 600; border: 1px solid black; }
+  #sideFrame { zoom: 0.75; -moz-transform: scale(0.75); -moz-transform-origin: 0 0; }
+</style>
+    
+  <!--<iframe id="fullFrame" src="{{url_for('smarl_intro_board')}}" title="Intro Display"></iframe>
+  <iframe id="fullFrame" src="{{url_for('smarl_season_board')}}" title="Qualifying Results"></iframe>
+  <iframe id="fullFrame" src="{{url_for('smarl_finish_board')}}" title="Race Results"></iframe>
+
+  <iframe id="sideFrame" src="{{url_for('smarl_qualifying_board')}}" title="Qualifying Split"></iframe>
+  -->
+  <iframe id="sideFrame" src="{{url_for('smarl_split_board')}}" title="Racing Splits"></iframe>
+  <iframe id="sideFrame" src="{{url_for('smarl_combo_board')}}" title="Lap Analysis"></iframe>
+  <iframe id="sideFrame" src="{{url_for('smarl_focused_board')}}" title="Driver Info"></iframe>
+
+
+  <script type="text/javascript">
+   var smarl_data  = [] 
+   let data_loaded = false
+   // Helper functions
+    function findObjectByKey(array, key, value) {
+      for (var i = 0; i < array.length; i++) {
+          if (array[i][key] === value) {
+              return array[i];
+          }
+      }
+      return null;
+  }
+  function findIndexByKey(array, key, value) {
+      for (var i = 0; i < array.length; i++) {
+          if (array[i][key] === value) {
+              return i;
+          }
+      }
+      return null;
+  }
+
+  function resizeIFrameToFitContent( iFrame ) {
+    iFrame.width  = iFrame.contentWindow.document.body.scrollWidth;
+    iFrame.height = iFrame.contentWindow.document.body.scrollHeight;
+  }
+
+  function resizeAllFrames() {
+    var iframes = document.querySelectorAll("iframe");
+    for( var i = 0; i < iframes.length; i++) {
+        console.log("resizing iframe",i)
+        resizeIFrameToFitContent( iframes[i] );
+    }
+  }
+
+  // SOCKET FUNCTIONS
+    var socket = io.connect('http://' + document.domain + ':' + location.port);
+    socket.on( 'connect', function() {
+      socket.emit( 'getJson', {
+        data: 'getJson'
+      } )})
+    
+    socket.on( 'raceData', function( data ) {
+      console.log("dash got race data",data)
+      if (!data_loaded){
+        resizeAllFrames();
+        data_loaded = false;
+      }
+    }) 
+    
+    socket.on( 'outgoingJson', function( data ) {
+      var racerID = data.id
+      var dataIndex = findIndexByKey(smarl_data,'id',racerID)
+      if (dataIndex == null ){
+        smarl_data.push(data)
+      }else{
+        smarl_data[dataIndex] = data
+      }
+      console.log("got smarl data",smarl_data)
+    })
+
+  </script>
+  <br>
+</div>
+{% endblock %}
