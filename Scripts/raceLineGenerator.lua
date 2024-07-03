@@ -1904,7 +1904,8 @@ end
 
 function Generator.client_onUpdate(self,timeStep)
     if self.onHover then 
-        sm.gui.setInteractionText( useText,"Start Scan", tinkerText,"Set Sensitivity","")
+        sm.gui.setInteractionText( self.useText,"Start Scan", self.tinkerText,"Set Sensitivity","")
+        -- TODO, Set center icon to nothing?
     else
     end
 

@@ -374,7 +374,7 @@ function Control.loadTrackData(self) -- loads in any track data from the world
 end
 
 function Control.sv_loadData(self,channel)
-    print("svb_loadData")
+    --print("svb_loadData")
     local data = sm.storage.load(channel)
     if data == nil then
         --print("Server did not find track data") 
@@ -402,7 +402,7 @@ function Control.on_trackLoaded(self,data) -- Callback for when track data is ac
     else
         self.trackLoaded = true
         self.nodeChain = data
-        print(self.nodeChain[1])
+        --print(self.nodeChain[1])
         if self.nodeMap == nil then
             --print("generating NodeMap")
             self.nodeMap = generateNodeMap(self.nodeChain)
@@ -2387,11 +2387,11 @@ function Control.updateCameraPos(self,goal,dt)
 
 end
 -- Race line Export
-function Control.exportSimplifyChain(nodeChain)
+function Control.exportSimplifyChain(self,nodeChain)
     local simpChain = {}
     --sm.log.info("simping node chain") -- TODO: make sure all seg IDs are consistance
-    for k=1, #chain do local v=chain[k]
-        local newNode = {id = v.id, mid = v.mid, width = v.width, }
+    for k=1, #nodeChain do local v=nodeChain[k]
+        local newNode = {id = v.id, midX = v.mid.x, midY = v.mid.y, midZ = v.mid.z, width = v.width, }
         table.insert(simpChain,newNode)
     end
     return simpChain
@@ -2400,10 +2400,10 @@ end
 
 
 function Control.sv_export_nodeChain(self)
-    print("exporting node chain")
-    print("nc",self.nodeChain)
+    self:sv_loadData(TRACK_DATA)
+    --print("exporting node chain",self.trackLoaded)
+    --print("nc",self.nodeChain)
     if self.nodeChain then -- might need to simplify first...
-        print("nc found")
         local exportableChain = self:exportSimplifyChain(self.nodeChain)
         local savePath = MAP_DATA .. self.trackID .. "_" ..self.trackName .. ".json"
         print("saving chain to",savePath)
@@ -2423,7 +2423,7 @@ function Control.client_onTinker( self, character, state )
         if character:isCrouching() then
            
         else
-            print('Exporting track')
+            --print('Exporting track')
             self.network:sendToServer("sv_export_nodeChain")
         end
 	end

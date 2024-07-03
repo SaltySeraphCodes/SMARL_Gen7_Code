@@ -228,12 +228,12 @@ function deepcopy(orig)
 end
 -- Helper functions
 -- client onhover checker
-function cl_checkHover(shape) -- checks if shape is being looked at
+function cl_checkHover(check_shape) -- checks if shape is being looked at
     local hit,raycastResult = sm.localPlayer.getRaycast(10)
     if hit then
         local shape = raycastResult:getShape()
         if shape then
-            if self.shape == shape then
+            if check_shape == shape then
                 return true
             else
                 return false
