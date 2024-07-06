@@ -1,0 +1,40 @@
+[
+
+    {
+        "bestLap" : 54.0,
+        "id" : 1.0,
+        "isFocused" : "false",
+        "lapNum" : 2.0,
+        "lastLap" : 55.0,
+        "locX" : -76.01971435546875,
+        "locY" : -199.5980682373047,
+        "place" : 3.0,
+        "speed" : 40.26392745971680,
+        "timeSplit" : "0.000"
+    },
+
+    {
+        "bestLap" : 55.0,
+        "id" : 2.0,
+        "isFocused" : "false",
+        "lapNum" : 2.0,
+        "lastLap" : 56.0,
+        "locX" : -195.5259094238281,
+        "locY" : -1.255373716354370,
+        "place" : 2.0,
+        "speed" : 32.71607971191406,
+        "timeSplit" : "0.000"
+    },
+    {
+        "bestLap" : 55.0,
+        "id" : 3.0,
+        "isFocused" : "false",
+        "lapNum" : 3.0,
+        "lastLap" : 56.0,
+        "locX" : -195.5259094238281,
+        "locY" : -1.255373716354370,
+        "place" : 1.0,
+        "speed" : 32.71607971191406,
+        "timeSplit" : "0.000"
+    }
+]

@@ -230,6 +230,17 @@ def smarl_get_lapData(): #Get lap data
     return json.dumps(_raceData)
 
 
+@app.route('/smarl_map_display', methods=['GET','POST']) # Displays Race Results
+def smarl_map_display(): #Get lap data
+    print("displaying map")
+    return render_template('smarl_map_display.html')
+
+@app.route('/smarl_session_display', methods=['GET','POST']) # Displays Race Results
+def smarl_session_display(): #Get lap data
+    print("displaying session")
+    return render_template('smarl_session_display.html')
+
+
 
 @app.context_processor
 def test_debug():
@@ -246,7 +257,7 @@ def test_debug():
 def main(): 
     sharedData.init()
     if '__main__' == __name__:
-        socketio.run(app,host='0.0.0.0',port='5000', debug=True)
+        socketio.run(app,host='0.0.0.0',port='5050', debug=True)
     
 main()
 

@@ -204,8 +204,8 @@ class RacerData: # unexessary?
 def init():
     global _RacerData
     global _SpecificRaceData
-    _RacerData = getRacerData()
-    _SpecificRaceData = getRaceData()
-    print("race data",_SpecificRaceData)
+    #_RacerData = getRacerData()
+    #_SpecificRaceData = getRaceData()
+    #print("race data",_SpecificRaceData)
 
-init()
+#init()
