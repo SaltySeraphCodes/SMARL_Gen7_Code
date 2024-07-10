@@ -244,7 +244,7 @@ function Control.server_init(self)
     self.resetCarTimer = Timer()
     self.resetCarTimer:start(5)
 
-    self.dataOutputTimer = Timer()
+    self.dataOutputTimer = Timer() -- MS TICKs so 1 = 1/40
     self.dataOutputTimer:start(1)
     self.outputRealTime = true  -- USE TO OUTPUT DATA TO SERVERS
     
@@ -881,6 +881,7 @@ end
 
 function Control.server_onFixedUpdate(self)
     self:tickClock()
+    self:ms_tick() -- 1 tick is 1 tick
     if getSmarCam() ~= nil and getSmarCam() ~= -1 then -- either constanlty check or only check when flag is false
         if not self.smarCamLoaded then
             self.smarCamLoaded = true
@@ -1213,21 +1214,30 @@ function Control.cl_showAlert(self,msg) -- client recieves alert
 end
 
 
-function Control.tickClock(self) -- Just tin case
+function Control.ms_tick(self) -- frame tick
+    self.dataOutputTimer:tick()
+    if self.dataOutputTimer:done()then
+        self:sv_performTimedFuncts()
+        self.dataOutputTimer:start(15) -- TODO: set to 1
+    end
+
+end
+
+function Control.tickClock(self) -- Just ticks by secconds
     local floorCheck = math.floor(clock() - self.started) 
         --print(floorCheck,self.globalTimer)
     if self.globalTimer ~= floorCheck then
         self.gotTick = true
         self.resetCarTimer:tick()
         self.globalTimer = floorCheck
-        self.dataOutputTimer:tick()
+        --self.dataOutputTimer:tick()
         self.autoFocusTimer:tick()
         self.autoSwitchTimer:tick()
         --print(self.autoFocusTimer:remaining(),self.autoSwitchTimer:remaining())
-        if self.dataOutputTimer:done()then
-            self:sv_performTimedFuncts()
-            self.dataOutputTimer:start(2) -- TODO: set to 1
-        end
+        --if self.dataOutputTimer:done()then
+        --    self:sv_performTimedFuncts()
+        --    self.dataOutputTimer:start(1) -- TODO: set to 1
+        --end
         if self.autoCameraFocus and self.autoFocusTimer:done() then
             self:sv_performAutoFocus()
             --self:sv_performAutoSwitch()
@@ -1624,7 +1634,7 @@ function Control.sv_exportRaceMetaData(self)
     return self.raceMetaData
 
 end
-
+-- NOTE?TODO: Place RT in separate file to reduce load?
 function Control.sv_output_allRaceData(self) -- Outputs race data into a  big list
     local realtimeData = self:sv_exportRealTime() -- minimized realtime data?
     local qualifyingData = self:sv_exportQualifyingData() -- minimized quali data

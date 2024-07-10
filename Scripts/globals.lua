@@ -93,20 +93,20 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
    {
         TYPE = "road", -- slowest
         COLOR = "222222ff", -- black
-        MAX_SPEED = 80, -- 73.5 lvl 5 engine
+        MAX_SPEED = 85, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.4,
-        MAX_BRAKE = 0.65,
-        GEARING = {0.5,0.45,0.35,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 78/4 -- LImit for VRPM TODO: adjust properly
+        MAX_BRAKE = 0.70,
+        GEARING = {0.5,0.45,0.35,0.10}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 85/4 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "sports", -- medium -- dark gray
         COLOR = "4a4a4aff",
-        MAX_SPEED = 95, -- 80
+        MAX_SPEED = 100, -- 80
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.75, -- 1?
-        GEARING = {0.45,0.4,0.45,0.3,0.25}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 95/5 -- LImit for VRPM TODO: adjust properly
+        GEARING = {0.45,0.4,0.45,0.3,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 100/5 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "formula", -- Fast

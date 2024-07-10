@@ -1,7 +1,7 @@
 import os, math
 from flask import Flask, render_template, url_for, g
 from jinja2 import Environment, PackageLoader, select_autoescape
-import re
+import requests
 import json
 from flask_socketio import SocketIO
 import time
@@ -116,6 +116,7 @@ def handle_incoming_status(jsonData, methods=['GET', 'POST']):
 def handle_incoming_race(jsonData, methods=['GET', 'POST']):
     global _raceData
     _raceData = jsonData
+    print("emit raceData",jsonData)
     socketio.emit('raceData', jsonData)
     #print('')
 
@@ -233,7 +234,10 @@ def smarl_get_lapData(): #Get lap data
 @app.route('/smarl_map_display', methods=['GET','POST']) # Displays Race Results
 def smarl_map_display(): #Get lap data
     print("displaying map")
-    return render_template('smarl_map_display.html')
+    response = requests.get(sharedData.get_smarl_url() + "/get_all_racers")
+    response.raise_for_status()
+    car_data = response.json()
+    return render_template('smarl_map_display.html',all_cars =car_data)
 
 @app.route('/smarl_session_display', methods=['GET','POST']) # Displays Race Results
 def smarl_session_display(): #Get lap data
@@ -257,7 +261,7 @@ def test_debug():
 def main(): 
     sharedData.init()
     if '__main__' == __name__:
-        socketio.run(app,host='0.0.0.0',port='5050', debug=True)
+        socketio.run(app,host='0.0.0.0',port='5000', debug=True)
     
 main()
 

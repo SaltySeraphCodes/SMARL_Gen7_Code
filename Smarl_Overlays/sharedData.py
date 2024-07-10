@@ -7,9 +7,9 @@ RaceTitle = "Race 3"
 RaceLocation = "Brighton Park"
 RaceFormat = "" # TODO: Pull booliean from ['meta_data']['qualifying'] as ' Qualifying' or ''
 SeasonID = "2" # which season it is to pull sheet data from Make Dynamic?
-RaceID = "6" # Make Dynamic?
+RaceID = "4" # Make Dynamic?
 LeagueTitles = ["A League", "B League"] #TODO: maeke array that displays title based on it
-league_id = 2 # [1,2] TODO: remember this affects cars found --NOTICE if cars not showing up or being found
+league_id = 1 # [1,2] TODO: remember this affects cars found --NOTICE if cars not showing up or being found
 # Sheet name/title (when connected to gsheet)
 # Grab Racer Data from Racer Data SHeet
 _SpecificRaceData = {"title": RaceTitle, "location": RaceLocation, "format": RaceFormat, "season":SeasonID,"race":RaceID, "league_id":league_id,"leagueTitle":LeagueTitles[league_id-1]}
@@ -50,13 +50,13 @@ def getTimefromTimeStr(timeStr):
     return myTime
 
 def setRacerData(data):
-    print("setting racer Data")
     global _RacerData
     _RacerData = data # or append?
-    print(_RacerData)
+    #print("Shared Data. setting racer Data",)
+
 
 def getRacerData(): # Only grabs racers in league
-    print("Getting racer data")
+    #print("Getting racer data")
     all_racers = None
     jsonResponse = None
     try:
@@ -66,8 +66,8 @@ def getRacerData(): # Only grabs racers in league
         # access JSOn content
         
         jsonResponse = response.json()
-      
-        #print("got racers",all_racers)
+
+        #print("got racers",jsonResponse,all_racers)
     except HTTPError as http_err:
         print(f'HTTP error occurred: {http_err}')
         return all_racers
@@ -75,8 +75,10 @@ def getRacerData(): # Only grabs racers in league
         print(f'GRacerdata Other error occurred: {err}')  
         return all_racers
     filtered_racers =  [d for d in jsonResponse if int(d['league_id']) == _SpecificRaceData['league_id']] # filter for league
+    #TODO: Change for season3 or set leagues to something else
     #print("\n\nfiltered racers = ",len(filtered_racers),_SpecificRaceData['league_id'],"\n",filtered_racers)
     all_racers = filtered_racers
+    #print("filtered racers",all_racers)
     return all_racers
 
 def getRaceData(): #compiles season and race data
@@ -188,24 +190,14 @@ def uploadResults(race_id,resultBody):
 def updateRacerData(): # gets new pull of racer data
     global _RacerData
     _RacerData = getRacerData()
+    print("Pulled new racerData",_RacerData)
     
-class RacerData: # unexessary?
-    globalData = None
-    def __init__(self):
-        self.Racer_Data = None
-
-    def setRacerData(self,data):
-        self.Racer_Data = data
-    
-    def getRacerData(self):
-        print("returning",self.globalData,self.Racer_Data)
-        return self.globalData
 
 def init():
     global _RacerData
     global _SpecificRaceData
-    #_RacerData = getRacerData()
-    #_SpecificRaceData = getRaceData()
-    #print("race data",_SpecificRaceData)
+    _RacerData = getRacerData()
+    _SpecificRaceData = getRaceData()
+    print('sharedData finished init')
 
 #init()

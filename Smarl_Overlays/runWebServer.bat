@@ -1,1 +1,1 @@
-Powershell .\webserver\Scripts\Activate.ps1 & .\webserver\Scripts\python.exe .\application.py
+Powershell C:\Users\Canthony\Documents\PyhonEnvs\webserver\Scripts\Activate.ps1 & C:\Users\Canthony\Documents\PyhonEnvs\webserver\Scripts\python.exe .\application.py

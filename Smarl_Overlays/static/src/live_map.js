@@ -1,34 +1,71 @@
+//helpers
+function findObjectByKey(array, key, value) {
+  for (var i = 0; i < array.length; i++) {
+    if (array[i][key] === value) {
+      return array[i];
+    }
+  }
+  return null;
+}
+function findIndexByKey(array, key, value) {
+  for (var i = 0; i < array.length; i++) {
+    if (array[i][key] === value) {
+      return i;
+    }
+  }
+  return null;
+}
+
 class LiveMap {
 
-    constructor(_config, _data) {
+    constructor(_config, _car_data,_map_data) {
       this.config = {
         parentElement: _config.parentElement,
         containerWidth: _config.containerWidth || 700,
         containerHeight: _config.containerHeight || 700,
-        margin: { top: 20, bottom: 20, right: 20, left: 20 }
+        margin: { top: 25, bottom: 25, right: 25, left: 25}
       }
-  
-      this.data = _data; 
+      this.map_data = _map_data;
+      this.racer_data = _car_data;
+      this.rt_data = [];
       // Call a class function
       this.initVis();
     }
   
     initVis() {
       let vis = this;
-      console.log("init",this.data)
+      vis.startTime = Date.now();
+	    vis.splitTime = vis.startTime;
       vis.width = vis.config.containerWidth - vis.config.margin.left - vis.config.margin.right;
       vis.height = vis.config.containerHeight - vis.config.margin.top - vis.config.margin.bottom;
   
+      // Setup Socket for local TCP data serving, TODO: add one for database for SMARL website
+      var socket = io.connect('http://' + location.hostname + ':' + location.port);
+      socket.on( 'connect', function() {
+        console.log("Socket connected!")    
+      });
+       
+      socket.on('raceData', function( data ) {
+        if (data == null){return}
+        let size = Object.keys(data).length; 
+        if(size > 0){
+          //console.log('set data',data)
+          vis.rt_data = data.realtime_data;
+          vis.updateVis(vis.racer_data);
+        }else{
+          console.log("Data Size 0");
+        }
+      });
+      vis.all_elements = [];
+
       // Atttempting to get things working just from using the scaled domain and range
       // We may need to get an offset value to apply across X and y if this doesnt work.
-
-      console.log("Setting up scales")
       vis.xScale = d3.scaleLinear()
-          .domain(d3.extent(this.data, d=> d.midX))
+          .domain(d3.extent(this.map_data, d=> d.midX))
           .range([0, vis.width]);
   
       vis.yScale = d3.scaleLinear()
-          .domain(d3.extent(this.data, d => d.midY))
+          .domain(d3.extent(this.map_data, d => d.midY))
           .range([vis.height, 0]) // May need to inverse?
        
   
@@ -45,28 +82,158 @@ class LiveMap {
       vis.xValue = d => d.midX;
       vis.yValue = d => d.midY;
       vis.width = d => d.width;
-    
-  
-      vis.line = d3.line() // Should be a good line, how do we set width??
+      vis.line = d3.line() // Sets up Line for track path
           .x(d => vis.xScale(vis.xValue(d)))
           .y(d => vis.yScale(vis.yValue(d)));
-  
       // Set the scale input domains
-      vis.xScale.domain(d3.extent(vis.data, vis.xValue));
-      vis.yScale.domain(d3.extent(vis.data, vis.yValue));   
+      //vis.xScale.domain(d3.extent(vis.map_data, vis.xValue)); // Uses extent of track path for scaling??
+      //vis.yScale.domain(d3.extent(vis.map_data, vis.yValue));   
   
-      vis.updateVis(); //leave this empty for now...
-      //vis.renderVis();
+     
+      // Outer path outline // Maybe just move this to Init??
+      vis.chart.append('path')
+      //.data([vis.data])
+      .attr('class', 'chart-line')
+      .attr('d',vis.line(vis.map_data))
+      .attr("fill", "none")
+      .attr("stroke", "black")
+      .attr("stroke-width",45)
+
+      // inner path outline
+      vis.chart.append('path')
+      //.data([vis.data])
+      .attr('class', 'chart-line')
+      .attr('d',vis.line(vis.map_data))
+      .attr("fill", "none")
+      .attr("stroke", "#FFFFFFF0")
+      .attr("stroke-width",43) // TODO make a scale function that scales according to chart size
+
+      vis.updateVis();
     }
   
   
     //We will add live Cars and live data 
-   updateVis() { 
-      let vis = this;
-      
-  
+   updateVis(racer_data) { 
+    let vis = this;
+    vis.racer_data = racer_data || [];
+
+    let elapsedTime = Date.now() - vis.splitTime;
+    vis.splitTime = Date.now() // immediately reset??
+  //console.log("updating live map",elapsedTime);
+    // Initial creation of live cars
+    let rt_racers = vis.rt_data; // Realtime Data
+    if (rt_racers == null){ rt_racers = []}	
+ 
+    // Secondary color (background thin ring)
+    vis.racerMarkerS = vis.chart.selectAll(".racerMarkerS") // Secondary color
+    .data(rt_racers)
+    vis.racerMarkerS.enter()
+    .append('circle')
+    .attr("class","racerMarkerS")
+    .attr("cx",function(d,i){
+      return vis.xScale(d.locX)
+    })
+    .attr('cy',function(d,i){
+      return vis.yScale(d.locY)
+    })
+    .attr("opacity",0)
+    .transition() // spawned in
+    .attr("cx",function(d,i){
+      return vis.xScale(d.locX)
+    })
+    .attr('cy',function(d,i){
+      return vis.yScale(d.locY)
+    })
+    .attr("opacity",1)
+    .attr("r",function(d,i){
+      return 7
+    }) // TODO: make proportionate to health??
+    .attr("fill",function(d,i){ // TODO: make based off of car primary color?, stroke off of secondary
+      let secondary = d.secondary_color
+      return "#"+secondary
+    })
+    .attr('stroke',function(d,i){
+      let tertiary = d.tertiary_color;
+      return "#"+tertiary
+    })	
+    .duration(500)
+
+    vis.racerMarkerS.transition() // when racer moves
+    .attr("cx",function(d,i){
+      return vis.xScale(d.locX)
+    })
+    .attr('cy',function(d,i){
+      return vis.yScale(d.locY)
+    })
+    .ease(d3.easeLinear)
+    .duration(elapsedTime)
+
+    vis.racerMarkerS.exit()
+    .transition()
+    .attr("opacity",0)
+    .attr("r",function(d,i){
+      return 0 
+    }) // TODO: make proportionate to health??
+    .duration("750")
+    .remove()
+
+    
+    vis.racerMarker = vis.chart.selectAll(".racerMarker")
+    .data(rt_racers)
+    vis.racerMarker.enter()
+    .append('circle')
+    .attr("class","racerMarker")
+    .attr("cx",function(d,i){
+      return vis.xScale(d.locX)
+    })
+    .attr('cy',function(d,i){
+      return vis.yScale(d.locY)
+    })
+    .attr("opacity",0)
+    .transition() // spawned in
+    .attr("cx",function(d,i){
+      return vis.xScale(d.locX)
+    })
+    .attr('cy',function(d,i){
+      return vis.yScale(d.locY)
+    })
+    .attr("opacity",1)
+    .attr("r",function(d,i){
+      return 5
+    }) // TODO: make proportionate to health??
+    .attr("fill",function(d,i){ // TODO: make based off of car primary color?, stroke off of secondary
+      //let car = findObjectByKey(vis.racer_data,'id',d.id)
+      let primary = d.primary_color
+      return "#"+primary
+    })
+    .attr('stroke',function(d,i){
+      return "none"
+    })	
+    .duration(500)
+
+    vis.racerMarker.transition() // when racer moves
+    .attr("cx",function(d,i){
+      return vis.xScale(d.locX)
+    })
+    .attr('cy',function(d,i){
+      return vis.yScale(d.locY)
+    })
+    .ease(d3.easeLinear)
+    .duration(elapsedTime)
+
+    vis.racerMarker.exit()
+    .transition()
+    .attr("opacity",0)
+    .attr("r",function(d,i){
+      return 0 
+    }) // TODO: make proportionate to health??
+    .duration("750")
+    .remove()
+
+
       vis.renderVis();
    }
+   
   
   
     /**
@@ -77,27 +244,63 @@ class LiveMap {
     renderVis() {
       let vis = this;
 
-      // Outer path outline
-      vis.chart.append('path')
-        //.data([vis.data])
-        .attr('class', 'chart-line')
-        .attr('d',vis.line(vis.data))
-        .attr("fill", "none")
-        .attr("stroke", "black")
-        .attr("stroke-width",25)
-
-      // inner path outline
-      vis.chart.append('path')
-        //.data([vis.data])
-        .attr('class', 'chart-line')
-        .attr('d',vis.line(vis.data))
-        .attr("fill", "none")
-        .attr("stroke", "white")
-        .attr("stroke-width",20)
+      
       
      
-        // Live Car locations
-        // Can use code from Survival units evovlved...
+  
+          
+          // racer usernames
+          /*
+          nameText = interactive_chart.selectAll(".nameText")
+          .data(all_cows)
+    
+          nameText.enter()
+          .append('text')
+          .attr('class','nameText')
+          .attr("x", function(d,i){
+            return xScale(d.p['x'])
+          })
+          .attr('y',function(d,i){
+            return xScale(d.p['y']) - 10 // TODO: figure out good/dynamic height
+          })
+          .attr('dx',"0em") // put offset here?
+          .attr('dy',"0em")
+          .text(function(d,i){ return d['n']})
+          .attr('font-family',"sans-serif")
+          .attr('font-size','12px')
+          .attr('stroke','white')
+          .attr('stroke-width',0.3)			
+          .attr('fill','#3377ff')
+          .attr('text-anchor', 'middle')
+          .attr('alignment-baseline', 'central')
+          .attr("opacity",0)
+          .transition()
+          .attr("opacity",1)
+          .duration(500)
+    
+          nameText.transition()
+          .attr("x", function(d,i){
+            return xScale(d.p['x'])
+          })
+          .attr('y',function(d,i){
+            return xScale(d.p['y']) - 10 // TODO: figure out good/dynamic height
+          })
+          .attr('dx',"0em") // put offset here?
+          .attr('dy',"0em")
+          .attr('fill','#3377ff')
+          .attr("opacity",1)
+          .text(function(d,i){ return d['n']})
+          .ease(d3.easeLinear)
+          .duration(elapsedTime)
+    
+    
+          nameText.exit()
+          .transition()
+          .attr("opacity",0)
+          .duration(500)
+          .remove()
+          all_elements.push(nameText)
+          */
 
 
     }

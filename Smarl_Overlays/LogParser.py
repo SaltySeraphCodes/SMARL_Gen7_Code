@@ -6,7 +6,7 @@ import time
 import datetime
 import asyncio
 #import gspread
-import sharedData
+import sharedData # NOTE these are two separate instances of same script between application.py and logParser.py
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -18,7 +18,7 @@ DUPECOUNT = 0
 TOTALCARS = 0
 UPLOADED_QUALI = False
 UPLOADED_RACE = False
-print("Got RaceData",sharedData._SpecificRaceData)
+
 
 #mainSheet = gc.open("Racer Data")
 #resultSheet = gc.open("Race Results")
@@ -29,7 +29,7 @@ print("Got RaceData",sharedData._SpecificRaceData)
 
 def getAllRacerData(): # loads and parses racer Data from gspread
      data = [{}]#seasonDataSheet.get_all_records()
-     #print("got",data)
+     print("GESPEADS EACXWE DART",data)
      sharedData._RacerData = data
      # sharedData is uselesss. write it to stupid json instead
      dataFile = open("racerData.json","w")
@@ -99,7 +99,7 @@ def retryConnection():
     global TCP_CONNECTED
     print("retrying connection",TCP_CONNECTED)
     try:
-        sio.connect('http://localhost:5000')
+        sio.connect('http://localhost:5000') # Have shared data store the localhost
     except Exception as e:
         print(type(e), str(e))
         if str(e) == "Already connected":
@@ -203,8 +203,8 @@ def readFile(fileName):
         try:
             parsedData = parseData(data) # parses all data and returns
             outputData(parsedData)
-        except:
-            print("error parsing data")
+        except e:
+            print("error parsing data",e)
         
         # check for fin  
         #print('parsed',parsedData['meta_data']['lapsLeft'] ==-1,TOTALCARS,len(parsedData['realtime_data']),len(parsedData['qualifying_data']),len(parsedData['finish_data']))     
@@ -314,7 +314,8 @@ def getUniqueTag(name,racerData): # gets a unique tag using name based off of ra
     return tag
    
 def getParsedData(racerID): # gets the individual data vars, just separated out because it was ran over and over again (have all tags array get passed throw)
-    #print('find racer',racerID,str(racerID),str(int(racerID)))
+    
+    #print('find racer',racerID,str(racerID),str(int(racerID)),sharedData._RacerData)
     formatID = str(int(racerID))
     racerData = find_racer_by_id(formatID,sharedData._RacerData)
     if racerData == None:
@@ -363,6 +364,7 @@ def parseData(raw_data):
 
     #realtime data
     realtimeData = raw_data['rt']
+    #print("got rt data",realtimeData)
     raceData = []
     for data in (realtimeData or []):
         racerID = int(data['id'])
@@ -421,7 +423,6 @@ def parseData(raw_data):
 
 
 
-
 def outputData(data):  #Directly output data to flask server via tcp
     size = sys.getsizeof(data)
     #print("outputting data:",size)
@@ -455,6 +456,7 @@ class ReadFileHandler(FileSystemEventHandler):
 
 if __name__ == "__main__":
     print("starting Reader")
+    sharedData.init() # pulls in proper racer data
     try:
         sio.connect('http://localhost:5000', wait_timeout = 10)
     except:
@@ -475,7 +477,7 @@ if __name__ == "__main__":
     try:
         while observer.is_alive():
             DUPECOUNT += 0.1
-            observer.join(0.4) # TIMEOUT DELAY ()
+            observer.join(0.1) # TIMEOUT DELAY ()
     finally:
         observer.stop()
         observer.join()
