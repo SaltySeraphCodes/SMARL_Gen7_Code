@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.7.8" -- Steering adjustment and pass fixes
+SMAR_VERSION = "1.7.9" -- Fixed downforce block
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
