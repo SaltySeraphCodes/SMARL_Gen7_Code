@@ -33,7 +33,9 @@ function DownforceBlock.server_onDestroy(self)
 end
 
 function DownforceBlock.server_init( self ) 
-	self.forceStrength = 0
+    self.downforceChannel = 1 -- This works?
+	self.forceStrength = (sm.storage.load(self.downforceChannel) or nil )
+
 end
 
 function DownforceBlock.client_onRefresh( self )
@@ -86,6 +88,7 @@ end
 function DownforceBlock.sv_update_force(self,ammount)
     self.forceStrength = self.forceStrength + ammount
     self.network:sendToClients("cl_notifyChat","Set Force Strength:" .. tostring(self.forceStrength))
+    self.storage:save(self.forceStrength,self.downforceChannel)
 end
 
 function DownforceBlock.client_canTinker( self, character )
