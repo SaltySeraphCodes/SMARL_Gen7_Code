@@ -281,6 +281,10 @@ function Control.server_init(self)
 
     -- Load previous quaifying data
     self.qualifyingResults = (self:sv_ReadQualJson() or {})
+
+
+    -- Export current track
+    self:sv_export_current_mapChain()
 end
 
 function Control.client_onRefresh( self )
@@ -2407,6 +2411,23 @@ function Control.exportSimplifyChain(self,nodeChain)
     return simpChain
 end
 
+-- Will e exporting live map data for current map Oncreate/Load
+-- Will also need to find a way to save all other maps to their named locations
+function Control.sv_export_current_mapChain(self)
+    -- Exports current ma-pchain into JsonData/Maps/CurrentMap.json
+    self:sv_loadData(TRACK_DATA)
+    --print("exporting node chain",self.trackLoaded)
+    --print("nc",self.nodeChain)
+    if self.nodeChain then -- might need to simplify first...
+        local exportableChain = self:exportSimplifyChain(self.nodeChain)
+        local savePath = MAP_DATA .. "current_map.json"
+        print("saving chain to",savePath)
+        sm.json.save(exportableChain,savePath)
+    else
+        print('no nodechian found')
+    end
+end
+
 
 
 function Control.sv_export_nodeChain(self)
@@ -2428,7 +2449,7 @@ function Control.client_canTinker( self, character )
     return true
 end
 
-function Control.client_onTinker( self, character, state )
+function Control.client_onTinker( self, character, state ) -- For manual exporting (not necessary and can depreciate for now,)
 	if state then
         if character:isCrouching() then
            

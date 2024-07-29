@@ -14,9 +14,16 @@ Smarl Map Display
 <script>
 
 	let all_cars_str = "{{ all_cars|safe }}"
-	let valid_cars_str = all_cars_str.replace(/'/g,'"')
-	let all_cars_json = JSON.parse(valid_cars_str)
-	d3.json("{{ url_for('static', filename='data/1_Test Oval.json') }}")
+	let current_map_str = "{{ map_data|safe }}"
+
+	let valid_cars_str = all_cars_str.replace(/'/g,'"');
+	let all_cars_json = JSON.parse(valid_cars_str);
+	let valid_map_str = current_map_str.replace(/'/g,'"');
+	let current_map_json = JSON.parse(valid_map_str);
+
+	//console.log("Current map data",current_map_json)
+
+	d3.json("{{ url_for('static', filename='data/current_map.json') }}") // Don't need this and can jump right into it
 	.then(map_data => {
 		let lineChart = new LiveMap({
 		'parentElement': '#mapChart',

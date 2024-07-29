@@ -62,13 +62,15 @@ function DownforceBlock.perform_downforce(self) -- SV
     local minForce = -500
     local offset = 0.05 -- offset towards/from front to push down
 
-    --local speedAdj = -maxForce + 0.1*self.speed^2.3
-    --local force = sm.vec3.new(0,0,1) * -(self.speed^1.7)  -- -- invert so slower has higher? TODO: Check for wedges/aero parts, tire warmth factor too
     local force = self.shape.up * -self.forceStrength -- -- invert so slower has higher? TODO: Check for wedges/aero parts, tire warmth factor too
-    --force.z = mathClamp(maxForce,minForce,force.z) - bankAdjust
-    --print(self.speed,speedAdj,force.z)
-   -- print("df:",force.z)
-   sm.physics.applyImpulse(self.shape.body,force,true)--,--self.shape.at)
+  
+    if velocity.z < -0.5 then -- TODO: Just do an math.abs and only apply downforce outside of range?
+    
+    elseif velocity.z > 0.3 then -- going up
+   
+    else -- GOing flat, normal downforce
+        sm.physics.applyImpulse(self.shape.body,force,true)--,--self.shape.at)
+    end 
 end
 
 function DownforceBlock.server_onFixedUpdate( self, timeStep )

@@ -234,10 +234,26 @@ def smarl_get_lapData(): #Get lap data
 @app.route('/smarl_map_display', methods=['GET','POST']) # Displays Race Results
 def smarl_map_display(): #Get lap data
     print("displaying map")
-    response = requests.get(sharedData.get_smarl_url() + "/get_all_racers")
-    response.raise_for_status()
-    car_data = response.json()
-    return render_template('smarl_map_display.html',all_cars =car_data)
+    car_data = []
+    map_data = []
+    try: # This isnt actually necessary
+        response = requests.get(sharedData.get_smarl_url() + "/get_all_racers")
+        response.raise_for_status()
+        car_data = response.json()
+    except Exception as e:
+        print("Could not get all cars",e)
+
+    try:
+        #file = open("../JsonData/TrackData/cuurent_map.json") # Use this in production
+        file = open("../JsonData/TrackData/1_Test Oval.json")
+        jsonData = json.load(file)
+        print("Found Map data map data")
+        map_data = jsonData
+    except Exception as e:
+        print("Could not get map data",e)
+
+
+    return render_template('smarl_map_display.html',all_cars = car_data, map_data = map_data)
 
 @app.route('/smarl_session_display', methods=['GET','POST']) # Displays Race Results
 def smarl_session_display(): #Get lap data
@@ -261,7 +277,7 @@ def test_debug():
 def main(): 
     sharedData.init()
     if '__main__' == __name__:
-        socketio.run(app,host='0.0.0.0',port='5000', debug=True)
+        socketio.run(app,host='0.0.0.0',port='5056', debug=True)
     
 main()
 
