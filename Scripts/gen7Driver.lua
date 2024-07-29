@@ -8,7 +8,6 @@
 
 
 -- TODO: Unscanned car may not update into scanned car in global car system, double check this
--- TODO: Fix Car reversing when stopped and has car in front\ (not num inf)
 -- TODO: Send raycast when stuck/offtrack to goal/currentnodes. if there is no obstruction, then keep on rejoin, else, continue to be "stuck"
 -- TODO: on car scan, discover 1st 2nd and 3rd color count in creation blocks
 -- TODO: Fix some oversteering?
@@ -4467,6 +4466,8 @@ function Driver.calculateFutureTurn(self) -- calculate future turns
     
     return {segID = segID, direction = turnDir, length = segLen, distance = distanceFromTurn} 
 end
+
+--TODO: rewrite this and break them out into dif functs
 
 function Driver.updateErrorLayer(self) -- Updates throttle/steering based on error fixing
     if self.engine == nil then return end
