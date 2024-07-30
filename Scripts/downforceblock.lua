@@ -15,6 +15,9 @@ DownforceBlock.colorNormal = sm.color.new( 0x7c0000ff )
 DownforceBlock.colorHighlight = sm.color.new( 0x7c000fff )
 DownforceBlock.poseWeightCount = 2
 
+function DownforceBlock.server_onCreate(self)
+    self:server_init()
+end
 
 function DownforceBlock.client_onCreate( self ) 
 	self:client_init()
@@ -25,7 +28,7 @@ function DownforceBlock.client_onDestroy(self)
 end
 
 function DownforceBlock.client_init( self ) 
-	
+
 end
 
 function DownforceBlock.server_onDestroy(self)
@@ -33,9 +36,9 @@ function DownforceBlock.server_onDestroy(self)
 end
 
 function DownforceBlock.server_init( self ) 
-    self.downforceChannel = 1 -- This works?
-	self.forceStrength = (sm.storage.load(self.downforceChannel) or nil )
-
+    self.downforceChannel = 1 -- apparenlty 1 is transfered over...
+	self.forceStrength = (self.storage:load() or 0 )
+    print("loaded downforce:",self.forceStrength)
 end
 
 function DownforceBlock.client_onRefresh( self )
@@ -90,7 +93,8 @@ end
 function DownforceBlock.sv_update_force(self,ammount)
     self.forceStrength = self.forceStrength + ammount
     self.network:sendToClients("cl_notifyChat","Set Force Strength:" .. tostring(self.forceStrength))
-    self.storage:save(self.forceStrength,self.downforceChannel)
+    self.storage:save(self.forceStrength)
+    print("saved",self.forceStrength)
 end
 
 function DownforceBlock.client_canTinker( self, character )
