@@ -52,15 +52,16 @@ def getTimefromTimeStr(timeStr):
 def setRacerData(data):
     global _RacerData
     _RacerData = data # or append?
-    #print("Shared Data. setting racer Data",)
+    print("Shared Data. setting racer Data",_RacerData)
 
 
 def getRacerData(): # Only grabs racers in league
-    #print("Getting racer data")
+    print("Getting racer data")
     all_racers = None
     jsonResponse = None
     try:
-        response = requests.get(get_smarl_url() + "/get_racers_in_season") # in league i
+        response = requests.get(get_smarl_url() + "/get_all_racers") # in league i
+        #response = requests.get(get_smarl_url() + "/get_racers_in_season") # in league i
         #response = requests.get(get_smarl_url() + "/get_racers_in_league")
         response.raise_for_status()
         # access JSOn content
@@ -74,8 +75,10 @@ def getRacerData(): # Only grabs racers in league
     except Exception as err:
         print(f'GRacerdata Other error occurred: {err}')  
         return all_racers
-    filtered_racers =  [d for d in jsonResponse if int(d['league_id']) == _SpecificRaceData['league_id']] # filter for league
-    #TODO: Change for season3 or set leagues to something else
+    
+    filtered_racers =  [d for d in jsonResponse if int(d['league_id']) >= 0] # all car filter
+    #filtered_racers =  [d for d in jsonResponse if int(d['league_id']) == _SpecificRaceData['league_id']] # filter for league
+    #TODO: Just grab all racers, doesntt need to be in league, just on map??
     #print("\n\nfiltered racers = ",len(filtered_racers),_SpecificRaceData['league_id'],"\n",filtered_racers)
     all_racers = filtered_racers
     #print("filtered racers",all_racers)
@@ -83,7 +86,7 @@ def getRacerData(): # Only grabs racers in league
 
 def getRaceData(): #compiles season and race data
     race_data = None
-    print("Getting race data")
+    #print("Getting race data")
     try:
         response = requests.get(get_smarl_url() + "/get_current_race_data")
         response.raise_for_status()
@@ -100,7 +103,7 @@ def getRaceData(): #compiles season and race data
         race_data = {"title": "Race " + str(race_data['race_number']) + RaceFormat , "location": formatString(race_data['track']),
         "format": RaceFormat, "season":formatString(race_data['season_name']),"race":str(race_data['race_number']),
          "race_id": race_data['race_id'], "league_id":race_data['league_id'],"leagueTitle":LeagueTitles[league_id-1], "track_id":race_data['track_id'] } #TODO: get_leagueTitle(leagueid)
-
+    #print("returning rd",race_data)
     return race_data
 
 

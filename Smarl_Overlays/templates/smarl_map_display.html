@@ -23,15 +23,12 @@ Smarl Map Display
 
 	//console.log("Current map data",current_map_json)
 
-	d3.json("{{ url_for('static', filename='data/current_map.json') }}") // Don't need this and can jump right into it
-	.then(map_data => {
-		let lineChart = new LiveMap({
-		'parentElement': '#mapChart',
-		'containerHeight': 1000,
-		'containerWidth': 1000
-		}, all_cars_json,map_data); 
+	let lineChart = new LiveMap({
+	'parentElement': '#mapChart',
+	'containerHeight': 1000,
+	'containerWidth': 1000
+	}, all_cars_json,current_map_json); 
 
-	})
 	
 
 	</script>

@@ -28,7 +28,9 @@ function DownforceBlock.client_onDestroy(self)
 end
 
 function DownforceBlock.client_init( self ) 
-
+    self.useText =  sm.gui.getKeyBinding( "Use", true )
+    self.tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+    self.onHover = false
 end
 
 function DownforceBlock.server_onDestroy(self)
@@ -88,6 +90,18 @@ function DownforceBlock.cl_notifyChat(self,message)
     sm.gui.chatMessage(message)
 end
 
+
+
+function DownforceBlock.client_onFixedUpdate( self, timeStep ) 
+    self.onHover = cl_checkHover(self.shape)
+end
+
+function DownforceBlock.client_onUpdate(self, timeStep)
+    if self.onHover then 
+        sm.gui.setInteractionText( self.useText,"Increase Force ", self.useText," + Crouch = Decrease Force","" )
+    else
+    end
+end
 
 
 function DownforceBlock.sv_update_force(self,ammount)

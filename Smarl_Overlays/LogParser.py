@@ -203,7 +203,7 @@ def readFile(fileName):
         try:
             parsedData = parseData(data) # parses all data and returns
             outputData(parsedData)
-        except e:
+        except Exception as e:
             print("error parsing data",e)
         
         # check for fin  
@@ -319,7 +319,7 @@ def getParsedData(racerID): # gets the individual data vars, just separated out 
     formatID = str(int(racerID))
     racerData = find_racer_by_id(formatID,sharedData._RacerData)
     if racerData == None:
-        print("could not find racer",formatID, "Is League ID properly set?")
+        #print("could not find racer",formatID, "Is League ID properly set?")
         return None,None,None,None,None,None
         # Racer is probably not in current league
     tag =  getUniqueTag(racerData['name'],racerData) #racerData['name'][0:4] # TODO: Have uniqe generation (if multi space, have one word represent from each space and thennext letter)
@@ -369,7 +369,9 @@ def parseData(raw_data):
     for data in (realtimeData or []):
         racerID = int(data['id'])
         tag,name,primary,secondary,tertiary,owner = getParsedData(racerID)
+        
         if tag == None: # skip the ship
+            #print("Skipping",racerID)
             continue
         place = int((data['place']))
         lapNum = int(data['lapNum'])
@@ -389,7 +391,7 @@ def parseData(raw_data):
                         'lastLap': lastLap, 'bestLap': bestLap, 'timeSplit': timeSplit, 'locX':locationX, 'locY': locationY}
         raceData.append(racerData)
         outputData['realtime_data'] = raceData
-
+        #print("rtDat?",outputData)
     # Qualifying Data
     qualifyingData = raw_data['qd']
     qualData = []
@@ -425,7 +427,6 @@ def parseData(raw_data):
 
 def outputData(data):  #Directly output data to flask server via tcp
     size = sys.getsizeof(data)
-    #print("outputting data:",size)
     pass
     if not TCP_CONNECTED :
         #print("Did not send packet (not connected)")
@@ -439,8 +440,8 @@ def outputData(data):  #Directly output data to flask server via tcp
 class ReadFileHandler(FileSystemEventHandler):
     # super annoying but hard coding file finding 
     # TODO: figure out how to pass param to event handler
-    fileDir = '../JsonData/SimOutput/'
-    logFile = 'simulationOutput.json'
+    fileDir = '../JsonData/RaceOutput/'
+    logFile = 'raceData.json'
     fileName = fileDir+logFile
     lastDupeCount = DUPECOUNT
     def __init__(self):
@@ -458,7 +459,7 @@ if __name__ == "__main__":
     print("starting Reader")
     sharedData.init() # pulls in proper racer data
     try:
-        sio.connect('http://localhost:5000', wait_timeout = 10)
+        sio.connect('http://localhost:5056', wait_timeout = 3) # TODO: have global variable host and port
     except:
         print("connection failed, but its okay")
 

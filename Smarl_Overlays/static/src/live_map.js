@@ -89,7 +89,7 @@ class LiveMap {
       //vis.xScale.domain(d3.extent(vis.map_data, vis.xValue)); // Uses extent of track path for scaling??
       //vis.yScale.domain(d3.extent(vis.map_data, vis.yValue));   
   
-     
+     console.log(vis.map_data)
       // Outer path outline // Maybe just move this to Init??
       vis.chart.append('path')
       //.data([vis.data])
@@ -122,6 +122,7 @@ class LiveMap {
   //console.log("updating live map",elapsedTime);
     // Initial creation of live cars
     let rt_racers = vis.rt_data; // Realtime Data
+    console.log("Rtracer",rt_racers)
     if (rt_racers == null){ rt_racers = []}	
  
     // Secondary color (background thin ring)
@@ -134,6 +135,7 @@ class LiveMap {
       return vis.xScale(d.locX)
     })
     .attr('cy',function(d,i){
+      console.log("set y",d)
       return vis.yScale(d.locY)
     })
     .attr("opacity",0)
@@ -146,7 +148,7 @@ class LiveMap {
     })
     .attr("opacity",1)
     .attr("r",function(d,i){
-      return 7
+      return 20
     }) // TODO: make proportionate to health??
     .attr("fill",function(d,i){ // TODO: make based off of car primary color?, stroke off of secondary
       let secondary = d.secondary_color
@@ -199,7 +201,7 @@ class LiveMap {
     })
     .attr("opacity",1)
     .attr("r",function(d,i){
-      return 5
+      return 15
     }) // TODO: make proportionate to health??
     .attr("fill",function(d,i){ // TODO: make based off of car primary color?, stroke off of secondary
       //let car = findObjectByKey(vis.racer_data,'id',d.id)

@@ -245,7 +245,7 @@ def smarl_map_display(): #Get lap data
 
     try:
         #file = open("../JsonData/TrackData/cuurent_map.json") # Use this in production
-        file = open("../JsonData/TrackData/1_Test Oval.json")
+        file = open("../JsonData/TrackData/current_map.json")
         jsonData = json.load(file)
         print("Found Map data map data")
         map_data = jsonData

@@ -1612,14 +1612,23 @@ function Control.sv_exportRealTime(self) -- Returns all data necessary for realt
     local realtimeOutput = {}
     for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
 		if v ~= nil then
-            if v.carData == nil then return end
-            if v.carData['metaData'] == nil then return end
+            local noCardata = false
+            local noMeta = false
+            if v.carData == nil then noCardata = true end
+            if v.carData['metaData'] == nil then noMeta = true end
             v:determineRacePosBySplit()
             local time_split = string.format("%.3f",v.raceSplit)
             local isFocused = string.format("%s",v.isFocused)
-			local data = {["id"]= v.carData['metaData']["ID"] , ["locX"]= v.location.x, [ "locY"]=v.location.y,
-            ["lastLap"]= v.lastLap, ["bestLap"]=v.bestLap, ["lapNum"]=v.currentLap, ["place"]=v.racePosition,
-            ["timeSplit"]= time_split, ["isFocused"]=isFocused, ["speed"]=v.speed}
+            local data = {} -- dumb but works
+			if noCardata or noMeta then 
+                data = {["id"]= v.id , ["locX"]= v.location.x, [ "locY"]=v.location.y,
+                ["lastLap"]= v.lastLap, ["bestLap"]=v.bestLap, ["lapNum"]=v.currentLap, ["place"]=v.racePosition,
+                ["timeSplit"]= time_split, ["isFocused"]=isFocused, ["speed"]=v.speed}
+            else
+                data = {["id"]= (v.carData['metaData']["ID"] or v.id) , ["locX"]= v.location.x, [ "locY"]=v.location.y,
+                ["lastLap"]= v.lastLap, ["bestLap"]=v.bestLap, ["lapNum"]=v.currentLap, ["place"]=v.racePosition,
+                ["timeSplit"]= time_split, ["isFocused"]=isFocused, ["speed"]=v.speed}
+            end
 			table.insert(realtimeOutput,data)
 		end
 	end
