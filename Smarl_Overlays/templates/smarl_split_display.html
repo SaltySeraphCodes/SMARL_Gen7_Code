@@ -156,7 +156,7 @@ Smarl Time Split Display
 			return color}
 		)
 		.attr("opacity",0.40)
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		racerBG.exit()
 		.transition()
@@ -197,7 +197,7 @@ Smarl Time Split Display
 			return yScale(d['pos']) // Rememeber to update this to the proper name
 		})
 		.attr("opacity",1)
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 	
 		
 		posRects.exit()
@@ -241,7 +241,7 @@ Smarl Time Split Display
 		}) 
 		.attr("opacity",1)
 		.text(function(d,i){ return d['pos']})
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 		
 		posText.exit()
 		.transition()
@@ -320,7 +320,7 @@ Smarl Time Split Display
 		.transition()
 		.attr("x",40 )
 		.attr("opacity",1)	
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		colRect.transition()
 		.attr("x",40 )
@@ -328,7 +328,7 @@ Smarl Time Split Display
 		.attr('y',function(d,i){
 			return yScale(d['pos']) +5
 		}) 
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		colRect.exit()
 		.transition()
@@ -376,7 +376,7 @@ Smarl Time Split Display
 		})
 		//.attr("x",235)
 		.attr("opacity",1)	
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 		.delay(1300)
 		secondary.transition()
 		.attr("d", function(d) {
@@ -386,7 +386,7 @@ Smarl Time Split Display
 			return "#"+d['secondary_color']
 		})
 		.attr("opacity",1)	
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		secondary.exit()
 		.transition()
@@ -435,7 +435,7 @@ Smarl Time Split Display
 		.attr('y',function(d,i){
 			return yScale(d['pos'])
 		}) 
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		tagText.exit()
 		.transition()
@@ -482,7 +482,7 @@ Smarl Time Split Display
 		}) 
 		.text(function(d,i){ return d['timeSplit']})
 		.attr("opacity",1)
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		splitText.exit()
 		.transition()
@@ -523,7 +523,7 @@ Smarl Time Split Display
 	})
      
     socket.on( 'raceData', function( data ) {
-		console.log("GOT Race Data",data)
+		//console.log("GOT Race Data",data)
 		data = data['realtime_data']
 		smarl_data = data.filter(function(d,i){return (Number(d.pos) <= 16 && Number(d.pos) != 0)} )
 	  if (smarl_data.length > 0 && !boardCreated){

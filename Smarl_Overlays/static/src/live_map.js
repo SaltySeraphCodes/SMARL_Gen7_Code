@@ -146,10 +146,10 @@ class LiveMap {
     .attr('cy',function(d,i){
       return vis.yScale(d.locY)
     })
-    .attr("opacity",1)
+    .attr("opacity",0.90)
     .attr("r",function(d,i){
       return 20
-    }) // TODO: make proportionate to health??
+    })
     .attr("fill",function(d,i){ // TODO: make based off of car primary color?, stroke off of secondary
       let secondary = d.secondary_color
       return "#"+secondary
@@ -157,8 +157,10 @@ class LiveMap {
     .attr('stroke',function(d,i){
       let tertiary = d.tertiary_color;
       return "#"+tertiary
-    })	
-    .duration(500)
+    })
+    .attr("stroke-width",2) // TODO make a scale function that scales according to chart size
+
+    .duration(100)
 
     vis.racerMarkerS.transition() // when racer moves
     .attr("cx",function(d,i){
@@ -167,6 +169,11 @@ class LiveMap {
     .attr('cy',function(d,i){
       return vis.yScale(d.locY)
     })
+    .attr("opacity",0.90)
+    .attr("r",function(d,i){
+      return 20
+    })
+
     .ease(d3.easeLinear)
     .duration(elapsedTime)
 
@@ -201,7 +208,7 @@ class LiveMap {
     })
     .attr("opacity",1)
     .attr("r",function(d,i){
-      return 15
+      return 13
     }) // TODO: make proportionate to health??
     .attr("fill",function(d,i){ // TODO: make based off of car primary color?, stroke off of secondary
       //let car = findObjectByKey(vis.racer_data,'id',d.id)
@@ -211,7 +218,7 @@ class LiveMap {
     .attr('stroke',function(d,i){
       return "none"
     })	
-    .duration(500)
+    .duration(100)
 
     vis.racerMarker.transition() // when racer moves
     .attr("cx",function(d,i){
@@ -220,6 +227,11 @@ class LiveMap {
     .attr('cy',function(d,i){
       return vis.yScale(d.locY)
     })
+    .attr("r",function(d,i){
+      return 13
+    })
+    .attr("opacity",1)
+
     .ease(d3.easeLinear)
     .duration(elapsedTime)
 

@@ -36,6 +36,7 @@ function RaceCamera.server_init( self )
 	-- load self.nodechain
 	--iterate over chain
 	self.cameraID = self.shape.id -- unique I belive
+	self.cameraIndex = #ALL_CAMERAS + 1 -- index at 1
 	self.location = self.shape:getWorldPosition() + sm.vec3.new(0,0,1) -- move camera slightly above block
 	self.active = false
 	self:sv_loadData(TRACK_DATA) -- sets self.nodechain & self.nodeMap

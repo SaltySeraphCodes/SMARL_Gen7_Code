@@ -158,6 +158,15 @@ function Control.client_init( self )
 
         self.RaceMenu:setOnCloseCallback( "client_onRaceMenuClose" )
 
+        -- Behavior Menue Setup
+       
+
+
+        self.BehaviorMenu = sm.gui.createGuiFromLayout( MOD_FOLDER.."Gui/Layouts/BehaviorEdit.layout",false ) -- TODO: Add Race status GUI too
+        -- Set Defaults
+        self.BehaviorMenu:setTextAcceptedCallback("WallDistV", "client_editAccepted")
+        self.BehaviorMenu:setTextChangedCallback("WallDistV", "client_textChanged")
+
 -- Camera things
     self.smarCamLoaded = false
     self.externalControlsEnabled = true -- TODO: Check if on seraph's computer
@@ -225,8 +234,24 @@ function Control.server_init(self)
 
     self.controllerSwitch = nil -- interactable that is connected to swtcgh
 
+
+    -- Car Behavioral Defaults (loaded from Memory
+    self.trackLimPad = 7
+    self.trackLimStr = 0.1
+
+    self.oppAvoidDst = 4
+    self.oppAvoidStr = 0.1
+
+    self.draftDst = 70
+    self.draftStr = 1
+
+
+
+
+
+
     -------------------- QUALIFYING SETUP -----------------
-    self.qualifying = false -- whether we are qualifying or not -- dynamic
+    self.qualifying = true -- whether we are qualifying or not -- dynamic
     self.qualifyingFlight = 1 -- which flight to store data as
     self.totalFlights = 1 -- choose how many flights there are (can automate but eh)
     -----------------------------------------------------
@@ -251,7 +276,7 @@ function Control.server_init(self)
     -- Camera automation
     self.autoCameraFocus = false
     self.autoCameraSwitch = false -- toggle automated camera things
-    self.autoFocusDelay = 15
+    self.autoFocusDelay = 20
     self.autoSwitchDelay = 10
 
     self.autoFocusTimer = Timer()
@@ -840,7 +865,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
             }
             if self.qualifying then -- insert qualifyingData
                 
-                print("Qualifyind data inserted",finishData)
+                --print("Qualifyind data inserted",finishData)
                 table.insert(self.qualifyingResults,finishData)
                 if self.qualifyingResults ~= {} then
                     sm.json.save(self.qualifyingResults,QUALIFYING_DATA)
@@ -1000,13 +1025,13 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
                         end
                     end
                 end
-                if self.autoSwitchTimer:remaining() < self.autoSwitchDelay/1.4 then -- if enough time has passed then
+                if self.autoSwitchTimer:remaining() < self.autoSwitchDelay/1.2 then -- if enough time has passed then
                     if self.currentCamera then
                         local dis = getDistance(self.currentCamera.location,self.focusedRacerData.location)
                         local los = get_los(self.currentCamera,self.focusedRacerData)
-                        if (dis > 150 or not los) and self.autoCameraSwitch == true then -- if nolonger LOS TODO: maker more efficient using just location (less data passed)
+                        if (dis > 125 or not los) and self.autoCameraSwitch == true then -- if nolonger LOS TODO: maker more efficient using just location (less data passed)
                             --print('car no sseeee?',dis,los)
-                            print('a3',self.autoCameraSwitch)
+                            --print('a3',self.autoCameraSwitch)
                             self.network:sendToServer("sv_performAutoSwitch")
                         end
                     end
@@ -1299,17 +1324,19 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
         local closestCam = camerasInDist[camIndex]
         if closestCam == nil then return end
         local carNode = self.focusedRacerData.currentNode
-        local minNode = getNextItem(self.focusedRacerData.nodeChain,carNode.id,8) -- finds cams at least nodes ahead
+        local minNode = getNextItem(self.focusedRacerData.nodeChain,carNode.id,10) -- finds cams at least nodes ahead
         local distError = false
         for i = 1, #camerasInDist do local cam = camerasInDist[i]
             local camera = cam.camera
             local closestNode = camera.nearestNode
             --print('closestNode',closestNode.id,carNode.id,minNode.id)
             --local hasLos = sm.raycast. raycast and if can se thing thn
-            if closestNode.id >= minNode.id and get_los(camera,self.focusedRacerData) then 
+            
+            if closestNode.id >= minNode.id and get_los(camera,self.focusedRacerData)  then 
                 camIndex = i
-                --print('found close and eaheat',i,closestNode.id,minNode.id)
                 break
+            else
+                --print('skipped',i,closestNode.id,minNode.id,getDistance(focusRacerPos,camera.location),get_los(camera,self.focusedRacerData))
             end
             if i >= #camerasInDist - 1 then
                 --print('save to assume no closecam',i)
@@ -1317,13 +1344,15 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
             end
         end
         closestCam = camerasInDist[camIndex]
+        
+
         --print('found closest',camIndex,closestCam.id)
         local distFromCamera = closestCam.distance
         local chosenCamera = closestCam.camera
         --print(self.focusedRacerData.tagText,"Dist from cam",distFromCamera,chosenCamera.cameraID)
         -- Get more race like camera:
         -- auto zoom
-        local distanceCutoff = 30 -- threshold from camera to switch to drone
+        local distanceCutoff = 16 -- threshold from camera to switch to drone
         
         if distFromCamera > distanceCutoff or distError then
             local mode = math.random(0, 4) -- random for now but can add heuristic to switch
@@ -1363,9 +1392,9 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
             --print('switching cam')
             self.network:sendToClients("cl_switchCamera",chosenCamera.cameraID)
             --print("restarting cam",self.autoSwitchDelay)
-            self.autoFocusTimer:start(6) -- restart focus timer but not as long
+            self.autoFocusTimer:start(15) -- restart focus timer but not as long
         end
-        self.autoSwitchTimer:start(self.autoSwitchDelay + math.random(-2,2)) -- re does delay anyways
+        self.autoSwitchTimer:start(self.autoSwitchDelay + math.random(-2,4)) -- re does delay anyways
     end
     
 end
@@ -2464,7 +2493,9 @@ function Control.client_onTinker( self, character, state ) -- For manual exporti
            
         else
             --print('Exporting track')
-            self.network:sendToServer("sv_export_nodeChain")
+            --self.network:sendToServer("sv_export_nodeChain")
+            self.BehaviorMenu:open()
+		
         end
 	end
 end
@@ -2474,6 +2505,34 @@ end
 
 
 -- UI
+
+function Control.client_textChanged(self,buttonName,value)
+    -- Validation here but not necessary since advanced stuff
+    -- Values will pretty much all be numbers so don't accept non number input
+    --print("edit box changed",value,tonumber(value))
+    if tonumber(value) == nil then
+        print("not a number")
+    end
+    
+    
+end
+
+function Control.client_editAccepted(self,buttonName,value)
+    print("Edit box accepted",buttonName,value)
+
+
+    if buttonName == "WallDistV" then
+       
+        print("Editing wall distance avoidance to", avoidDist)
+        if tonumber(value) == nil then
+            print("not a number")
+            self.BehaviorMenu:setText("WallDistV", tostring(avoidDist) )
+        else
+            local avoidDist = tonumber(value)
+            self.trackLimPad = value -- TODO: Make a client->server function  that updates every carr too
+        end
+    end
+end
 
 function Control.client_buttonPress( self, buttonName )
     --print("clButton",buttonName)

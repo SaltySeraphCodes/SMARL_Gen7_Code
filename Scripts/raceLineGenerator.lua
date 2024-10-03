@@ -101,9 +101,7 @@ function Generator.client_init( self )  -- Only do if server side???
     self.instantOptimize = false -- Scans and optimizes in one loop
     self.optimizeStrength = 3
     self.racifyLineOpt = true -- Makes racing line more "racelike"
-    self.asyncTimeout = 0 -- Scan speed [0 fast, 1 = 1per sec]
-    
-    
+    self.asyncTimeout = 0 -- Scan speed [0 fast, 1 = 1per sec]   
     self.asyncTimeout2 = 0 -- optimization speed
     -- error states
     self.scanError = false
@@ -1347,9 +1345,9 @@ end
 -- Working algorithm that is much better at pinning apex/turn efficient points
 function Generator.racifyLine(self)
     local straightThreshold = 20 -- Minimum length of nodes a straight has to be
-    local nodeOffset = 5 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
-    local shiftAmmount = 0.04  -- Maximum node pin shiftiging amound (>2)
-    local lockWeight = 3
+    local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
+    local shiftAmmount = 0.05  -- Maximum node pin shiftiging amound (>2)
+    local lockWeight = 3.5
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
     -- TODO: only racify when there curve is a medium or more
@@ -1595,13 +1593,13 @@ function Generator.iterateScan(self)
     lastNode.outVector = getNormalVectorFromPoints(lastNode.pos,newNode.pos)
     lastNode.force = vectorAngleDiff(lastNode.inVector,lastNode.outVector)
     if math.abs(lastNode.force) < 0.05 then
-        self.scanSpeed = 5.5 -- 5?
-    elseif math.abs(lastNode.force) > 0.3 then
-        self.scanSpeed = 3.5
-    elseif math.abs(lastNode.force) > 0.5 then
-        self.scanSpeed = 4
+        self.scanSpeed = 5 -- 5?
+    elseif math.abs(lastNode.force) > 0.2 then
+        self.scanSpeed = 3
+    elseif math.abs(lastNode.force) > 0.4 then
+        self.scanSpeed = 2
     else
-        self.scanSpeed = 4.5
+        self.scanSpeed = 4
     end
     -- use rolling average force?
     --print("Last Node",lastNode.inVector,lastNode.outVector,lastNode.force)

@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.7.9" -- Fixed downforce block
+SMAR_VERSION = "1.7.10" -- Fixed downforce block
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -96,7 +96,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 85, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.4,
         MAX_BRAKE = 0.70,
-        GEARING = {0.5,0.45,0.35,0.10}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.5,0.45,0.20,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 85/4 -- LImit for VRPM TODO: adjust properly
     },
     {
@@ -105,7 +105,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 100, -- 80
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.75, -- 1?
-        GEARING = {0.45,0.4,0.45,0.3,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.45,0.4,0.45,0.3,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 100/5 -- LImit for VRPM TODO: adjust properly
     },
     {
