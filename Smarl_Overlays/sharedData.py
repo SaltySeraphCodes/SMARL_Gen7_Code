@@ -7,7 +7,7 @@ RaceTitle = "Race 4"
 RaceLocation = "Road Scrapton"
 RaceFormat = " Qualifying" # TODO: Pull booliean from ['meta_data']['qualifying'] as ' Qualifying' or ''
 SeasonID = "2" # which season it is to pull sheet data from Make Dynamic?
-RaceID = "6" # Make Dynamic?
+RaceID = "7" # Make Dynamic?
 LeagueTitles = ["A League", "B League"] #TODO: maeke array that displays title based on it
 league_id = 1 # [1,2] TODO: remember this affects cars found --NOTICE if cars not showing up or being found
 # Sheet name/title (when connected to gsheet)

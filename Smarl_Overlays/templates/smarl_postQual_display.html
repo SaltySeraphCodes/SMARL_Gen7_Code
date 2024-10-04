@@ -151,7 +151,7 @@ Smarl Qualifying Results Display
 		.duration(1300)
 		
 		labelRects.transition()
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 	
 		
 		labelRects.exit()
@@ -200,7 +200,7 @@ Smarl Qualifying Results Display
 		.transition()
 		.attr("y", chartSettings.margin.top +90)
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		// Separator line
 		var sepLine = interactive_chart.append("line")
@@ -249,7 +249,7 @@ Smarl Qualifying Results Display
 		.attr("y",function (d,i){
 			return yScale(d['pos'])
 		})
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		//Transition update
 		racerBG.transition()
@@ -261,7 +261,7 @@ Smarl Qualifying Results Display
 		.attr("y",function (d,i){
 			return yScale(d['pos'])
 		})
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		racerBG.exit()
 		.transition()
@@ -297,7 +297,7 @@ Smarl Qualifying Results Display
 			return yScale(d['pos']) 
 		})
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 		
 		posRects.transition()
 		.attr("x",xScale(5))
@@ -305,7 +305,7 @@ Smarl Qualifying Results Display
 		.attr("y",function (d,i){
 			return yScale(d['pos']) 
 		})
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 	
 		
 		posRects.exit()
@@ -352,7 +352,7 @@ Smarl Qualifying Results Display
 			return yScale(d['pos']) - 3
 		})
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		posText.transition()
 		.attr("x",function(d,i){
@@ -369,7 +369,7 @@ Smarl Qualifying Results Display
 			return d['pos']
 		})
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 		
 		posText.exit()
 		.transition()
@@ -403,7 +403,7 @@ Smarl Qualifying Results Display
 		.transition()
 		.attr("x",labelScale(2) -50)
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 
 		nameText.transition()
@@ -413,7 +413,7 @@ Smarl Qualifying Results Display
 		.attr("x",labelScale(2) - 50)
 		.attr("opacity",1)
 		.text(function(d,i){ return d['name']})
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 
 		nameText.exit()
@@ -448,7 +448,7 @@ Smarl Qualifying Results Display
 		.transition()
 		.attr("x",xScale(350))
 		.attr("opacity",1)	
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 
 		colRect.transition()
@@ -457,7 +457,7 @@ Smarl Qualifying Results Display
 		}) 
 		.attr("x",xScale(350))
 		.attr("opacity",1)	
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		colRect.exit()
 		.transition()
@@ -502,7 +502,7 @@ Smarl Qualifying Results Display
 			return yScale(d['pos']) +10
 		})
 		.attr("opacity",1)	
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 			.delay(2000)
 
 		secondary.transition()
@@ -517,7 +517,7 @@ Smarl Qualifying Results Display
 				return "#"+d['secondary_color'] // TODO Change to secondary color
 			})
 			.attr("opacity",1)	
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		secondary.exit()
 		.transition()
@@ -553,7 +553,7 @@ Smarl Qualifying Results Display
 		.transition()
 		.attr("x",labelScale(3))
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 		all_elements.push(tagText)
 
@@ -564,7 +564,7 @@ Smarl Qualifying Results Display
 		}) 
 		.attr("x",labelScale(3))
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		tagText.exit()
 		.transition()
@@ -597,7 +597,7 @@ Smarl Qualifying Results Display
 		.transition()
 		.attr("x", labelScale(4))
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 		all_elements.push(bestLapText)
 
@@ -608,7 +608,7 @@ Smarl Qualifying Results Display
 			return yScale(d['pos']) 
 		}) 
 		.text(function(d,i){ return d['bestLap']})
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		bestLapText.exit()
 		.transition()
@@ -645,7 +645,7 @@ Smarl Qualifying Results Display
 		.transition()
 		.attr("x", labelScale(5))
 		.attr("opacity",1)
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 
 		qualSplitText.transition()
@@ -661,7 +661,7 @@ Smarl Qualifying Results Display
 			}
 			return symbol + d['split']})
 		
-		.duration(1300)
+		.duration("{{properties.transition_shorter}}")
 
 		qualSplitText.exit()
 		.transition()

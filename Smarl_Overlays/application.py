@@ -223,6 +223,9 @@ def smarl_finish_board():
 def smarl_season_board(): 
     # pull in new racer data
     sharedData.updateRacerData()
+    print()
+    print("\n")
+    print("sending season data",sharedData._SpecificRaceData)
     return render_template('smarl_season_display.html',raceData=sharedData._SpecificRaceData,properties=sharedData._Properties)
 
 @app.route('/smarl_get_realtime_data', methods=['GET','POST']) # Displays Race Results

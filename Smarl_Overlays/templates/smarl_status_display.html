@@ -103,7 +103,7 @@ Smarl Status Display
 		.attr("x",5)
 		.attr("y",chartSettings.height/2 - (45/2))
 		.attr("opacity",0.9)
-		.duration(1300)
+		.duration(100)
 
 		//Transition update
 		racerBG.transition()
@@ -124,14 +124,14 @@ Smarl Status Display
 			return color
 		})
 		.attr("opacity",0.9)
-		.duration(1300)
+		.duration(100)
 
 		racerBG.exit()
 		.transition()
 		.attr("x",200)
 		.attr("opacity",function (d,i){
 			console.log("Exiting racer bg",0.7)})
-		.duration(1300)
+		.duration(100)
 		.remove()
 		
 
@@ -241,7 +241,7 @@ Smarl Status Display
 		.attr("x",  chartSettings.width/2)
 		.attr('y',5)
 		.attr("opacity",1)
-		.duration(1300)
+		.duration(100)
 		all_elements.push(statusText)
 
 		statusText.transition()
@@ -274,13 +274,13 @@ Smarl Status Display
 				color =  '#000000'
 			}
 			return color})
-		.duration(1300)
+		.duration(100)
 
 		statusText.exit()
 		.transition()
 		.attr("x", 290)
 		.attr("opacity",0)
-		.duration(1300)
+		.duration(100)
 		.remove()
 	}
 

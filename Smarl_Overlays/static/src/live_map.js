@@ -90,7 +90,8 @@ class LiveMap {
       //vis.yScale.domain(d3.extent(vis.map_data, vis.yValue));   
   
      console.log(vis.map_data)
-      // Outer path outline // Maybe just move this to Init??
+      // Outer path outline 
+      /* Removed because unecessary
       vis.chart.append('path')
       //.data([vis.data])
       .attr('class', 'chart-line')
@@ -98,6 +99,7 @@ class LiveMap {
       .attr("fill", "none")
       .attr("stroke", "black")
       .attr("stroke-width",45)
+      */
 
       // inner path outline
       vis.chart.append('path')
@@ -105,8 +107,8 @@ class LiveMap {
       .attr('class', 'chart-line')
       .attr('d',vis.line(vis.map_data))
       .attr("fill", "none")
-      .attr("stroke", "#FFFFFFF0")
-      .attr("stroke-width",43) // TODO make a scale function that scales according to chart size
+      .attr("stroke", "#FFFFFFB0")
+      .attr("stroke-width",45) // TODO make a scale function that scales according to chart size
 
       vis.updateVis();
     }

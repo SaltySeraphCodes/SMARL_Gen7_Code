@@ -185,7 +185,7 @@ function Control.client_init( self )
 	self.focusRacer = false -- Keep camera focused on Car set by racerID, nomatter the pos
 	
 	self.droneLocation = nil -- virtual location of the drone
-    self.droneOffset = sm.vec3.new(50,25,10) -- virtual offset/movement of drone
+    self.droneOffset = sm.vec3.new(25,25,70) -- virtual offset/movement of drone
     self.droneDirOffset =  sm.vec3.new(0,0,0) -- offsetting direction of drone (use on mousemove n stuff)
 	self.droneActive = false -- if viewing drone cam
 
@@ -2155,6 +2155,11 @@ function Control.setNewCameraIndex(self, cameraIndex) -- Switches to roadside ca
     goalOffset = self:getFutureGoal(camLoc)
     goalSet1 = self:getGoal()
 
+    if goalOffset == nil then 
+        print("bad goal")
+        return 
+    end
+
     local camDir = sm.camera.getDirection()
     dirMovement1 = sm.vec3.lerp(camDir,goalOffset,self.camTransTimer) -- COuld probably just hard code as 1
     --print("Setitng new cam Index")
@@ -2356,6 +2361,7 @@ function Control.updateCameraPos(self,goal,dt)
         chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
         --if chosenCamera == nil then return end
         local firstCar = getDriverByPos(1) -- TODO: grab general node chain instead
+        if firstCar == nil then self.finishCameraActive = false return end
         local focusSpot = firstCar.nodeChain[1].mid
         local camSpot = chosenCamera.location
         local goalOffset = focusSpot - camSpot
@@ -2378,7 +2384,7 @@ function Control.updateCameraPos(self,goal,dt)
         end
         --print(self.droneLocation)
     
-        local dirSmooth = dt *0.1
+        local dirSmooth = dt *0.5
         local locSmooth = dt * 1
     
         -- TODO convert to quats and then convert back before setting pos

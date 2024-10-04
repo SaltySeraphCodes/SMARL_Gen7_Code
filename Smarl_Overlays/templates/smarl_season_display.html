@@ -33,7 +33,9 @@ Smarl Season Display
 
 	function createBoard(data) {
 		boardCreated = true
+		
 		totalCars = data.length // Find out somehow
+		console.log("tcars",totalCars,data)
 		var labelList = ['P', 'Racer', '#Wins', '#Podiums','Points'] // Arrow to show position changes??
 		chartSettings = { width: 1920, height: 1080, margin: {left: 300, right:600, top: 0, bottom:50}}
 		//Scales
@@ -223,6 +225,7 @@ Smarl Season Display
 	function drawData(data){
 		// bgRect
 		totalCars = data.length
+		console.log("tcars2",data)
 		yScale.domain([0,totalCars +1])// Total cars racing
 			  .range([chartSettings.margin.top + 100,chartSettings.height - chartSettings.margin.bottom]); // May need to reverse...
 			
@@ -240,11 +243,11 @@ Smarl Season Display
 		.attr("y",function (d,i){
 			let bg = (d['racer_rank'] == 0)? i +1 : d['racer_rank']
 			//console.log("bg?",d['racer_rank'],i,bg)
-			return yScale( bg)  + 300
+			return yScale( bg)  + 320
 		})
 		.attr("opacity",0)
 		.attr("width",chartSettings.width- chartSettings.margin.right - 13)
-		.attr("height",45)
+		.attr("height",30)
 		.attr("fill",function(d,i){
 			var color = '#663399'
 			color = 'black'; // Possibly do something with positions here?
@@ -299,7 +302,7 @@ Smarl Season Display
 			return yScale(bg)
 		})
 		.attr("width",40)
-		.attr("height",45)
+		.attr("height",30)
 		.attr("fill",'white')
 		.attr('stroke','black')
 		.attr("opacity",0)
@@ -344,12 +347,12 @@ Smarl Season Display
 			return yScale(bg)
 		})
 		.attr('dx',".3em")
-		.attr('dy',".7em")
+		.attr('dy',".5em")
 		.text(function (d,i){
 			return d['racer_rank']
 		})
 		.attr('font-family',"sans-serif")
-		.attr('font-size','24px')
+		.attr('font-size','20px')
 		.attr('font-weight','bold')
 		.attr('fill','black')
 		.attr('text-anchor', 'center')
@@ -412,7 +415,7 @@ Smarl Season Display
 			return yScale(bg)
 		})
 		.attr('dx',"-1em")
-		.attr('dy',"1em")
+		.attr('dy',"0.5em")
 		.text(function(d,i){ return d['name']})
 		.attr('font-family',"sans-serif")
 		.attr('font-size','20px')
@@ -456,10 +459,10 @@ Smarl Season Display
 		.attr("opacity",0)
 		.attr('y',function(d,i){
 			let bg = (d['racer_rank'] == 0)? i +1 : d['racer_rank']
-			return yScale(bg) +8
+			return yScale(bg) +2
 		})
 		.attr("width",60)
-		.attr("height",30)
+		.attr("height",25)
 		.attr("fill",function(d,i){
 			colors = d['colors'];
 			sep_colors = colors.split(",");
@@ -484,7 +487,7 @@ Smarl Season Display
 		})
 		.attr('y',function(d,i){
 			let bg = (d['racer_rank'] == 0)? i +1 : d['racer_rank']
-			return yScale(bg) +8
+			return yScale(bg) +2
 		}) 
 		.attr("x",xScale(110))
 		.attr("opacity",1)	
@@ -514,7 +517,7 @@ Smarl Season Display
 		.append("path")
 		.attr("d", function(d,i) {
 			let bg = (d['racer_rank'] == 0)? i +1 : d['racer_rank']
-			var triangleP = triangleGenerator(yScale(bg) + 8,60,30)
+			var triangleP = triangleGenerator(yScale(bg) + 2,60,25)
 			 return lineGenerator(triangleP);})
 		.attr("class","secondary racerEl")
 		.attr('stroke','black')
@@ -543,7 +546,7 @@ Smarl Season Display
 		return lineGenerator(triangleP);})
 		.attr('y',function(d,i){
 			let bg = (d['racer_rank'] == 0)? i +1 : d['racer_rank']
-			return yScale(bg) + 10
+			return yScale(bg) + 2
 		}) 
 		.attr("x",xScale(1)+50)
 		.attr("fill",function(d,i){
@@ -577,7 +580,7 @@ Smarl Season Display
 		})
 		.attr("opacity",0)
      		.attr('dx',"0em")
-		.attr('dy',".65em")
+		.attr('dy',".3em")
 		.text(function(d,i){ return d['wins']})
 		.attr('font-family',"sans-serif")
 		.attr('font-size','23px')
@@ -623,7 +626,7 @@ Smarl Season Display
 			return yScale(bg)
 		})
      	.attr('dx',"0.5em")
-		.attr('dy',".65em")
+		.attr('dy',".3em")
 		.text(function(d,i){
 			return d['podiums']})
 		.attr('font-family',"sans-serif")
@@ -719,7 +722,7 @@ Smarl Season Display
 			return yScale(bg)
 		}) 
 		.attr('dx',".7em")
-		.attr('dy',".58em")
+		.attr('dy',".2em")
 		.text(function(d,i){
 			return d['racer_season_points']})
 		.attr('font-family',"sans-serif")
@@ -844,11 +847,16 @@ Smarl Season Display
 		 
 		socket.on( 'seasonData', function( data ) {
 			console.log("seasonData",data)
-			smarl_data = data
-		  if (smarl_data.length > 0 && !boardCreated){
-				initialize(smarl_data)
-		  } else if(smarl_data.length > 0 && boardCreated){
-				updateGraphic(smarl_data)
+			let currentLeague = "{{raceData.league_id}}"
+			console.log("cur league",currentLeague, "{{raceData}}")
+			let league_data = data.filter(function(racer) { return Number(racer.league_id) === Number(currentLeague); });
+			// Filter data by League
+			console.log("filtering for league",league_data,currentLeague)
+			
+		  if (league_data.length > 0 && !boardCreated){
+				initialize(league_data)
+		  } else if(league_data.length > 0 && boardCreated){
+				updateGraphic(league_data)
 		  }else{
 			  console.log("No data yet??")
 		  }

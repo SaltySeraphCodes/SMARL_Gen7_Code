@@ -315,7 +315,7 @@ Smarl Starting Display
 		.attr("y",function (d,i){
 			return yScale(i + 1)
 		})
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		//Transition update
 		racerBG.transition()
@@ -324,7 +324,7 @@ Smarl Starting Display
 			return yScale(i + 1)
 		})
 		.attr("opacity",0.65)
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		racerBG.exit()
 		.transition()
@@ -360,7 +360,7 @@ Smarl Starting Display
 		.transition()
 		.attr("x",labelScale(1))
 		.attr("opacity",1)
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 
 		nameText.transition()
@@ -370,7 +370,7 @@ Smarl Starting Display
 		.attr("x",labelScale(1))
 		.attr("opacity",1)
 		.text(function(d,i){ return d['name']})
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 
 		nameText.exit()
@@ -405,7 +405,7 @@ Smarl Starting Display
 		.transition()
 		.attr("x",labelScale(0)+ 20)
 		.attr("opacity",1)	
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 
 		colRect.transition()
@@ -417,7 +417,7 @@ Smarl Starting Display
 			return "#"+d['primary_color']
 		})
 		.attr("opacity",1)	
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		colRect.exit()
 		.transition()
@@ -459,7 +459,7 @@ Smarl Starting Display
 		.transition()
 		.attr("x",labelScale(0)+ 20)
 		.attr("opacity",1)	
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 
 		secondary.transition()
@@ -472,7 +472,7 @@ Smarl Starting Display
 			return "#"+d['secondary_color']
 		})
 		.attr("opacity",1)	
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		secondary.exit()
 		.transition()
@@ -511,8 +511,8 @@ Smarl Starting Display
 		.transition()
 		.attr("x",labelScale(2))
 		.attr("opacity",1)
-		.duration("{{properties.transition_longer}}")
-     		.delay(1000)
+		.duration("{{properties.transition_shorter}}")
+     		.delay(500)
 		all_elements.push(tagText)
 
 
@@ -524,7 +524,7 @@ Smarl Starting Display
 			return yScale(Number(i + 1))
 		}) 
 		.attr("opacity",1)
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		tagText.exit()
 		.transition()
@@ -561,7 +561,7 @@ Smarl Starting Display
 		.transition()
 		.attr("x", labelScale(3) - 35)
 		.attr("opacity",1)
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
      		.delay(1000)
 		all_elements.push(teamText)
 
@@ -572,7 +572,7 @@ Smarl Starting Display
 		}) 
 		.text(function(d,i){  return  d['owner']}) // Same
 		.attr("opacity",1)
-		.duration("{{properties.transition_longer}}")
+		.duration("{{properties.transition_shorter}}")
 
 		teamText.exit()
 		.transition()
