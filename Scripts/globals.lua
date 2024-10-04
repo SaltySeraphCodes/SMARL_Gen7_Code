@@ -1147,6 +1147,25 @@ function getDirectionOffset(shapeList,direction,origin) -- Returns vector offset
 
 end
 
+-- rotate point
+
+function rotateAroundPoint(origin,point,angle) -- tak
+    -- apply rotation (and pos offset?)
+    --local fakeRot = math.pi/2 -- Performs a negative rotation so pi/2 rotates -90 Degress and vise versa? can either inverse here or inverse in rotation grab?
+    angle = angle * -1 -- inverse angle ()
+    local centeredPoint = point - sm.vec3.new(0,0,0) -- Point centered around 0,0 based on origin
+    --print(point.z - distFromZero.z)
+    -- rotate Point(s) around 0,0
+    local pointX = (centeredPoint.x*math.cos(angle) - centeredPoint.y*math.sin(angle))
+    local pointY = (centeredPoint.x*math.sin(angle) + centeredPoint.y*math.cos(angle))
+    local pointZ = centeredPoint.z
+    local newPoint = sm.vec3.new(pointX,pointY,pointZ)
+    -- offset point back to original offset
+    newPoint = newPoint + origin
+    -- offset Point to new Location
+    newPoint = newPoint
+    return newPoint
+end
 
 function calculateNewForceAngles(v) -- updates forces on a node
     v.outVector = getNormalVectorFromPoints(v.pos,v.next.pos)
@@ -1479,15 +1498,26 @@ function get_los(camera,racer)  -- returns true if camera can see racer
     if not camera then
         return false
     end
+    local hasSight = false
+
     hit, data = sm.physics.raycastTarget(camera.location,racer.location,racer.body)
-    --print(hit,data)
     if hit then
-        --print("losvalid")
-        return true
-    else
-        --print('invcalid!!!!!!!')
-        return false
+        hasSight = true
     end
+    
+    hit, data = sm.physics.raycast(camera.location, racer.location,camera.shape.body)
+    if hit then
+        
+        if data.type == "body" then hasSight = true end 
+        if data.type == "terrainAsset" then
+            hasSight = false
+        end
+        --print(data.type,hasSight)
+    else -- should expand a bit
+        hasSight = true -- just giving benefit of the doubt here
+    end
+
+    return hasSight
 end
 
 ---- Racer meta data helps

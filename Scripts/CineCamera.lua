@@ -39,8 +39,8 @@ function SmarlCamera.client_init( self )
 	self.zoomStrength = 60
 	self.zoomIn = false
 	self.zoomOut= false
-	self.zoomSpeed = 0.02 -- how fast to zoom in
-	self.zoomAccel = 0.001 -- how quick to ramp it
+	self.zoomSpeed = 0.04 -- how fast to zoom in
+	self.zoomAccel = 0.002 -- how quick to ramp it
 	self.raceStatus = 0
 	self.gameWorld = sm.world.getCurrentWorld()
 	self.player = sm.localPlayer.getPlayer()

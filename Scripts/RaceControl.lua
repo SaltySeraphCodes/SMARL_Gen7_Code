@@ -213,7 +213,9 @@ function Control.client_init( self )
 
     self.dt = 0
     self.camTransTimer = 1
-    self.frameCountTime = 0
+    self.frameCountTime = 0 -- how many frames counted
+    self.lastCamSwitch = self.frameCountTime -- last time camera was switched 
+    self.noLos = 0
 	--print("Camera Control Init")
 
 end
@@ -277,7 +279,7 @@ function Control.server_init(self)
     self.autoCameraFocus = false
     self.autoCameraSwitch = false -- toggle automated camera things
     self.autoFocusDelay = 20
-    self.autoSwitchDelay = 10
+    self.autoSwitchDelay = 15
 
     self.autoFocusTimer = Timer()
     self.autoFocusTimer:start(self.autoFocusDelay) -- Set auto camera time here
@@ -1005,35 +1007,27 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
                     self:cl_sendCameraCommand({command = "MoveCamera", value=movement})
                 end
             elseif self.cameraMode == 1 then -- raceCamMode -- TODO: probably just remove all of thie
-
-                if self.raceMetaData['lapsLeft']  == 0 then
-                    --print("Final Lap")
-                    local firstCar = getDriverByPos(1)
-                    if firstCar then
-                        local totalNodes = #firstCar.nodeChain
-                        --print(totalNodes - firstCar.currentNode.id)
-                        if totalNodes - firstCar.currentNode.id < 20 and totalNodes - firstCar.currentNode.id > 5 then
-                            chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
-                            if chosenCamera == nil then return end
-                            local focusSpot = firstCar.nodeChain[1].mid
-                            local camSpot = chosenCamera.location
-                            local goalOffset = focusSpot - camSpot
-                            self:cl_switchCamera(chosenCamera.cameraID)
-                            self:cl_sendCameraCommand({command="forceDir",value=goalOffset}) -- TODO: get this to get focus on car and send directions to cam
-                            self.autoCameraFocus = false
-                            self.autoCameraSwitch = false
-                        end
-                    end
-                end
-                if self.autoSwitchTimer:remaining() < self.autoSwitchDelay/1.2 then -- if enough time has passed then
+                
+                if self.autoSwitchTimer:status() >= 1 and self.autoCameraSwitch == true then --TODO: figure this one out, currently  checking after 2 ticks
                     if self.currentCamera then
                         local dis = getDistance(self.currentCamera.location,self.focusedRacerData.location)
                         local los = get_los(self.currentCamera,self.focusedRacerData)
-                        if (dis > 125 or not los) and self.autoCameraSwitch == true then -- if nolonger LOS TODO: maker more efficient using just location (less data passed)
+                        if los == true then 
+                            self.noLos = 0  -- Reset los timeout
+                        else 
+                            self.noLos = self.noLos + 1 -- increment los timeout
+                        end 
+                        --print("checking",dis,los)
+                        if dis > 190 then
                             --print('car no sseeee?',dis,los)
                             --print('a3',self.autoCameraSwitch)
+                            print("emergency distance cam switch")
+                            self.network:sendToServer("sv_performAutoSwitch")
+                        elseif los == false and self.noLos >= 10 then -- TODO: Add lOS fail timeout so it must fail x times before auto switch
+                            print("emergency LOS cam switch")
                             self.network:sendToServer("sv_performAutoSwitch")
                         end
+                            
                     end
                 end
                               
@@ -1061,7 +1055,7 @@ function Control.client_onUpdate(self,dt)
     local goalOffset = nil
     self.dt = dt
     local camDir = sm.camera.getDirection()
-
+    -- TODO; just have updateCameraPos called once and have each mode set the goaloffsets
     if self.cameraMode == 1 and not (self.droneActive or self.onBoardActive) then -- raceCam
         --print("on raceCam",self.currentCamera.location)
         if self.currentCamera == nil then return end -- just ccut off
@@ -1081,7 +1075,7 @@ function Control.client_onUpdate(self,dt)
         -- used self.droneLocation, what if we used current camera location instead?
         local camPos = sm.camera.getPosition()
         if self.camTransTimer == 1 then -- within the frame of goal
-            camPos = self.droneLocation
+            camPos = self.droneLocation -- TODO: figure out why this
         end
         -- hold off on currentCamDir until after a few frames, use droneLocation at first
         --print("Getting goal",self.camTransTimer,camPos)
@@ -1315,8 +1309,8 @@ end
 
 
 function Control.sv_performAutoSwitch(self) -- auto camera switching to closest or different view -- TODO: add param of input
-    --print('auto switch')
-    if self.focusedRacerData then
+    print('auto switch')
+    if self.focusedRacerData then -- TODO: just add func break and remove layer
         local focusRacerPos = self.focusedRacerData.location
         local camerasInDist = self:getCamerasClose(focusRacerPos) -- returns list of cameras close to specified distance
        
@@ -1324,7 +1318,7 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
         local closestCam = camerasInDist[camIndex]
         if closestCam == nil then return end
         local carNode = self.focusedRacerData.currentNode
-        local minNode = getNextItem(self.focusedRacerData.nodeChain,carNode.id,10) -- finds cams at least nodes ahead
+        local minNode = getNextItem(self.focusedRacerData.nodeChain,carNode.id,7) -- finds cams at least nodes ahead
         local distError = false
         for i = 1, #camerasInDist do local cam = camerasInDist[i]
             local camera = cam.camera
@@ -1339,7 +1333,7 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
                 --print('skipped',i,closestNode.id,minNode.id,getDistance(focusRacerPos,camera.location),get_los(camera,self.focusedRacerData))
             end
             if i >= #camerasInDist - 1 then
-                --print('save to assume no closecam',i)
+                --print('safe to assume no closecam',i)
                 distError = true
             end
         end
@@ -1352,51 +1346,28 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
         --print(self.focusedRacerData.tagText,"Dist from cam",distFromCamera,chosenCamera.cameraID)
         -- Get more race like camera:
         -- auto zoom
-        local distanceCutoff = 16 -- threshold from camera to switch to drone
+        local distanceCutoff = 150 -- threshold from camera to switch to drone
         
         if distFromCamera > distanceCutoff or distError then
-            local mode = math.random(0, 4) -- random for now but can add heuristic to switch
-            --print("random switch",mode)
+            local mode = math.random(0, 3) -- random for now but can add heuristic to switch
+            --print("random switch",mode,distFromCamera,distError)
             if mode <= 2 then mode = 1 end
+            print("sending random toggle mode",mode)
             self:sv_toggleCameraMode(mode)
-        end
+             -- originally wasnt here and broke every time
+        else
 
-       if self.raceMetaData['lapsLeft']  == 0 then
-            --print("Final Lap")
-            local firstCar = getDriverByPos(1)
-            if firstCar then
-                local totalNodes = #firstCar.nodeChain
-                --print(totalNodes - firstCar.currentNode.id)
-                if totalNodes - firstCar.currentNode.id < 20 then
-                    --print("reaching Finish line")
-                    chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
-                    local focusSpot = firstCar.nodeChain[1].mid
-                    local camSpot = chosenCamera.location
-                    --print('focus on',focusSpot)
-                    local goalOffset = focusSpot - camSpot
-                    --local camDir = sm.camera.getDirection() --client ontly??
-                    --dirMovement1 = sm.vec3.lerp(camDir,goalOffset,1)
-                    --print('focusing',goalOffset)
-                    self.network:sendToClients("cl_switchCamera",chosenCamera.cameraID)
-                    self.network:sendToClients('cl_sendCameraCommand',{command="forceDir",value=goalOffset}) -- TODO: get this to get focus on car and send directions to cam
-
-                    self.autoCameraFocus = false
-                    self.autoCameraSwitch = false
-                end
+            if self.currentCamera and self.currentCamera.cameraID == chosenCamera.cameraID then
+                print("same camera")
+            else
+                print('switching cam')
+                self.network:sendToClients("cl_switchCamera",chosenCamera.cameraID)
+                --print("restarting cam",self.autoSwitchDelay)
+                self.autoFocusTimer:start(13) -- restart focus timer but not as long
             end
         end
-
-        if self.currentCamera and self.currentCamera.cameraID == chosenCamera.cameraID then
-            --print("same camera")
-        else
-            --print('switching cam')
-            self.network:sendToClients("cl_switchCamera",chosenCamera.cameraID)
-            --print("restarting cam",self.autoSwitchDelay)
-            self.autoFocusTimer:start(15) -- restart focus timer but not as long
-        end
-        self.autoSwitchTimer:start(self.autoSwitchDelay + math.random(-2,4)) -- re does delay anyways
+        self.autoSwitchTimer:start(self.autoSwitchDelay + math.random(-3,9)) -- re does delay anyways
     end
-    
 end
 
 -- TODO: Create autoZoom that zooms in on "further racers"
@@ -1455,6 +1426,7 @@ function Control.client_exitCamera(self) -- stops viewing camera
     sm.localPlayer.getPlayer():getCharacter():setLockingInteractable(nil) -- wokrs??
     sm.camera.setCameraState(1)
     self.viewIngCamera = false
+    self.finishCameraActive = false
     print("exiting cam mode")
 end
 
@@ -1964,8 +1936,10 @@ function Control.droneExecuteFollowRacer(self) -- runs onfixedupdate and focuses
 	end
     -- If self.droneFollowRacer vs pos?
     --print(self.droneOffset)
-
-    self.droneLocation = racer.shape:getWorldPosition() + self.droneOffset -- puts initial location a bit off and higher than racer`
+    local rotationDif = vectorAngleDiff(sm.vec3.new(0,1,0) , racer.shape:getAt())
+    --print("defr2",self.droneOffset,rotationDif)
+    self.droneLocation = racer.shape:getWorldPosition() + self.droneOffset
+    -- TODO: Figure out the right math for thisrotateAroundPoint(racer.shape:getWorldPosition(), self.droneOffset,rotationDif) -- puts initial location a bit off and higher than racer`
 	
 end
 
@@ -2025,10 +1999,12 @@ function Control.toggleDroneCam(self) -- Sets Camera and posistion for drone cam
     local camPos = sm.camera.getPosition()
     local goalOffset = self:getFutureGoal(self.droneLocation)
     
-    local camDir = sm.camera.getDirection()
+    local camDir = sm.camera.getDirection() -- TODO: Just remove these and let the main loop handle it
     dirMovement1 = sm.vec3.lerp(camDir,goalOffset,1) -- COuld probably just hard code as 1
-    self:cl_sendCameraCommand({command="setPos",value=self.droneLocation}) -- lerp drone location>?
-	self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
+    self.lastCamSwitch = self.frameCountTime
+    print("Switching to Drone",self.frameCountTime)
+    --self:cl_sendCameraCommand({command="setPos",value=self.droneLocation}) -- lerp drone location>?
+	--self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
     --print("set dronelocation",self.droneLocation)
 end
 
@@ -2068,8 +2044,10 @@ function Control.toggleOnBoardCam(self) -- Toggles on board for whichever racer 
     --locMovement = sm.vec3.lerp(camLoc,newCamPos,dt)
     --dirMovement = sm.vec3.lerp(camDir,carDir,1)
     --print(dirMovement)
-    self:cl_sendCameraCommand({command="setPos",value=newCamPos})
-    self:cl_sendCameraCommand({command="setDir",value=carDir})
+    print("Setting Onboard Cam")
+    self.lastCamSwitch = self.frameCountTime
+    --self:cl_sendCameraCommand({command="setPos",value=newCamPos})
+    --self:cl_sendCameraCommand({command="setDir",value=carDir})
    
 end
 
@@ -2087,6 +2065,7 @@ function Control.switchToCamera(self,camera) -- Client Switches to camera based 
     self.onBoardActive = false
 	self.droneActive = false
 	self.currentCameraIndex = getCameraIndexFromId(camera.cameraID)
+    self.lastCamSwitch = self.frameCountTime
 	--print("switching to camera:",self.currentCameraIndex)
 	self:setNewCamera(camera)
 end
@@ -2113,7 +2092,7 @@ function Control.switchToCameraIndex(self, cameraIndex) -- Client switches to ce
 	self.onBoardActive = false
 	self.droneActive = false
 	self.currentCameraIndex = cameraIndex - 1
-	print("switching to camera:",cameraIndex,self.currentCameraIndex)
+	--print("switching to camera:",cameraIndex,self.currentCameraIndex)
 	self:setNewCameraIndex(cameraIndex - 1)
 end
 
@@ -2178,6 +2157,8 @@ function Control.setNewCameraIndex(self, cameraIndex) -- Switches to roadside ca
 
     local camDir = sm.camera.getDirection()
     dirMovement1 = sm.vec3.lerp(camDir,goalOffset,self.camTransTimer) -- COuld probably just hard code as 1
+    --print("Setitng new cam Index")
+    self.lastCamSwitch = self.frameCountTime
     self:cl_sendCameraCommand({command="setPos",value=camLoc})
 	self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
 end
@@ -2196,8 +2177,8 @@ function Control.setNewCamera(self, camera) -- Switches to roadside camera direc
 
     local camDir = sm.camera.getDirection()
     dirMovement1 = sm.vec3.lerp(camDir,goalOffset,self.camTransTimer) -- COuld probably just hard code as 1
+    --print("setting newCam Pos and Dir")
     self:cl_sendCameraCommand({command="setPos",value=camLoc})
-    print("setDir newCam",dirMovement1)
 	self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
 end
 
@@ -2355,7 +2336,39 @@ function Control.updateCameraPos(self,goal,dt)
     local dirDT = dt
     local dirMovement = nil
 	local locMovement = nil
-		
+	local frameBuffer = 3
+
+   
+
+    if self.raceMetaData['lapsLeft']  == 0 and self.autoCameraSwitch then
+        --print("Final Lap")
+        local firstCar = getDriverByPos(1)
+        if firstCar then
+            local totalNodes = #firstCar.nodeChain
+            --print(totalNodes - firstCar.currentNode.id)
+            if totalNodes - firstCar.currentNode.id < 20 and totalNodes - firstCar.currentNode.id >= 1 then
+                self.finishCameraActive = true
+            end
+        end
+    end
+     -- Finish cam takes priority
+     if self.finishCameraActive then
+        chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
+        --if chosenCamera == nil then return end
+        local firstCar = getDriverByPos(1) -- TODO: grab general node chain instead
+        local focusSpot = firstCar.nodeChain[1].mid
+        local camSpot = chosenCamera.location
+        local goalOffset = focusSpot - camSpot
+        --print("forcing cam spot",camSpot,focusSpot,goalOffset)
+        self:cl_toggleCameraMode(0) -- force into race cam mode was going into free cam mode
+        --{<Vec3>, x = -236.75, y = -28.625, z = 2.096}
+        self:cl_switchCamera(chosenCamera.cameraID)
+        self:cl_sendCameraCommand({command="forceDir",value=goalOffset})
+        --self.autoCameraFocus = false
+        --self.autoCameraSwitch = false
+        if true then return end
+    end
+
     if self.droneActive then
         --print("dact")
         local goalLocation = self.droneLocation
@@ -2364,8 +2377,10 @@ function Control.updateCameraPos(self,goal,dt)
             return
         end
         --print(self.droneLocation)
-        local dirSmooth = dt *0.03
-        local locSmooth = dt * 0.9
+    
+        local dirSmooth = dt *0.1
+        local locSmooth = dt * 1
+    
         -- TODO convert to quats and then convert back before setting pos
         local racer = nil
         if self.focusedRacerData == nil then 
@@ -2378,16 +2393,23 @@ function Control.updateCameraPos(self,goal,dt)
             --goalLocation = location--camLoc + sm.vec3.new 
         end
         local location2 = racer.shape:getWorldPosition() -- target location
-        local goalOffset =  location2 - camLoc -- camera dif (use quats??)
+        local idealLoc = (self.droneLocation + self.droneOffset)
+        local goalOffset =  location2 - idealLoc -- was camLoc 
        
-        if self.frameCountTime < 3 then
-            -- transition here??
+       
+        if self.frameCountTime - self.lastCamSwitch < frameBuffer then -- Sets to instant cam movement
+            --print("preset",location2,camLoc,goalOffset)
+            dirMovement = goalOffset
+            locMovement = goalLocation
         else
+            --print("postset",location2,camLoc,goalOffset)
             dirMovement = sm.vec3.lerp(camDir,goalOffset,dirSmooth)--self.camTransTimer
             locMovement = sm.vec3.lerp(camLoc,goalLocation,locSmooth)
-            self:cl_sendCameraCommand({command="setPos",value=locMovement})
-            self:cl_sendCameraCommand({command="setDir",value=dirMovement})
         end
+        --print("actset",location2,camLoc,goalOffset)
+        self:cl_sendCameraCommand({command="setPos",value=locMovement})
+        self:cl_sendCameraCommand({command="setDir",value=dirMovement})
+        
         --`print("DroneSendA",sm.camera.getPosition(),sm.camera.getDirection())
     
     elseif self.onBoardActive then
@@ -2414,22 +2436,36 @@ function Control.updateCameraPos(self,goal,dt)
         local rvel = racer.velocity
         local dvel = carDir - camDir --racer.angularVelocity
         --print("locZ",dvel:length())
-        local newCamPos = rearLoc + sm.vec3.new(0,0,4) --+ TODO: dynamic height??
+        local newCamPos = rearLoc + sm.vec3.new(0,0,3) --+ TODO: dynamic height??
         local newCamDir = camDir + (dvel *2)
-        local dirSmooth = dt * 0.8
-        local locSmooth = dt * 1.5 -- 1.1
-        if self.frameCountTime < 2 then -- if resent switch, then don't update camera dir, just pos?
-            --have some transition effect here??
+        local dirSmooth = dt * 0.9
+        local locSmooth = dt * 2 -- 1.1
+        if self.frameCountTime - self.lastCamSwitch < frameBuffer then -- Sets to instant cam movement
+            --print("frame buf2")
+            locMovement = newCamPos
+            dirMovement = racer.shape:getAt()
         else
+            --print("no frame buf2")
             locMovement = sm.vec3.lerp(camLoc,newCamPos,locSmooth)
-            dirMovement = sm.vec3.lerp(camDir,newCamDir,dirSmooth)
-            --print("setDir updateOnboard",dirMovement,self.frameCountTime)
-            self:cl_sendCameraCommand({command="setDir",value=dirMovement})
-            self:cl_sendCameraCommand({command="setPos",value=locMovement})
+            dirMovement = sm.vec3.lerp(camDir,racer.shape:getAt(),dirSmooth)
         end
+
+       
+        
+        --print("setDir updateOnboard",dirMovement)
+        self:cl_sendCameraCommand({command="setDir",value=dirMovement})
+        self:cl_sendCameraCommand({command="setPos",value=locMovement})
+    
     else -- race camera
         -- location is alreadyh set
-        dirMovement = sm.vec3.lerp(camDir,goal,self.camTransTimer * 0.1)
+        local locSmooth = dt * 1.5 -- 1.1
+        if self.frameCountTime - self.lastCamSwitch < frameBuffer then -- Sets to instant cam movement
+            --print("frame buf3")
+            dirMovement = sm.vec3.lerp(camDir,goal,1) -- this needs to be set
+        else
+            dirMovement = sm.vec3.lerp(camDir,goal,self.camTransTimer * 0.1)
+        end
+       
         --dirMovement = sm.vec3.lerp(camDir,goal,dt*0.1)
         --print(self.frameCountTime) TODO: if gets annooying, we can figure out the things we did above (only set when > 2)
         self:cl_sendCameraCommand({command="setDir",value=dirMovement})

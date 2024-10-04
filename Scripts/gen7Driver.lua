@@ -1378,7 +1378,7 @@ function Driver.updateNearestNode(self) -- Finds nearest node to car and sets it
         if self.stuckTimeout > 1 and self.stuckTimeout < 5 and not self.onLift and not self.nudging then
             --print("stuck timeout")
             if nearestNode == nil then -- try again with new algo
-                print(self.tagText,'fcn2')
+                --print(self.tagText,'fcn2')
                 nearestNode = findClosestNode(self.nodeChain,self.location)
             end
             --nearestNode = getNearestNode(self.nodeMap,self.shape.worldPosition)
