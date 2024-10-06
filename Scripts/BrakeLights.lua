@@ -11,8 +11,8 @@ BrakeLights.maxChildCount = -1
 BrakeLights.maxParentCount = -1
 BrakeLights.connectionInput = sm.interactable.connectionType.power + sm.interactable.connectionType.logic
 BrakeLights.connectionOutput =sm.interactable.connectionType.logic
-BrakeLights.colorNormal = sm.color.new( 0x7c0000ff )
-BrakeLights.colorHighlight = sm.color.new( 0x7c000fff )
+BrakeLights.colorNormal = sm.color.new( 0xec0000ff )
+BrakeLights.colorHighlight = sm.color.new( 0xe7c000fff )
 BrakeLights.poseWeightCount = 2
 
 

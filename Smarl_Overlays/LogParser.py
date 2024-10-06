@@ -18,7 +18,9 @@ DUPECOUNT = 0
 TOTALCARS = 0
 UPLOADED_QUALI = False
 UPLOADED_RACE = False
-
+dir_path = os.path.dirname(os.path.realpath(__file__))
+json_data = os.path.join(dir_path, "JsonData")
+API_FILE = os.path.join(json_data, "apiInstructs.json")
 
 #mainSheet = gc.open("Racer Data")
 #resultSheet = gc.open("Race Results")
@@ -106,10 +108,44 @@ def retryConnection():
             print('connection alive!')
             TCP_CONNECTED = True
 
-# main frame=============
+# API Command helpers ------
+
+def outputCommandQueue(commandQue):
+    #print("OUT=>", commandQue)
+    with open(API_FILE, 'w') as outfile:
+        #print("opened file")
+        jsonMessage = json.dumps(commandQue)
+        outfile.write(jsonMessage)
+
+def addToQue(commands):
+
+    if not os.path.exists(API_FILE):
+        f = open(API_FILE, "a") # w? instead of a?
+        # make blank
+        f.write('[]')
+        f.close()
+
+    with open(API_FILE, 'r') as inFile: # TODO: do a rw+ to read then write to prevent so many opens
+        currentQue = json.load(inFile)
+
+        if currentQue == None: 
+            # Create empty list
+            currentQue = []
+            currentQue.extend(commands)
+        else:
+            currentQue.extend(commands)
+
+    outputCommandQueue(currentQue)
+
+    
+def generateCommand(command,value): #Generates command dictionary
+    command =  {'cmd':command, 'value':value}
+    return command
 
 
-# Smarl Data Scraping -- NO MYSQL
+
+# main Data=============
+ 
 
 def findLogFile():
     max_mtime = 0

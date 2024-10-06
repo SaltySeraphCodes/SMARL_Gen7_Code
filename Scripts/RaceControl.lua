@@ -10,13 +10,14 @@ dofile "globals.lua"
 dofile "Timer.lua" 
 
 ZOOM_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/zoomControls.json"
-CAMERA_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/cameraInput.json"
+DECK_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/cameraInput.json" -- TODO: Rename to keyInput.json
+API_INSTRUCTIONS = MOD_FOLDER .. "/JsonData/apiInstructs.json"
 QUALIFYING_DATA = MOD_FOLDER .. "/JsonData/raceOutput/qualifyingData.json" --
 OUTPUT_DATA = MOD_FOLDER .. "/JsonData/RaceOutput/raceData.json" -- All race data
 FINISH_DATA = MOD_FOLDER .. "/JsonData/raceOutput/finishData.json"
 QUALIFYING_FLIGHT_DATA = MOD_FOLDER .. "/JsonData/qualifying_flight_" -- depreciated?
 MAP_DATA = MOD_FOLDER .. "/JsonData/TrackData/"
-
+RACER_DATA = MOD_FOLDER .. "/JsonData/RacerData/"
 
 Control = class( nil )
 Control.maxChildCount = -1
@@ -169,7 +170,7 @@ function Control.client_init( self )
 
 -- Camera things
     self.smarCamLoaded = false
-    self.externalControlsEnabled = true -- TODO: Check if on seraph's computer
+    self.externalControlsEnabled = true -- TODO: remove on release
     self.viewIngCamera = false -- whether camera is being viewed
     self.cameraMode = 0 -- camera viewing mode: 0 = free cam, 1 = race cam
 
@@ -185,7 +186,7 @@ function Control.client_init( self )
 	self.focusRacer = false -- Keep camera focused on Car set by racerID, nomatter the pos
 	
 	self.droneLocation = nil -- virtual location of the drone
-    self.droneOffset = sm.vec3.new(25,25,70) -- virtual offset/movement of drone
+    self.droneOffset = sm.vec3.new(10,10,40) -- virtual offset/movement of drone
     self.droneDirOffset =  sm.vec3.new(0,0,0) -- offsetting direction of drone (use on mousemove n stuff)
 	self.droneActive = false -- if viewing drone cam
 
@@ -248,7 +249,8 @@ function Control.server_init(self)
     self.draftStr = 1
 
 
-
+    -- Car Importing behavior
+    self.racerImportQue = {}
 
 
 
@@ -273,7 +275,7 @@ function Control.server_init(self)
 
     self.dataOutputTimer = Timer() -- MS TICKs so 1 = 1/40
     self.dataOutputTimer:start(1)
-    self.outputRealTime = true  -- USE TO OUTPUT DATA TO SERVERS
+    self.outputRealTime = false  -- USE TO OUTPUT DATA TO SERVERS
     
     -- Camera automation
     self.autoCameraFocus = false
@@ -302,7 +304,7 @@ function Control.server_init(self)
 
     -- just cam things
     self.smarCamLoaded = false
-    self.externalControlsEnabled = true -- TODO: check if this
+    self.externalControlsEnabled = false -- TODO: set false for releases
     self.viewIngCamera = false -- whether camera is being viewed
     
 
@@ -470,6 +472,135 @@ function Control.sv_sendCommand(self,command) -- sends a command to Driver Comma
     end
 end
 
+-- Car/Creation Managment
+function Control.sv_delete_racer(self,racer_id)
+    -- removes creation
+    print("Deleting racer",racer_id)
+    local racer  = getDriverFromMetaId(racer_id)
+    if racer == nil then print(" no racer found") return end
+    local all_shapes = racer.body:getCreationShapes()
+    if all_shapes then
+        for k=1, #all_shapes  do local s = all_shapes[k]
+            s:destroyShape()
+        end
+    end
+end
+
+function Control.sv_delete_racer_id(self,driver_id) -- uses main body id instead (for non metadata racers)
+    -- removes creation
+    print("Deleting racer",driver_id)
+    local racer  = getDriverFromId(driver_id)
+    if racer == nil then print(" no racer found") return end
+    local all_shapes = racer.body:getCreationShapes()
+    if all_shapes then
+        for k=1, #all_shapes  do local s = all_shapes[k]
+            s:destroyShape()
+        end
+    end
+end
+
+function Control.sv_delete_all_racers(self)
+    print("Deleting all racers")
+    for k=1, #ALL_DRIVERS  do local r = ALL_DRIVERS[k]
+        if r.id then
+            self:sv_delete_racer_id(r.id)
+        end 
+    end
+end
+
+
+function Control.sv_racer_import_loop(self) -- Keeps tracks and imports racers when ready
+    if self.racerImportQue and #self.racerImportQue > 0 then
+        local racerID = self.racerImportQue[1] -- placeholder first car only removes when spawned
+        local result = self:sv_import_racer(racerID)
+        if result == true then
+            table.remove(self.racerImportQue,1) -- pulls first in queue
+        else
+            -- waiting, possibly shift spawn points?
+            -- Table insert alternative: t[#t+1] = i
+        end
+    end
+
+end
+
+function Control.sv_import_racer(self,racer_id) -- uses reacer META ID
+    local dataFile = RACER_DATA .. racer_id .. ".json"
+    -- Set location to first point after finish line
+    local spawnLocation = sm.vec3.new(0,0,10)
+    local spawnRotation = nil
+
+   
+
+
+    if self.nodeChain then
+        local targetNode = self.nodeChain[10]
+        if targetNode then
+            spawnLocation = targetNode.mid + sm.vec3.new(0,0,.5)
+             -- Make Sure spawn wih clear tracks behind and a padding ahead for slow cars
+
+            spawnRotation = sm.vec3.getRotation(sm.vec3.new(-1,0,0),sm.vec3.new(targetNode.outVector.x,targetNode.outVector.y,0))
+            --sm.quat.fromEuler(targetNode.outVector:rotateX(90))
+        end
+
+        local world = sm.world.getCurrentWorld()
+        if sm.json.fileExists(dataFile) then
+            print("Importing Creation",dataFile,spawnRotation)
+            sm.creation.importFromFile(world,dataFile,spawnLocation,spawnRotation)
+            return true
+        else
+            print("Racer Data file not found",dataFile)
+            return true -- Remove car from list anyway
+        end
+    else
+        print("no race control nodechain defined")
+    end
+
+    return false
+end
+
+function Control.sv_import_racers(self,racer_list) -- imports racers based of meta ID and an array
+    print("importing racers")
+    local carPadding = 3 -- How many nodes of padding to buffer cars out
+    local frontNodeID = (#racer_list * carPadding) + carPadding
+    local world = sm.world.getCurrentWorld()
+    print("spawning",frontNodeID,racer_list)
+    for k=1, #racer_list  do local r = racer_list[k]
+        if self.nodeChain then
+            local targetNodeID = frontNodeID - (k*carPadding)
+            if targetNodeID <= 1 then
+                print("ran out of spawn room")
+                break
+            end
+            local targetNode = self.nodeChain[targetNodeID]
+            if targetNode then
+                spawnLocation = targetNode.mid + sm.vec3.new(0,0,.5)
+                spawnRotation = sm.vec3.getRotation(sm.vec3.new(-1,0,0),sm.vec3.new(targetNode.outVector.x,targetNode.outVector.y,0))
+                --sm.quat.fromEuler(targetNode.outVector:rotateX(90))
+            end
+        
+            local dataFile = RACER_DATA .. r .. ".json"
+            if sm.json.fileExists(dataFile) then
+                print("Importing Creation",dataFile,spawnRotation)
+                sm.creation.importFromFile(world,dataFile,spawnLocation,spawnRotation)
+            else
+                print("Racer Data file not found",dataFile)
+            end
+        end
+    end
+end
+
+
+function Control.sv_import_league(self,league_id)
+    local a_league = {1,2,3,5,6,7,8,9,10,11,12,13,15,16,17,18}
+    local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33}
+    local leagues = {a_league,b_league}
+    print("importing league")
+    self:sv_import_racers(leagues[league_id])
+end
+ 
+
+
+
 -- CAMERA THINGS
 function Control.cl_sendCameraCommand(self,command) --client sends a command obj {com, val} to camera
     --print("sending cam",self.smarCamLoaded,command)
@@ -579,6 +710,8 @@ function  Control.sv_recieveCommand( self,command ) -- recieves command/data fro
     if command.type == "set_formation_pos" then -- racer has crossed lap
         self:setFormationPositions(command.car,command.value)
     end
+
+   
 
 end
 
@@ -927,9 +1060,10 @@ function Control.server_onFixedUpdate(self)
         end
     end
 
-    if self.smarCamLoaded or self.externalControlsEnabled then
-        self:sv_ReadJson()
+    if self.externalControlsEnabled then
+        self:sv_ReadDeck()
         self:sv_readZoomJson()
+        self:sv_readAPI()
     end
 
     -- TODO: Check count of parent, throws error if more than one
@@ -1071,6 +1205,7 @@ function Control.client_onUpdate(self,dt)
         --print("update pos",goalOffset)
         self:updateCameraPos(goalOffset,dt)
     elseif self.droneActive then
+
         self:droneExecuteFollowRacer()
         -- used self.droneLocation, what if we used current camera location instead?
         local camPos = sm.camera.getPosition()
@@ -1309,7 +1444,7 @@ end
 
 
 function Control.sv_performAutoSwitch(self) -- auto camera switching to closest or different view -- TODO: add param of input
-    print('auto switch')
+    --print('auto switch')
     if self.focusedRacerData then -- TODO: just add func break and remove layer
         local focusRacerPos = self.focusedRacerData.location
         local camerasInDist = self:getCamerasClose(focusRacerPos) -- returns list of cameras close to specified distance
@@ -1558,6 +1693,8 @@ function Control.client_onAction(self, key, state) -- On Keypress. Only used for
 	return true
 end
 
+
+
 -- JSON 
 function Control.sv_readZoomJson(self) -- BETTER IDEA: only begin reading when keypress unrecognized
     --print("RC readZoomJson")
@@ -1691,15 +1828,15 @@ function Control.sv_ReadQualJson(self)
 end
 
 
-function Control.sv_ReadJson(self)
+function Control.sv_ReadDeck(self) -- Reads commands (keyboard input) from streamdeck
     --print("RC sv readjson before")
-    local status, instructions =  pcall(sm.json.open,CAMERA_INSTRUCTIONS) -- Could pcall whole function
+    local status, instructions =  pcall(sm.json.open,DECK_INSTRUCTIONS) -- Could pcall whole function
     if status == false then -- Error doing json open
         --print("Got error reading instructions JSON")
         return nil
     else
         --print("got instruct",instructions)
-        sm.json.save("[]", CAMERA_INSTRUCTIONS) -- technically not just camera instructions
+        sm.json.save("[]", DECK_INSTRUCTIONS) -- technically not just camera instructions
         if instructions ~= nil then --0 Possibly only trigger when not alredy there (will need to read client zoomState)
             local instruction = instructions['command']
             if instruction == "exit" then
@@ -1739,7 +1876,15 @@ function Control.sv_ReadJson(self)
                     print('a2',self.autoCameraSwitch)
                     self:sv_performAutoSwitch()
                 end
+
+            elseif instruction == "delRM" then -- delete racer by meta ID
+                self:sv_delete_racer(tonumber(instructions['value']))
+            elseif instruction == "delID" then -- delete racer by body ID
+                self:sv_delete_racer_id(tonumber(instructions['value']))
+            elseif instruction == "delALL" then -- deletes all raceers (both meta and non)
+                self:sv_delete_all_racers()
             end
+
             return
         else
             print("camera Instructions are nil??")
@@ -1749,10 +1894,49 @@ function Control.sv_ReadJson(self)
     --print("RC sv readjson after")
 end
 
-function Control.sv_SaveJson(self)
 
+
+function Control.sv_execute_instruction(self,instruction)
+    local cmd = instruction['cmd'] -- even more shorter form? c,v
+    local value = instruction['val']
+
+    if instruction == "delMID" then -- delete racer by meta ID
+        self:sv_delete_racer(tonumber(value))
+    elseif instruction == "delBID" then -- delete racer by body ID
+        self:sv_delete_racer_id(tonumber(value))
+    elseif instruction == "delALL" then -- deletes all raceers (both meta and non)
+        self:sv_delete_all_racers()
+    elseif instruction == "impLEG" then -- imports league
+        self:sv_import_league(tonumber(value))
+    elseif instruction == "impCAR" then -- import racer (by metaID)
+        self:sv_import_racer(tonumber(value))
+    end
 end
 
+function Control.sv_readAPI(self) -- Reads API instructions
+    --print("RC sv readjson before")
+    local status, instructions =  pcall(sm.json.open,API_INSTRUCTIONS) -- Could pcall whole function
+    if status == false then -- Error doing json open
+        print("Got error reading instructions JSON")
+        return nil
+    else
+        --print("got instruct",instructions)
+        sm.json.save("[]", API_INSTRUCTIONS) -- deletes all known instructions
+        -- TODO: pcall this in cased theres an error clearing it?
+        if instructions == nil then
+            print("no instructions")
+            return nil
+        end
+
+        for k=1,#instructions do local instruction = instructions[k]
+            if instruction ~= nil then --Perform instruction
+                self:sv_execute_instruction(instruction)
+                return
+            end
+        end
+    end
+    --print("RC sv readjson after")
+end
 
 -- camera and car following stuff
 function Control.sv_cycleFocus(self,direciton) -- calls iterate camera
@@ -1909,6 +2093,7 @@ function Control.setDroneFollowFocusedRacer(self) -- Tells the drone to follow w
 	local racer = getDriverFromId(self.focusedRacerID) -- Racer Index is just populated as they are added in
 	if racer == nil then
 		print("Drone follow Focused racer index Error",self.focusedRacerID)
+        
 		return
 	end
 	if racer.racePosition == nil then
@@ -1936,7 +2121,7 @@ function Control.droneExecuteFollowRacer(self) -- runs onfixedupdate and focuses
 	end
     -- If self.droneFollowRacer vs pos?
     --print(self.droneOffset)
-    local rotationDif = vectorAngleDiff(sm.vec3.new(0,1,0) , racer.shape:getAt())
+    --local rotationDif = vectorAngleDiff(sm.vec3.new(0,1,0) , racer.shape:getAt())
     --print("defr2",self.droneOffset,rotationDif)
     self.droneLocation = racer.shape:getWorldPosition() + self.droneOffset
     -- TODO: Figure out the right math for thisrotateAroundPoint(racer.shape:getWorldPosition(), self.droneOffset,rotationDif) -- puts initial location a bit off and higher than racer`
@@ -1983,7 +2168,7 @@ function Control.toggleDroneCam(self) -- Sets Camera and posistion for drone cam
                 print("set up dronelocation",self.droneLocation) -- set up focus Racer()
             end
         else -- ound focused racer
-            --print("Settind drone to follow focused racer")
+            print("Settind drone to follow focused racer")
             self:setDroneFollowFocusedRacer()
         end 
 
@@ -1995,6 +2180,10 @@ function Control.toggleDroneCam(self) -- Sets Camera and posistion for drone cam
     end
     --*print("focusing",self.focusedRacerData.location,self.droneLocation)
     local racerlocation = self.focusedRacerData.location
+    if racerlocation == nil then 
+        print("Drone racer removed")
+        self.focusedRacerData = nil
+    end
     --local droneLocation = self.droneData.location
     local camPos = sm.camera.getPosition()
     local goalOffset = self:getFutureGoal(self.droneLocation)
@@ -2361,7 +2550,7 @@ function Control.updateCameraPos(self,goal,dt)
         chosenCamera = ALL_CAMERAS[1] -- First camera is first camera
         --if chosenCamera == nil then return end
         local firstCar = getDriverByPos(1) -- TODO: grab general node chain instead
-        if firstCar == nil then self.finishCameraActive = false return end
+        if firstCar == nil or firstCar.nodeChain == nil then self.finishCameraActive = false return end
         local focusSpot = firstCar.nodeChain[1].mid
         local camSpot = chosenCamera.location
         local goalOffset = focusSpot - camSpot
@@ -2384,8 +2573,8 @@ function Control.updateCameraPos(self,goal,dt)
         end
         --print(self.droneLocation)
     
-        local dirSmooth = dt *0.5
-        local locSmooth = dt * 1
+        local dirSmooth = dt * 0.8 
+        local locSmooth = dt * 6 
     
         -- TODO convert to quats and then convert back before setting pos
         local racer = nil
@@ -2394,14 +2583,16 @@ function Control.updateCameraPos(self,goal,dt)
             return
         else
             racer = self.focusedRacerData
-            if racer == nil then return end
-            goalLocation = self.droneLocation --+ self.droneOffset
+            if racer == nil then print("no racer data") return end
+            goalLocation = self.droneLocation + self.droneOffset
             --goalLocation = location--camLoc + sm.vec3.new 
         end
         local location2 = racer.shape:getWorldPosition() -- target location
         local idealLoc = (self.droneLocation + self.droneOffset)
+
         local goalOffset =  location2 - idealLoc -- was camLoc 
        
+        --print(idealLoc,camLoc)
        
         if self.frameCountTime - self.lastCamSwitch < frameBuffer then -- Sets to instant cam movement
             --print("preset",location2,camLoc,goalOffset)
@@ -2412,9 +2603,9 @@ function Control.updateCameraPos(self,goal,dt)
             dirMovement = sm.vec3.lerp(camDir,goalOffset,dirSmooth)--self.camTransTimer
             locMovement = sm.vec3.lerp(camLoc,goalLocation,locSmooth)
         end
-        --print("actset",location2,camLoc,goalOffset)
-        self:cl_sendCameraCommand({command="setPos",value=locMovement})
-        self:cl_sendCameraCommand({command="setDir",value=dirMovement})
+        --print("actset",dirMovement,camDir)
+        self:cl_sendCameraCommand({command="setPos",value=locMovement}) -- locMovement
+        self:cl_sendCameraCommand({command="setDir",value=dirMovement}) -- dirMovement
         
         --`print("DroneSendA",sm.camera.getPosition(),sm.camera.getDirection())
     
@@ -2531,13 +2722,17 @@ end
 
 function Control.client_onTinker( self, character, state ) -- For manual exporting (not necessary and can depreciate for now,)
 	if state then
+        local racerID = 20
         if character:isCrouching() then
-           
+            self.network:sendToServer("sv_delete_all_racers")
         else
             --print('Exporting track')
             --self.network:sendToServer("sv_export_nodeChain")
-            self.BehaviorMenu:open()
-		
+            --self.BehaviorMenu:open()
+            --self.network:sendToServer("sv_import_racer",racerID) -- TODO; go back to behavior menu when ready
+            local a_league = {1,2,3,5,6,7,8,9,10,11,12,13,15,16,17,18}
+            local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33}
+            self.network:sendToServer("sv_import_racers",a_league)
         end
 	end
 end
@@ -2673,9 +2868,6 @@ function Control.client_onRaceMenuClose( self )
     --self.RaceMenu = sm.gui.createGuiFromLayout( "$CONTENT_"..MOD_UUID.."/Gui/Layouts/RaceMenu.layout",false )
 
 end
-
-
-
 
 
 

@@ -6,12 +6,12 @@
 -- This just takes in acceleration input from smar driver. How engine responds can be simulated in driver or loaded from globals?
 -- Engine Type will have defaults based on engine Color, map it some time
 if sm.isHost then
-	print("Loaded Engine Class") -- Do whatever here?
+	--print("Loaded Engine Class") -- Do whatever here?
 end
 dofile "globals.lua" -- Or json.load?
 
 Engine = class( nil )
-Engine.maxChildCount = 20
+Engine.maxChildCount = 100
 Engine.maxParentCount = 2
 Engine.connectionInput = sm.interactable.connectionType.power
 Engine.connectionOutput = sm.interactable.connectionType.bearing + sm.interactable.connectionType.logic
@@ -33,7 +33,7 @@ function Engine.server_onCreate( self )
 end
 
 function Engine.client_onCreate( self ) 
-    print("Creating gen7 Engine")
+    --print("Creating gen7 Engine")
 	self:client_init()
 end
 

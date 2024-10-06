@@ -26,7 +26,7 @@ _RacerData = []
 SMARL_API_URL = "http://seraphhosts.ddns.net:8080/api" # No longer works due to host migration :(
 SMARL_LOCAL_URL = "http://192.168.1.250:8080/api"
 IS_LOCAL = True # Remember to change this when you should, Maybe automate this??
-
+DRY_RUN = True
 
 def get_smarl_url(): # returns smarl url based on is_local
     if IS_LOCAL: return SMARL_LOCAL_URL
@@ -151,6 +151,9 @@ def uploadQualResults(race_id,resultBody):
     resultJson = {"race_id":race_id, "data":resultBody}
     print("uploading results",race_id,resultBody,resultJson)
     #pass #TODO: REMOVE THIS when ready for official race?
+    if DRY_RUN:
+        print('Not uploading because DRY RUN SET')
+        return True
     try:
         response = requests.post(get_smarl_url() + "/update_race_qualifying",json=resultJson )
         response.raise_for_status()
@@ -173,6 +176,9 @@ def uploadResults(race_id,resultBody):
     resultJson = {"race_id":race_id, "data":resultBody}
     print("uploading results",race_id,resultBody,resultJson)
     #pass #TODO: REMOVE THIS when ready for official race?
+    if DRY_RUN:
+        print('Not uploading because DRY RUN SET')
+        return True
     try:
         response = requests.post(get_smarl_url() + "/update_race_results",json=resultJson )
         response.raise_for_status()

@@ -587,7 +587,7 @@ function SmarlCamera.client_onEquippedUpdate( self, primaryState, secondaryState
 	--print(primaryState,secondaryState)
 	if primaryState ~= self.primaryState then
 		if primaryState == 1 then
-			print("left clicked",primaryState)
+			--print("left clicked",primaryState)
 			self:activateFreecam()
 			self.clickCamOn = true
 		end
@@ -596,7 +596,7 @@ function SmarlCamera.client_onEquippedUpdate( self, primaryState, secondaryState
 
 	if secondaryState ~= self.secondaryState then
 		if secondaryState == 1 then
-			print("right clicked",secondaryState)
+			--print("right clicked",secondaryState)
 			if self.clickCamOn then 
 				self:deactivateFreecam()
 				self.clickCamOn = false
