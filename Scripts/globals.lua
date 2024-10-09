@@ -1,6 +1,6 @@
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.7.10" -- Fixed downforce block
+SMAR_VERSION = "1.8.0" -- New Racing Line Scan algo, Custom behavior UI, Adjusted Braking behavior
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -27,11 +27,11 @@ DEFAULT_FRICTION = 0.0006046115371 -- Friction coeficient -- could be wrong
 
 -- Conversion Rates
 VELOCITY_ROTATION_RATE = 0.37 -- 1 rotation speed ~= 0.37 velocity length -- How fast wheels should rotate (engine  speed) to achieve a certain velocity
-DECELERATION_RATE = -9.112992895 -- Multiply this number by the braking speed to get the aproximate deceleration rate for brake distance calculaitons (decrease for longer breaking distances)
+DECELERATION_RATE = -9.1 -- Multiply this number by the braking speed to get the aproximate deceleration rate for brake distance calculaitons (decrease for longer breaking distances)
 -- VMAX calculation defaults
 MAX_VELOCITY = 150
-DEFAULT_MAX_STEER_VEL = 13
-DEFAULT_MINOR_STEER_VEL = 25
+DEFAULT_MAX_STEER_VEL = 2
+DEFAULT_MINOR_STEER_VEL = 26
 DEFAULT_MAX_STEER = (MAX_STEER_VALUE or 55)
 DEFAULT_MINOR_STEER = 5
 DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- steering angle goes here
@@ -40,7 +40,7 @@ DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- stee
 -- Track generation options -- possibly move to track piece?
 FORCE_SENSITIVIY = 4 -- How much angle differences affect total force on node chain
 FORCE_THRESHOLD = 0.01 -- when nodes accept where they are
-WALL_PADDING = 8
+WALL_PADDING = 7
 TRACK_DATA = 1 -- Location to save world storage for the racing line
 
 TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
@@ -54,37 +54,37 @@ CHECK_POINTS = {}
 SEGMENT_TYPES = {
     {
         TYPE = "Straight",
-        THRESHOLD = {-2.5,2.5},
+        THRESHOLD = {-1,1},
         COLOR = "4DD306FF"
     },
     {
         TYPE = "Fast_Right",
-        THRESHOLD = {2.5,5},
+        THRESHOLD = {1,3},
         COLOR = "07FFECFF"
     },
     {
         TYPE = "Fast_Left",
-        THRESHOLD = {-5,-2.5},
+        THRESHOLD = {-3,-1},
         COLOR = "FF6755FF"
     },
     {
         TYPE = "Medium_Right",
-        THRESHOLD = {5,15},
+        THRESHOLD = {3,6},
         COLOR = "047FCAFF"
     },
     {
         TYPE = "Medium_Left",
-        THRESHOLD = {-15,-5}
+        THRESHOLD = {-6,-3}
         , COLOR = "B80606FF"
     },
     {
         TYPE = "Slow_Right",
-        THRESHOLD = {15,90},
+        THRESHOLD = {6,25},
         COLOR = "0B0066FF"
     },
     {
         TYPE = "Slow_Left",
-        THRESHOLD = {-90,-15},
+        THRESHOLD = {-25,-6},
         COLOR = "660000FF"
     }
 }
@@ -95,7 +95,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         COLOR = "222222ff", -- black
         MAX_SPEED = 85, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.4,
-        MAX_BRAKE = 0.70,
+        MAX_BRAKE = 0.65,
         GEARING = {0.5,0.45,0.20,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 85/4 -- LImit for VRPM TODO: adjust properly
     },
@@ -497,26 +497,30 @@ function calculateMaximumVelocity(segBegin,segEnd,segLen) -- gets maximumSpeed b
     local segLen = (segLen or 10)
     local angle = math.abs(segCurve)
     local angle2 = angleDiff(segBegin.outVector,segEnd.outVector) -- depreciated
+
+    --print(angle,segType,getVmax(angle))
+
     if  segType == "Straight" then -- sometimes things go wrong
-        
         return getVmax(angle) * 2
     elseif segType == "Fast_Right" or segType == "Fast_Left" then
         if segLen >= 5 then -- Long turn
-            return getVmax(angle)*1.7 
+            return getVmax(angle)*2 
         else
             return getVmax(angle)*1.5
         end
     elseif segType == "Medium_Right" or segType == "Medium_Left" then
-        if segLen >= 12 then -- Long turn
-            return getVmax(angle*1.1)*1.25
+        if segLen >= 15 then -- Long turn
+            return getVmax(angle*1.4)*0.90
         else
-            return getVmax(angle*1.3)*0.95
+            return getVmax(angle*1.4)*0.88
         end
     elseif segType == "Slow_Right" or segType == "Slow_Left" then
-        if segLen >= 15 then -- Long turn
-            return getVmax(angle*1.2)*1.1 
+        if segLen >= 25 then -- Long turn
+            --print("slowVMax Return1",getVmax(angle*1.5)*0.80 )
+            return getVmax(angle*1.5)*0.90 
         else
-            return getVmax(angle*1.6)*0.85
+            --print("slowVMax Return2",getVmax(angle*1.7)*0.75 )
+            return getVmax(angle*1.5)*0.85
         end
     end
     return getVmax(angle)
@@ -532,13 +536,17 @@ function getBrakingDistance(speed,mass,brakePower,targetSpeed) -- Get distance n
     -- Ignoring the effects of negative acceleration, calculate distance
     --print("ticks",ticksToTarget)
     --return speed * ticksToTarget-- D = S*T -- Old dist formula
-    local BPADJ = brakePower
-    if speed > 5 then -- make longer brake dist?
-        local massAdj = mass-5000 -- Default weight will be 5000 TODO: Set Global --ratioConversion(4300,1500,brakePower,0.01,mass)
-        BPADJ = brakePower - massAdj/1000
-        if BPADJ <= 0 then BPADJ = 0.05 end-- minimum brakePower end
-        if BPADJ >= brakePower then BPADJ = brakePower end -- maximum brakePower (TODO: COnver Global brakePower to mass based and not engine based)
+    local BPADJ = brakePower -0.2
+    --local BPADJ = brakePower - 0.2
+    if mass > 10000 then -- make longer brake dist?
+        BPADJ = 0.03
     end
+    --    local massAdj = mass-5000 -- Default weight will be 5000 TODO: Set Global --ratioConversion(4300,1500,brakePower,0.01,mass)
+    --    BPADJ = brakePower - massAdj/1000
+    if BPADJ <= 0 then BPADJ = 0.02 end-- minimum brakePower end
+    if BPADJ >= brakePower then BPADJ = brakePower end -- maximum brakePower (TODO: COnver Global brakePower to mass based and not engine based)
+    --end
+
     local top = targetSpeed^2 - speed^2
     local bottom = 2*(BPADJ*DECELERATION_RATE)
     local distance = top/bottom
@@ -869,6 +877,27 @@ function squareIntersect(location,square) -- determines if location is within bo
 end
 
 
+function lineIntersect(line1,line2) -- pulled from stack overflow
+    local ax = line1[1].x
+    local ay = line1[1].y
+    local bx = line1[2].x
+    local by = line1[2].y
+    local cx = line2[1].x
+    local cy = line2[1].y
+    local dx = line2[2].x
+    local dy = line2[2].y
+
+    local d = (ax-bx)*(cy-dy)-(ay-by)*(cx-dx)
+    if d == 0 then return end  -- they are parallel
+    local a, b = ax*by-ay*bx, cx*dy-cy*dx
+    local x = (a*(cx-dx) - b*(ax-bx))/d
+    local y = (a*(cy-dy) - b*(ay-by))/d
+    if x <= math.max(ax, bx) and x >= math.min(ax, bx) and
+        x <= math.max(cx, dx) and x >= math.min(cx, dx) then
+        -- between start and end of both lines
+        return sm.vec3.new(x, y,0)
+    end
+end
 
 -- format{ front, left, right, back,location,directionF,direction}
 function generateBounds(location,dimensions,frontDir,rightDir,padding) -- Generates a 4 node box for front left right and back corners of position
@@ -914,13 +943,17 @@ function getSegment(nodeChain,first,last) -- Shoves first node and last node int
 end
 
 -- TODO: Make more efficient, use binary search to find begin of node and to find end of node (getSegBegin, getSegEnd, then getSegment)
-function findSegment(nodeChain,segID) --Returns a list of nodes that are in a segment, (could be out of order) (altered binary search??)
+function findSegment(nodeChain,totalSegments,segID) --Returns a list of nodes that are in a segment, (could be out of order) (altered binary search??)
+    if segID == nil then print("bad segid",segID) return nil end
     local segList = {}
-    local index = 1
-    local node = nodeChain[index] -- first node
+    local node = findSegmentBegin(nodeChain,totalSegments,segID) -- first node
+    local index = node.id
+    --print("node",node.id)
     local foundSegment = false
     local finding = false
-    while (node ~= nil or foundSegment == false) do
+    local timeout = 0
+    local timeoutLimit = 500
+    while (node ~= nil and timeout <= timeoutLimit) do
         if node.segID == segID then
             table.insert(segList,node)
             if not finding then
@@ -928,16 +961,49 @@ function findSegment(nodeChain,segID) --Returns a list of nodes that are in a se
             end
         else 
             if finding then
-                print("finished finding segment")
                 finding = false
-                foundSegment = true
+                timeout = 0
+                break
             end
         end
         node = getNextItem(nodeChain,index,1)
         index = index + 1
+        timeout = timeout + 1
+        if timeout >= timeoutLimit then
+            print("SegFind timeout",segID)
+            return nil
+        end
     end    
     return segList
 end
+
+
+
+function findSegmentEnd(nodeChain,totalSegments,segID) -- TODO: Make more efficient (dont need to look through all nodes, hah BINARY SEARCH DUH)
+    local segNodeIndex = searchNodeSegment(nodeChain,segID)-- Made Effficient with Binary search: 431 worst case to 72 on SC
+    for i=segNodeIndex, #nodeChain do local node = nodeChain[i]
+        if node ~= nil then
+            local nextNode =  getNextItem(nodeChain,i,1)
+            if nextNode.segID == getNextIndex(totalSegments,segID,1) then
+                return node -- returns node so we dont go into the wrong seg
+            end
+        end
+    end   
+end
+
+function findSegmentBegin(nodeChain,totalSegments,segID) -- parameratize by passing in nodeChain
+    local segNodeIndex = searchNodeSegment(nodeChain,segID)-- random index with segmentID
+    for i=segNodeIndex, 1,-1 do local node = nodeChain[i] -- iterate backwards until first node found (reversed segEnd)
+        if node ~= nil then
+            local prevNode =  getNextItem(nodeChain,i,-1)
+            if prevNode.segID ~= node.segID then
+                return node
+            else
+            end
+        end
+    end 
+end
+
 
 function getSegTurn(segType) -- quickly returns -1 - 1 of segment's turn based on the type
     if segType == "Fast_Right" then return 1 
@@ -951,6 +1017,15 @@ function getSegTurn(segType) -- quickly returns -1 - 1 of segment's turn based o
     end
     
     return 0
+end
+
+function findSegApex(segment)
+    for k=1, #segment do local node=segment[k] 
+        if node.apex >= 1 then  -- only finds initial apex (value 1), true apex is value 2 and should not be shifted
+            return node
+        end
+    end
+    --print("")
 end
 
 function getNodeAngle(node1,node2) -- gets the angle difference between node 1 in vector and node2 outvector
@@ -968,15 +1043,45 @@ function defineSegmentType(segment) -- defines a segment based off of invector a
         --print("single node segment")
     end
     
-    local firstVec = segment[1].inVector
-    local lastVec = segment[#segment].outVector
-    local angle = angleDiff(firstVec,lastVec) *2
-    local stype = getSegType(angle)
+    local angleDifTotal = 0
+    local lastAngleDif = 0
+    local lastAngle = 0
+    local angleTotal = 0
+    for k=1, #segment do local node=segment[k]
+        if k == 1 then sdif = 0 
+            lastAngle = vectorToDegrees(node.outVector)
+        else
+            local newAngle = vectorToDegrees(node.outVector)
+            local angleDif = (lastAngle -newAngle)
+            if math.abs(angleDif) > 50 then 
+                local absDif = math.abs(lastAngle) - math.abs(newAngle)
+                --print("Got sharp dif",lastAngle,newAngle,absDif)
+                if absDif < 15 then
+                    --print("False alarm",absDif,-angleDif)
+                    if getSign(lastAngle) == 1 and getSign(newAngle) == -1 then -- Went from right to left
+                        angleDif = absDif * getSign(newAngle)
+                    elseif getSign(lastAngle) == -1 and getSign(newAngle) == 1 then -- went from left to right
+                        angleDif = absDif * getSign(newAngle)
+                    else
+                        print("got false positive",lastAngle,newAngle,absDif)
+                    end
+
+                elseif absDif < 25 then
+                    print("false alarm??",absDif,angleDif)
+                end
+            end
+            angleDifTotal = angleDifTotal + angleDif
+            lastAngle = newAngle
+        end
+    end
+    local angleDifAvg = angleDifTotal/#segment
+
+    local stype = getSegType(angleDifAvg)
     if stype == nil then
-        print("Something went werong with defining segments")
+        print("Something went werong with defining segments",angleDifAvg)
     else
-        --print("got type",stype)
-        return stype,angle
+        --print("got type",stype,angleDifAvg)
+        return stype,angleDifAvg
     end
 end
 
@@ -1008,6 +1113,18 @@ end
 
 
 -- Helpers
+function fullTableMatch(table,key,value) -- checks if all objects in tables key matches value
+    print('cm',#table)
+    for i,v in ipairs(table) do
+        print('vhr',v[key])
+        if v[key] ~= value then
+            return false
+        end
+    end
+    return true
+end
+
+
 function getPosOffset(location,vector,step)
     --print("old location",location,vector,vector*step)
     local newLocation = location  + (vector*step) -- -location?
@@ -1099,6 +1216,23 @@ function getMidpoint(locA,locB) -- Returns vec3 contianing the midpoint of two v
 	return midpoint
 end
 
+function getCurveOrigin(locA,locB,apexLoc) -- gets x/y combo that is on the "inside" of a curve based on greater distance fom apex
+    local testPos1 = sm.vec3.new(locA.x,locB.y,locA.z)
+    local testPos2 = sm.vec3.new(locB.x,locA.y,locA.z)
+    -- Fix for 3d, Find the 2D origin and then find the lowest Z point, most turns shouldnt be inverted
+    -- checks which is furthest from apex
+    if getDistance(testPos1,apexLoc) < getDistance(testPos2,apexLoc) then
+        return testPos2
+    elseif getDistance(testPos1,apexLoc) > getDistance(testPos2,apexLoc) then
+        return testPos1
+    else -- WHAT? means that its a straight line equally lengthed from apex...
+        print("THis should never happen but curve origin to apex dist is somehow equal on both sides")
+    end
+end
+
+
+
+
 function findFurthestShape(shapeList,direction) -- Finds the furthest shape in the direction out of a list of shapes from a body (make sure body is on lift)
     if #shapeList <= 1 then return shapeList[1] end -- may break but shouldnt be able to be called if no shapes exist in a body
     local furthest = nil
@@ -1172,6 +1306,14 @@ function calculateNewForceAngles(v) -- updates forces on a node
     v.inVector = getNormalVectorFromPoints(v.last.pos,v.pos)
     v.force = angleDiff(v.inVector,v.outVector)
     v.perpVector = generatePerpVector(v.outVector)
+    return v
+end
+
+
+function calculateNewForceAngles2(v) -- updates forces on a node without updating perp vector
+    v.outVector = getNormalVectorFromPoints(v.pos,v.next.pos)
+    v.inVector = getNormalVectorFromPoints(v.last.pos,v.pos)
+    v.force = angleDiff(v.inVector,v.outVector)
     return v
 end
 
@@ -1385,7 +1527,6 @@ end
 
 
 function getVmax(angle,maxSteer,minSteer,maxVel,minVel)
-    --print(maxSteer,DEFAULT_MAX_STEER)
     local k = 1/((maxSteer or DEFAULT_MAX_STEER) -(minSteer or DEFAULT_MINOR_STEER))* math.log((maxVel or DEFAULT_MAX_STEER_VEL)/(minVel or DEFAULT_MINOR_STEER_VEL) )
     local A0 = (minVel or DEFAULT_MINOR_STEER_VEL)* math.exp(-k*(minSteer or DEFAULT_MINOR_STEER))
     return A0 * math.exp(k*angle)

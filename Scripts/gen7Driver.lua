@@ -311,7 +311,7 @@ function Driver.server_init( self )
     self.overSteerTolerance = -1.9 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
     self.underSteerTolerance = -0.4 -- Smaller (more negative [fractional]) the more tolerance to understeer-- USED TO BE:THe bigger (positive) more tolerance to understeer (will not slow down as early, DEFAULT -0.3)
     self.passAggression = -2 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
-    self.skillLevel =7 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
+    self.skillLevel = 5 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
     
     -- testing states
     self.maxSpeed = nil
@@ -2687,6 +2687,7 @@ function Driver.getAccel(self) -- GEts acceleration flag
     end
     local vMax = calculateMaximumVelocity(self.goalNode,segEnd,segLen)
     vMax = self:refineBrakeSpeed(vMax,segBegin,segEnd)
+
     --self:debugOutput(1,{"accelMax:",vMax})
     if self.speedControl > 0 then
         vMax = self.speedControl
@@ -2766,16 +2767,14 @@ function Driver.refineBrakeSpeed(self,vMax,segBeginNode,segEndNode) -- refines v
 
     local dfAdj = downforce/250 -- Also include current speed/engine color/speed
     vMax = vMax + dfAdj
-    --print("Adj:",downforce,dfAdj,vMax)
     -- Track width & position based adjustments
     local tWidth = (segEndNode.width or 10)
     if segEndNode == nil then return vMax end
     vMax = vMax + tWidth/7 -- higher value is more punishment for thinner tracks
-    
-    vMax = vMax - math.abs(self.trackPosition)/1.4  --- TODO: figure out racing line closeness/ trackPos  Adjust max velocity based on closeness to center of track
-    if self.passing.isPassing then vMax = vMax +0.8 end -- go a bit slower while passing?
+    vMax = vMax - math.abs(self.trackPosition)/1.7  --- TODO: figure out racing line closeness/ trackPos  Adjust max velocity based on closeness to center of track
+    if self.passing.isPassing then vMax = vMax +0.6 end -- go a bit slower while passing?
     if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~= 0 then -- slow down when there is car alongside 
-        vMax = vMax - 2
+        vMax = vMax - 1
     else
         vMax = vMax + .8 -- speeds up if clear air
     end
@@ -2789,7 +2788,7 @@ function Driver.refineBrakeSpeed(self,vMax,segBeginNode,segEndNode) -- refines v
 
     if self.offline then
         --print('vmax slow')
-        vMax = vMax - 3   
+        vMax = vMax - 6   
     end
 
     -- Potential collision based slowing
@@ -2800,8 +2799,8 @@ function Driver.refineBrakeSpeed(self,vMax,segBeginNode,segEndNode) -- refines v
     local distLeft = radar.left
 
 
-    local slowDownThreshold = 4
-    local slowDownMultiplier = 0.4
+    local slowDownThreshold = 3.5
+    local slowDownMultiplier = 0.9
     
     if radar and distFront and (distRight and distLeft) then 
         if distFront <= slowDownThreshold then -- potential car ahead
@@ -2818,20 +2817,21 @@ function Driver.refineBrakeSpeed(self,vMax,segBeginNode,segEndNode) -- refines v
         end
     end
  
-    
     -- early angle finishing speeding up
-    local goalAngle =  angleDiff(self.shape.at,segEndNode.outVector)
+    --local goalAngle =  angleDiff(self.shape.at,segEndNode.outVector) -- depreciating TODO: remove
+    local goalAngle2 = vectorAngleDiff(self.shape.at,segEndNode.outVector)
+    --print("goalAngle2",goalAngle2,self.skillLevel/10)
     --print(vMax*(self.skillLevel/5)) --) check which one works best
-    if math.abs(goalAngle) < self.skillLevel/10 then --TODO: make threshold more variable depending on skill ( max skill level = 10)
-        vMax = vMax + (vMax*(self.skillLevel/6)) -- ?variable depending on skill
-        --print(self.tagText,"turn boost",goalAngle,vMax/10,vMax)
+    if math.abs(goalAngle2) < self.skillLevel/20 then --TODO: make threshold more variable depending on skill ( max skill level = 10)
+        vMax = vMax + (5*(self.skillLevel/10) - math.abs(goalAngle2)) -- ?variable depending on skill
+        --print(self.tagText,"turn boost",math.abs(goalAngle2),segEndNode.outVector,self.shape.at)
     end
 
     -- Skill level speed boost?
     vMax = vMax + (self.skillLevel/6) -- crude...
     --print("returning",vMax)
     --self:debugOutput(1,{"returning",vMax})
-    if vMax <= 0 then vMax = 2 end -- Fail safe
+    if vMax <= 0 then vMax = 3 end -- Fail safe
     return vMax
 end
    
@@ -2844,12 +2844,11 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
 
     local segID = self.currentSegment
     
-    --self:debugOutput(1,{"Seg:",segID,self.currentNode.segType,self.currentNode.segCurve})
     if self.currentNode == nil or self.currentSegment == nil then
         return 0.2 -- slightly slow down
     end
-    local lookAheadConst = 5 -- play around until perfect, possibly make dynamic for downforce/other factors?
-    local lookAheadHeur = 1.5 -- same Can reduce this to reduce calculations
+    local lookAheadConst = 10 -- play around until perfect, possibly make dynamic for downforce/other factors?
+    local lookAheadHeur = 4 -- same Can reduce this to reduce calculations
     local maxLookaheadDist = lookAheadConst + (self.speed)*lookAheadHeur
     local segBegin = self:getSegmentBegin(segID)
     local segEnd = self:getSegmentEnd(segID)
@@ -2874,13 +2873,14 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
     
     vMax = self:refineBrakeSpeed(vMax,segBegin,segEnd)
     --self:debugOutput(25,{"Brake1:",vMax,self.speed})
+    --print("max2",vMax,self.speed)
 
     --print("\nBrakeChecka",vMax)
     local brakeDist = getBrakingDistance(self.speed,self.mass,self.engine.engineStats.MAX_BRAKE,vMax)
-    --self:debugOutput(25,{"shouldBrake?", self.speed,vMax,brakeDist})
+    --self:debugOutput(1,{"shouldBrake?",vMax, self.speed,brakeDist})
     if self.speed > vMax then
         --print(self.tagText,"Overspeed Brake",vMax)
-        --self:debugOutput(25,{"Overspeed Braking", self.speed,vMax})
+        self:debugOutput(1,{"Overspeed Braking",segBegin.segID,vMax,self.speed})
         return 1 -- make easy braking function // based off of distance from node (ajustable by skill/state), not hard braking
     else -- Looking ahead if not currently in slow zone
         segID = getNextIndex(self.totalSegments,segID,1)
@@ -2916,18 +2916,22 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
             --print("Looking at",segID,segBegin.id,segEnd.id)
             local segLen = self:getSegmentLength(segBegin.segID)
             local maxSpeed = calculateMaximumVelocity(segBegin,segEnd,segLen)
+            --self:debugOutput(1,{"PreDefine:",segBegin.segID,turnType,maxSpeed})
             maxSpeed = self:refineBrakeSpeed(maxSpeed,segBegin,segEnd)
-            --self:debugOutput(25,{"look:",self.currentSegment,segBegin.segID,self.speed,maxSpeed})
+            local turnType = getSegTurn(segBegin.segType) -- Return -3 - 3 for turn 
+            --self:debugOutput(1,{"looking:",segBegin.segID,turnType,maxSpeed})
             if self.speed > maxSpeed then
                 brakeDist =  getBrakingDistance(self.speed,self.mass,self.engine.engineStats.MAX_BRAKE,maxSpeed)
-                --local segBegin = self:getSegmentBegin(segID) -- if not nil
                 if segBegin == nil then
+                    print("nilsSegbegin")
                     return 0.1 -- untilSomethinghppens we can figure it out
                 end
-                local distToTurn = getDistance(self.location,segBegin.mid)
+                local distToTurn = getDistance(self.location,segBegin.mid) - 5 -- ad a little more padding
+                --self:debugOutput(1,{"willBrake:",segBegin.segID,turnType,self.speed,maxSpeed,distToTurn,brakeDist})
                 --print("Dist Grater:",self.speed,maxSpeed,brakeDist,distToTurn)
                 --self:debugOutput(25,{"Dist:",brakeDist,distToTurn,self.speed,maxSpeed})
                 if brakeDist > distToTurn then
+                    self:debugOutput(1,{"braking:",segBegin.segID,turnType,self.speed,maxSpeed})
                     return 1 -- Skill based param too
                 else
                     -- taper into brake?
@@ -3464,7 +3468,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                         end
                         -- TODO: Wrap this up into a beginPass(opponent.id,passDirection)
                         
-                        --print(self.tagText,"starting pass")
+                        print(self.tagText,"starting pass",opponent.tagText,collisionDist,vhDist)
                         
                         self.passing.isPassing = true
                         self.passing.carID = opponent.id
@@ -3681,7 +3685,7 @@ function Driver.generateOpponent(self,opponent,oppDict)
     else 
         oppWidth = (opponent.leftColDist + opponent.rightColDist) or selfWidth -- in case oppwidth is broken
     end
-    if vhDist['vertical'] < 100 and vhDist['vertical'] > -25 then -- TODO: Look at efficient params for determining if in range
+    if vhDist['vertical'] < 70 and vhDist['vertical'] > -15 then -- TODO: Look at efficient params for determining if in range
         if oppDict[opponent.id] == nil then
             --print(self.tagText,"gen new opp in",opponent.tagText)
             oppDict[opponent.id] ={data = opponent, inRange = true,  vhDist = {}, oppWidth = oppWidth, flags = {frontWatch = false,frontWarning = false, frontEmergency = false,
@@ -4736,6 +4740,7 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
                 local segEnd = self:getSegmentEnd(segID)
                 local segLen = self:getSegmentLength(segBegin.segID)
                 local maxSpeed = calculateMaximumVelocity(segBegin,segEnd,segLen) 
+                
                 maxSpeed = self:refineBrakeSpeed(maxSpeed,segBegin,segEnd)
 
                 --print(self.tagText,"gear > 0",self.strategicThrottle,toVelocity(self.engine.curRPM))
@@ -5828,7 +5833,6 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
             -- todo: Investigate if DF is only pushing down on car and not at the proper bank angle
         end 
     end
-
     -- Downforce Detection
     if self.downforceDetect then
 

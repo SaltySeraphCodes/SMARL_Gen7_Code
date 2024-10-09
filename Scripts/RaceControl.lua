@@ -275,7 +275,7 @@ function Control.server_init(self)
 
     self.dataOutputTimer = Timer() -- MS TICKs so 1 = 1/40
     self.dataOutputTimer:start(1)
-    self.outputRealTime = false  -- USE TO OUTPUT DATA TO SERVERS
+    self.outputRealTime = true  -- USE TO OUTPUT DATA TO SERVERS
     
     -- Camera automation
     self.autoCameraFocus = false
@@ -304,7 +304,7 @@ function Control.server_init(self)
 
     -- just cam things
     self.smarCamLoaded = false
-    self.externalControlsEnabled = false -- TODO: set false for releases
+    self.externalControlsEnabled = true -- TODO: set false for releases
     self.viewIngCamera = false -- whether camera is being viewed
     
 

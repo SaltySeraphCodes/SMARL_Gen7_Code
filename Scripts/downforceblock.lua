@@ -11,8 +11,8 @@ DownforceBlock.maxChildCount = -1
 DownforceBlock.maxParentCount = -1
 DownforceBlock.connectionInput = sm.interactable.connectionType.power + sm.interactable.connectionType.logic
 DownforceBlock.connectionOutput =sm.interactable.connectionType.logic
-DownforceBlock.colorNormal = sm.color.new( 0x7c0000ff )
-DownforceBlock.colorHighlight = sm.color.new( 0x7c000fff )
+DownforceBlock.colorNormal = sm.color.new( 0xbbbbffff )
+DownforceBlock.colorHighlight = sm.color.new( 0xbfbfffff )
 DownforceBlock.poseWeightCount = 2
 
 function DownforceBlock.server_onCreate(self)

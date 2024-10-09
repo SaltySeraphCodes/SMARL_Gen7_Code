@@ -5,6 +5,7 @@
 -- TODO: Make Scanner more sensitive to corners/straights
 -- TODO: Change names to Track Scanner and Scanner class
 dofile "Timer.lua" 
+dofile "SplineUtil.lua"
 local nodePrev = {loc= sm.vec3.new(0,1,1), id = 1, pevious = nil, next = node, totalForce = 0, energy = 0}
 local nodeNext = {loc= sm.vec3.new(0,1,1), id = 1, pevious = node, next = nil, totalForce = 0, energy = 0}
 
@@ -88,19 +89,32 @@ function Generator.client_init( self )  -- Only do if server side???
 
     self.lastDif = 0
     self.smoothEqualCount = 0
-    self.smoothAmmount = 10 -- how many smoothing iterations to do in preprocess
+    self.smoothAmmount = 25 -- how many smoothing iterations to do in preprocess
     self.saveTrack = true
 
     self.segSearch = 0
     self.segSearchTimeout = 100
+
+    -- Optimization phase control
+    self.phase1Running = true
+    self.phase2Done = false
+    self.phase2Running = false
+    self.phase2Done = false
+    self.phase3Running = false
+    self.phase3Done = false
+
+    self.optImportants = {} -- Only important nodes like first, apex, and last
+    self.optiSpline = {} -- formatted for spline util.lua
+    self.nodeSpline = {} -- Full Formatted spline
+    self.p3ScanIndex = 1 -- which node index phase3 scan is on
     -- USER CONTROLABLE VARS:
     self.wallThreshold = 0.40
     self.wallPadding = WALL_PADDING -- = 5 US
-    self.debug =false  -- Debug flag -- REMEMBER TO TURN THIS OFF
+    self.debug =true  -- Debug flag -- REMEMBER TO TURN THIS OFF
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
-    self.optimizeStrength = 3
-    self.racifyLineOpt = true -- Makes racing line more "racelike"
+    self.optimizeStrength = 0
+    self.racifyLineOpt = false -- Makes racing line more "racelike"
     self.asyncTimeout = 0 -- Scan speed [0 fast, 1 = 1per sec]   
     self.asyncTimeout2 = 0 -- optimization speed
     -- error states
@@ -272,6 +286,11 @@ function Generator.updateVisualization(self) -- moves/updates effects according 
                         local color = sm.color.new(v.segType.COLOR)
                         v.effect:setParameter( "Color", color )
                     end
+                    -- prioritize apex views
+                    if v.apex ~= 0 then 
+                        local color = sm.color.new(0xffffffff)
+                        v.effect:setParameter( "Color", color )
+                    end
                 end
 
                 if self.visualizing then
@@ -347,7 +366,7 @@ function Generator.generateMidNode(self,index,previousNode,location,inVector,dis
     end
     return {id = index, pos = location, outVector = nil, last = previousNode, inVector = inVector, force = nil, distance = distance, 
             perpVector = generatePerpVector(inVector), midPos = location, pitPos = nil, width = width, next = nil, effect = nil, 
-            segType = nil, segID = nil, pinned = false, weight = 1, incline = 0,
+            segType = nil, segID = nil, pinned = false, weight = 1, incline = 0, apex = 0,
             leftWall = leftWall,rightWall = rightWall,leftWallTop = leftWallTop, rightWallTop = rightWallTop ,bank = bank} -- move effect?
 end
 
@@ -1008,151 +1027,131 @@ function Generator.getWallMidpoint2(self,location,direction,cycle) -- new Method
     return midPoint, width,leftWall,rightWall,bankAngle
 end
 
-function Generator.analyzeSegment(self,initNode,flag) -- Legacy; DEPRECIATING
-    if initNode == nil then print("Error No init node") return end
-    local index = initNode.id
-    local turnThreshold = 0.1 -- how much track curves before considering it a turn [0.1]
-    local straightThreshold = 0.04 -- how straight track needs to be before considered straight [0.02]4?
-    for k = index, #self.nodeChain do local node = self.nodeChain[k]
-        if node.next.id == self.nodeChain[1].id then
-            return node,flag, true
-        end
-        if flag == 0 or flag == nil then -- on straight most likely
-            local angle = getNodeAngle(initNode,node)
-            print(node.id,"node angle",angle,turnThreshold)
-            if angle > turnThreshold then -- Turning right
-                print(node.id,"right")
-                return node,1,false 
-            elseif angle < -turnThreshold then -- Turning left
-                print(node.id,"left ")
-                return node,-1,false 
-            else -- continueing straight
-                print(node.id,"straight")
-            end
-        elseif flag == 1 then
-            --print("1 turn node",node.id,node.force,straightThreshold)
-            if node.force < straightThreshold then -- if node is straight or turning left?
-                if node.next.force < straightThreshold then -- node is confirmed staight or turning left
-                    return node,0,false -- possibly return -1 if the force is <0
-                else
-                    --print("Tricky node moved turning right")
-                end
-            end
-        elseif flag == -1 then
-            --print("-1 turn node",node.id,node.force,-straightThreshold,node.force < -straightThreshold)
-            if node.force < -straightThreshold then -- if node is straight or turning right
-                if node.next.force > -straightThreshold then -- confirmed straight or turning right
-                    return node,0,false -- possibly return 1 if forces are both >0 or smaller turn thresh?\
-                else
-                    --print("Tricky node moved on turning left")
-                end
-            end
-        end
-    end
-end
 
-function Generator.backTraceSegment(self,initNode,startNode) -- goes backwards and finds beginning of turn + 3 nodes
+function Generator.backTraceSegment(self,initNode,startNode,straightThreshold,straightCutoff) -- goes backwards and finds beginning of turn + 3 nodes
     if initNode == nil then print("Error No init node") return end
     if initNode.id == startNode.id then 
         print("same init and start, single node trace: returning stright",initNode.id,startNode.id)
         return initNode
     end
     local index = startNode.id - 1
-    local lastAngle = nil
+    local initAngle = vectorToDegrees(initNode.outVector)
+    local lastAngle = 0
+    local lastAngleDif = 0
     local numStraight = 0
-    local straightThreshold = 0.3 -- angle difference before not considered straight line
-    local straightCutoff = 4 -- how many straight nodes found before cutting of segment
-    --local turnDir = 0
-    --local turnThreshold = 2 -- how steep curve must be before apex is triggered
-    --print("backtracing:",index,initNode.id,startNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+    --local straightThreshold = straightThreshold or 1 -- angle difference before not considered straight line
+    --local straightCutoff = straightCutoff or 3 -- how many straight nodes found before cutting of segment
+    
     for k = index, initNode.id ,-1 do local node = self.nodeChain[k] -- used to back trace until 1, Changed to backtrace to startnode
-        if node.id == self.nodeChain[1].id or node.id == initNode.id then
-            --print("found beginning",node.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+        if node.id == self.nodeChain[1].id or node.id == initNode.id then -- Beginning of segment found
             return node
         end
-        
         -- determine if node is the last node of last segment then quit
-        local angle = getNodeAngle(initNode,node)
-        --print(node.id,"b:",angle, math.abs(angle - (lastAngle or 0)),self.nodeChain[1].id,self.nodeChain[1].segID)
+        --local angle = getNodeAngle(initNode,node)
+        local curAngle = vectorToDegrees(node.outVector)
+        local initAngleDif = math.abs(initAngle - curAngle)
+        local curAngleDif =  math.abs(curAngle - lastAngle)
 
-        if lastAngle == nil or math.abs(angle - lastAngle) < straightThreshold then
-            --print("found straight",node.id,self.nodeChain[1].id,self.nodeChain[1].segID)
-            numStraight = numStraight + 1
-        else
-            --print("found curve",node.id,self.nodeChain[1].id,self.nodeChain[1].segID) -- maybe keep track of turn angle
-            lastAngle = angle
-            numStraight = 0
-            -- will need to account for quick reversals, set threshold? and if it crosses then end that turn too
+        if curAngleDif < straightThreshold then -- lastAngleDif == nil checked before
+            numStraight = numStraight + 1 -- straight found?
+            lastAngle = curAngle
+            lastAngleDif = curAngleDif
+        else -- continue to watch curve
+            lastAngleDif = curAngleDif
+            numStraight = 0 -- reset counter
+            lastAngle = curAngle
+            lastAngleDif = curAngleDif
         end
 
-        if numStraight >= straightCutoff then
-            --print("end of curve",node.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+        if numStraight >= straightCutoff then -- enough to end curve
             numStraight = 0
             return node
-            -- Begin for loop that searches backwards?
         end
     end
 
 end
 
---segment analyzer attempt # 5 
-function Generator.analyzeSegment5(self,initNode) -- Attempt # 5
+--segment analyzer attempt # 6 
+function Generator.analyzeSegment(self,initNode) -- Attempt # 5
     if initNode == nil then print("Error No init node") return end
     local index = initNode.id
+    local initAngle = vectorToDegrees(initNode.outVector)
     local apexNode = nil
     local apexAngle = 0
     local lastAngle = 0
+    local lastAngleDif = 0
     local numStraight = 0
-    local straightThreshold = 0.3 -- angle difference before not considered straight line
-    local straightCutoff = 3 -- how many straight nodes found before cutting of segment
+    local straightThreshold = 1.5 -- angle difference between last and current node to be considered straight
+    local straightCutoff = 4 -- how many straight nodes found before cutting off curve
     local turnDir = 0
-    local turnThreshold = 2 -- how steep curve must be before apex is triggered
+    local turnThreshold = 5-- how many degrees difference from initial node to determine a turn
+    local turnCount = 0
+    local turnCountThresh = 2 -- How many valid turning nodes before triggering apex node
     --print("startigna init",index,self.nodeChain[1].id,self.nodeChain[1].segID)
     for k = index, #self.nodeChain do local node = self.nodeChain[k] -- maybe not do whole chain?
         if node.next.id == self.nodeChain[1].id then
-            startNode = self:backTraceSegment(initNode,node) -- TODO: figure this out
+            startNode = self:backTraceSegment(initNode,node,straightThreshold,straightCutoff) -- backtraces to start
             --print("first backtraced",startNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
             return startNode,node, true
         end
         
         local angle = getNodeAngle(initNode,node) -- double check this
-        --print(node.id,"f:",angle,lastAngle,angle - lastAngle,self.nodeChain[1].id,self.nodeChain[1].segID)
-
-        if apexNode ~= nil then -- continue down curve until straight path found or reversal of turn
-            if math.abs(angle - lastAngle) < straightThreshold then
-                --print("continue straight",math.abs(angle - lastAngle),self.nodeChain[1].id,self.nodeChain[1].segID)
+        --local angle = vectorAngleDiff(initNode.outVector,node.outVector)
+        local curAngle = vectorToDegrees(node.outVector)
+        local initAngleDif = math.abs(curAngle - initAngle) -- smooths out going from 180 to - 180
+        local curAngleDif =  math.abs(curAngle - lastAngle) -- difference from last angle node
+        if math.abs(curAngleDif) > 50 then -- check for sharp angle meaning it jumped from - to +
+            local absDif = math.abs(lastAngle) - math.abs(curAngle)
+            --print("Got sharp dif2",lastAngle,curAngle,absDif)
+            if absDif < 5 then
+                curAngleDif = absDif * getSign(curAngleDif)
+            end
+        end
+        if node.id > 350 then 
+            --print(node.id,"angleDif",initAngleDif,curAngleDif,curAngle-initAngle,curAngle,initAngle)
+        end
+        if apexNode ~= nil then -- if curve has been discovered , continue down curve until straight path found or reversal of turn
+            if curAngleDif < straightThreshold then
                 numStraight = numStraight + 1
+                lastAngle = curAngle
+                lastAngleDif = curAngleDif
             else
-                --print("curve continue",math.abs(angle - lastAngle),self.nodeChain[1].id,self.nodeChain[1].segID)
-                lastAngle = angle
-                numStraight = 0
-                -- will need to account for quick reversals, set threshold? and if it crosses then end that turn too
+                lastAngleDif = curAngleDif
+                lastAngle = curAngle
+                numStraight = 0 -- reset counter
             end
 
-            -- reversal angle = 
-            if numStraight >= straightCutoff then
-                --print("curve ends",node.id,"backtracing...",initNode.id,apexNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
-                startNode = self:backTraceSegment(initNode,apexNode)
+            if numStraight >= straightCutoff then -- If cutoff number of "straight nodes found"
+                startNode = self:backTraceSegment(initNode,apexNode,straightThreshold,straightCutoff) -- Go back from the discovered turn node to the begining of the straight
+                
                 numStraight = 0
-                --print("returning:",startNode.id,node.id,self.nodeChain[1].id,self.nodeChain[1].segID)
-                return startNode,node,false -- just stop it for now, return start and end nodes eventually
-                -- Begin for loop that searches backwards?
+                return startNode,node,false
             end
-        else
-            if angle > turnThreshold then
-                --print("right Turn apex",angle,node.id,self.nodeChain[1].id,self.nodeChain[1].segID)
-                apexNode = node
-                lastAngle = angle
-                apexAngle = angle
-            end
-            if angle < -turnThreshold then
-                --print("left Turn apex",angle,node.id,self.nodeChain[1].id,self.nodeChain[1].segID)
-                apexNode = node
-                lastAngle = angle
-                apexAngle = angle
+        else -- No Curve discovered, check if any of the angles are greater than the turn discovery, possibly count how many are above thresh?
+            if initAngleDif > turnThreshold then -- angle > turnThreshold
+                if turnCount < turnCountThresh then
+                    turnCount = turnCount + 1
+                    lastAngle = curAngle
+                    lastAngleDif = curAngleDif
+                else
+                    apexNode = node -- Not technicaly apex node but this is the discovered turning node
+                    lastAngleDif = curAngleDif -- angle
+                    apexAngle = angle
+                    lastAngle = curAngle
+                    -- increment TurnDiscovery Counter if desired
+                end
+            else
+                lastAngle = curAngle
             end
         end
     end
+end
+
+
+function Generator.setSegmentApex(self,segment) -- Sets
+        local midIndex = round(#segment / 2)
+        local nodeID = segment[midIndex]
+        self.nodeChain[nodeID.id].apex = 1
 end
 
 function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: run a filterpass over segments and combine all like/adjacent segments into one segID
@@ -1161,18 +1160,19 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
     local done = false
     local finished = false
     local flag = nil
-    local startNode, endNode, finished = self:analyzeSegment5(firstNode) -- returns segment start and end
+    -- Set midpoint as apex, but once a node gets closest to wall, that can be re-set as new apex
+    local startNode, endNode, finished = self:analyzeSegment(firstNode) -- returns segment start and end
     --print(firstNode.id)
-    --print("First scan got", startNode.id,endNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+    --print("First scan got", startNode.id,endNode.id)
     local lastNode
     local firstSegment = getSegment(self.nodeChain,firstNode,startNode) -- create segment
     --print("betweenSeg?",#firstSegment,firstNode.id,startNode.id)
     if #firstSegment > 1 then -- if curve has straight seg before
-        local type,angle = defineSegmentType(firstSegment)
+        local sType,angle = defineSegmentType(firstSegment)
         --print(segID,"Setting Between segment (start)",firstNode.id,startNode.id,type.TYPE,angle)
-        local output = segID.." setting between seg at start, " .. firstNode.id .. " - " .. startNode.id .. " : " .. type.TYPE
+        local output = segID.." setting between seg at start, " .. firstNode.id .. " - " .. startNode.id .. " : " .. sType.TYPE
         --sm.log.info(output)
-        setSegmentType(firstSegment,type,angle,segID)
+        setSegmentType(firstSegment,sType,angle,segID)
         segID = segID + 1
         --lastNode = startNode
         --startNode
@@ -1180,23 +1180,24 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         --sm.log.info("no between seg at start")
     end
     local segment = getSegment(self.nodeChain,startNode,endNode)
-    local type,angle = defineSegmentType(segment)
+    local sType,angle = defineSegmentType(segment)
+    self:setSegmentApex(segment)
     --print(segID,"setting first segment",startNode.id,endNode.id,type.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
-    local output = segID.." setting first segment " .. startNode.id .. " - " .. endNode.id .. " : " .. type.TYPE
+    --local output = segID.." setting first segment " .. startNode.id .. " - " .. endNode.id .. " : " .. type.TYPE
     --sm.log.info(output)
-    setSegmentType(segment,type,angle,segID)
+    setSegmentType(segment,sType,angle,segID)
     segID = segID + 1
     lastNode = endNode
      -- store whatever the last node was to find between segments
     
     local scanTimeout = #self.nodeChain + 1
     local timeoutCounter = 0
-    while not done do
+    while not done do -- Why are we doing this?
         --print("StartLoop",startNode.id,endNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
         startNode = endNode.next
         lastNode = startNode -- store last segment end
-        startNode,endNode,finished = self:analyzeSegment5(startNode)
-        --print("post anal:",startNode.id,endNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+        startNode,endNode,finished = self:analyzeSegment(startNode)
+        --print("post Segment:",startNode.id,endNode.id,segID)
 
         -- check for segment between
         --print("finding segments",lastNode.id,startNode.id,endNode.id)
@@ -1204,12 +1205,12 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         --print("betweenseg?",lastNode.id,startNode.id, #betweenSeg, self.nodeChain[1].id,self.nodeChain[1].segID)
         if #betweenSeg > 1 then -- If there is no segment between last turn and next turn
             --print("set between seg")
-            local type,angle = defineSegmentType(betweenSeg)
+            local sType,angle = defineSegmentType(betweenSeg)
             --print(segID,"setting between segment",lastNode.id,startNode.id,type.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
-            local output = segID.." setting between segment " .. lastNode.id .. " - " .. startNode.id .. " : " .. type.TYPE
+            local output = segID.." setting between segment " .. lastNode.id .. " - " .. startNode.id .. " : " .. sType.TYPE
             --sm.log.info(output)
             --print("setting segment type between",lastNode.id,startNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
-            setSegmentType(betweenSeg,type,angle,segID)
+            setSegmentType(betweenSeg,sType,angle,segID)
             --print("post set segment between",self.nodeChain[1].id,self.nodeChain[1].segID)
             segID = segID + 1
         else -- set a segment between them first
@@ -1218,11 +1219,14 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         -- Acutally set turn segment
         --print("getting segment",startNode.id,endNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
         local segment = getSegment(self.nodeChain,startNode,endNode)
-        local type,angle = defineSegmentType(segment)
-        --print(segID,"setting segment type",startNode.id,endNode.id,type.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
-        local output = segID.." setting next segment " .. startNode.id .. " - " .. endNode.id .. " : " .. type.TYPE
+        self:setSegmentApex(segment)
+        local sType,angle = defineSegmentType(segment)
+        --print(segID,"setting segment type",startNode.id,endNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
+        local output = segID.." setting next segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
         --sm.log.info(output)
-        setSegmentType(segment,type,angle,segID)
+        setSegmentType(segment,sType,angle,segID)
+
+        
 
         if finished then -- TODO: Figure if this will still work
             -- Check between then set final segment?
@@ -1322,6 +1326,29 @@ function Generator.removeNode(self,nodeID) -- removes node
     -- re segID
 end
 
+
+
+function Generator.insertNode(self,nodeID,node) -- Inserts node after given ID
+    for k, v in pairs(self.nodeChain) do
+		if v.id == nodeID then
+            v.next = node
+            node.last = v
+            node.next = v.next
+			table.insert( self.nodeChain, k, node )
+		end
+    end
+    -- re index and re-distance
+    local totalDistance = 0
+    for k, v in pairs(self.nodeChain) do
+		if k > 1 then 
+            totalDistance = totalDistance + getDistance(v.mid,v.last.mid)
+        end
+        v.distance = (v.last.distance + getDistance(v.mid,v.last.mid) or totalDistance)
+        v.id = k
+    end
+    -- re segID
+end
+
 function Generator.getNodeVH(self,node1,node2,searchVector) -- returns horizontal and vertical distances from node1 to node2 
     -- only works on one side of pi?
     --print("getNodeP",node1.id,node1.location,"pepV",node1.perpVector,"sear",searchVector)
@@ -1341,13 +1368,22 @@ end
 
 
 -- New ALgo?1
+function Generator.racifyLine3(self)
+    local straightThreshold = 15 -- Minimum length of nodes a straight has to be
+    local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
+    local shiftAmmount = 0.05  -- Maximum node pin shiftiging amound (>2)
+    local lockWeight = 10
+    local lastSegID = 0 -- start with segId
+    local lastSegType = nil
+end
+
 
 -- Working algorithm that is much better at pinning apex/turn efficient points
 function Generator.racifyLine(self)
-    local straightThreshold = 20 -- Minimum length of nodes a straight has to be
+    local straightThreshold = 15 -- Minimum length of nodes a straight has to be
     local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
     local shiftAmmount = 0.05  -- Maximum node pin shiftiging amound (>2)
-    local lockWeight = 3.5
+    local lockWeight = 10
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
     -- TODO: only racify when there curve is a medium or more
@@ -1400,9 +1436,366 @@ function Generator.racifyLine(self)
     print("Finished racifying line")
 end
 
+-- keeper is count
+function Generator.trimCurve(self,segment,keeper) -- Cuts off all nodes besides designated spot and edges
+    if keeper == 1 or keeper == #segment then print("this doesnt make sense",keeper) return end 
+    print("Trim curve",#segment,keeper,segment[1].id,segment[#segment].id,segment[keeper].id)
+    for i = #segment-1, (keeper+1) ,-1 do local v = segment[i]
+        v.last.next = v.next
+        v.next.last = v.last
+        --print("cutting",v.id)
+        self:removeNode(v.id)
+    end
+    for i = (keeper - 1), 2 , -1 do local v = segment[i]
+        v.last.next = v.next
+        v.next.last = v.last
+        --print("cutting",v.id,i,keeper-1)
+        self:removeNode(v.id)
+    end
+    -- or just iterate through whole segment and if v.id == first mid or last then dont cut, will need to be careful since ids do mutate
+end
+
+function Generator.trimNodes(self,segment,ammount) -- cuts off the first {ammount} or last {-ammount} of nodes in a segment
+    if ammount == 0 then return end 
+    if ammount <0 then -- Trim from end
+        for i = #segment, (#segment+1) + ammount,-1 do local v = segment[i]
+            v.last.next = v.next
+            v.next.last = v.last -- blip out
+            self:removeNode(v.id)
+        end
+    elseif ammount > 0 then
+        for i = 1, ammount do local v = segment[i]
+            v.last.next = v.next
+            v.next.last = v.last -- blip out
+            self:removeNode(v.id)
+        end
+    else
+        print("what?")
+    end
+end
+
+function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest average velocity (short path better...)
+    --if true then return end
+    local phase1Done = true -- monitors when all apex ndoes are done
+    local poiWeight = 10 --  poi = firt/last node and apex is pinned
+    for segID=1, self.totalSegments do
+        if self.phase2Running == true then break end -- don't keep looking if on phase 2
+        if self.phase1Running == false then self.phase1Running = true end -- trigger phase1
+        local segment = findSegment(self.nodeChain,self.totalSegments,segID)
+        if segment == nil then 
+            print(" no segment found") 
+            break
+        end
+        local apexNode = findSegApex(segment)
+        if apexNode == nil then 
+            --print(segID,"No apex node found") 
+        else
+            local segTurn = getSegTurn(apexNode.segType.TYPE)
+            local dir = getSign(segTurn) -- turn direction
+            if (segTurn >=2 or segTurn <=-2) and apexNode.apex == 1 then -- only do this for medium and slow turns and initial apex found
+                phase1Done = false
+                local perpV = apexNode.perpVector
+                local changeDir = perpV * getSign(segTurn)
+                for k=1, #segment do local v = segment[k] -- TODO: test if segment and node chain are same object
+                    local node = self.nodeChain[v.id]
+                    local nextNodePosition = nil -- potential position of next node after perpV shift
+                    nextNodePosition = getPosOffset(v.pos,changeDir,0.15) -- Dampen it based v.weight
+                    if nextNodePosition ~= nil then 
+                        if validChange(v,nextNodePosition,perpV,dir) then
+                            v.pos = nextNodePosition
+                        else
+                            apexNode.apex = 0
+                            v.apex = 2
+                        end
+                    end
+                end
+            elseif apexNode.apex == 2 then
+                apexNode.pinned = true
+                phase1Done = false
+                local segLen = #segment
+                local firstNode = segment[1].id
+                local lastNode = segment[segLen].id
+                local preNodes = apexNode.id - firstNode
+                local postNodes = lastNode - apexNode.id
+                local cutoffCount = preNodes - postNodes
+                local apexIndex = preNodes + 1 
+                --self:trimNodes(segment,cutoffCount) -- evens curve to equal nodes either side of apex
+                --print("trimming curve",apexIndex,segment[apexIndex].id,apexNode.id)
+                --self:trimCurve(segment,apexIndex) -- cuts nodes out of turn
+                apexNode.apex = 3 -- next stage
+            elseif apexNode.apex == 3 or apexNode.apex == 4 then -- if we already trimmed the node and edge nodes are not at outside walls yet
+                phase1Done = false
+                local segLen = #segment
+                local firstNode = segment[1]
+                local lastNode = segment[segLen]
+               
+                local preNodes = apexNode.id - firstNode.id
+                local postNodes = lastNode.id - apexNode.id
+                if false then --preNodes ~= postNodes then
+                    --print(segID,"somehow uneven cut",preNodes,postNodes)
+                else
+                    --local midPoint = getMidpoint(firstNode.pos,lastNode.pos)
+                    -- Use nodes.mid instead??
+                    if apexNode['curveOrigin'] == nil then 
+                        local curveOrigin = getCurveOrigin(firstNode.pos,lastNode.pos,apexNode.pos)-- find point that is average same distance away from all nodes (so group midpoint?)
+                        apexNode['curveOrigin'] = curveOrigin
+                    else -- start moving endNodes by perp axist of curveOrgigin
+                        local firstNodeVector = (firstNode.pos - apexNode['curveOrigin']):normalize() -- use equipoint
+                        local lastNodeVector = (lastNode.pos - apexNode['curveOrigin'] ):normalize()
+                        
+                        firstNodePerp = firstNode.perpVector * -getSign(segTurn) -- Use perp
+                        lastNodePerp = lastNode.perpVector * -getSign(segTurn)
+                        
+                        local fnPos = nil -- potential position of first node after vector shift
+                        local lnPos = nil -- potential position of last node after vector shift
+                        
+                        fnPos = getPosOffset(firstNode.pos, firstNodeVector, 0.05) 
+                        lnPos = getPosOffset(lastNode.pos, lastNodeVector, 0.05) 
+
+                        
+                        fnPos = getPosOffset(fnPos, firstNodePerp, 0.07) -- offset forward/backward until wall
+                        lnPos = getPosOffset(lnPos, lastNodePerp, 0.06) 
+
+                        fnPos = getPosOffset(fnPos, firstNode.outVector * -1, 0.06) -- offset forward/backward until wall
+                        lnPos = getPosOffset(lnPos, lastNode.outVector, 0.1) 
 
 
-function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest average velocity (short path better...)
+                        -- now shif
+                        if fnPos ~= nil and validChange(firstNode,fnPos,firstNode.perpVector,-dir) then 
+                            firstNode.pos = fnPos
+                            --print("moving",firstNode.id)
+                        else
+                            if firstNode['atExitWall'] == nil then
+                                apexNode.apex = apexNode.apex + 1
+                                firstNode['atExitWall'] = true
+                                firstNode.pinned = true
+                                firstNode.weight = 3
+                                --print('setting node weig',firstNode.id,firstNode.weight,self.nodeChain[firstNode.id].weight)
+                            end
+                        end
+
+                        if lnPos ~= nil and validChange(lastNode,lnPos,lastNode.perpVector,-dir) then 
+                            lastNode.pos = lnPos
+                        else
+                            if lastNode['atExitWall'] == nil then
+                                apexNode.apex = apexNode.apex + 1
+                                lastNode['atExitWall'] = true
+                                --lastNode.pinned = true
+                                --lastNode.weight = 3
+                            end
+                        end
+                    end
+                end
+
+            elseif apexNode.apex == 5 then 
+                phase1Done = false
+                
+                apexNode.apex = 6
+            elseif apexNode.apex == 6 then
+                -- Cut nodes that are past previous nodes
+
+            end
+
+        end
+    end
+
+    if phase1Done and self.phase2Running == false then -- Transition to phase 2
+        self.phase2Running = true -- 
+        self.phase1Done = true
+        self.phase1Running = false
+    end
+    if self.phase2Running then
+        local trimComplete = true
+        -- Cutss off overlapping turns
+        for segID=1, self.totalSegments do
+            local segment = findSegment(self.nodeChain,self.totalSegments,segID)
+            if segment == nil then 
+                print(" no segment found intersect") 
+                break
+            end
+            local segTurn = getSegTurn(segment[1].segType.TYPE)
+            if (segTurn >=2 or segTurn <=-2) then -- If turn is a turn
+                local firstApexNode = findSegApex(segment)
+                local lastNode = segment[#segment]
+                if segID < self.totalSegments then
+                    local nextSegID = segID + 1
+                    local nextSegment = findSegment(self.nodeChain,self.totalSegments,nextSegID)
+                    local nextSegTurn = getSegTurn(nextSegment[1].segType.TYPE)
+                    if (nextSegTurn >=2 or nextSegTurn <=-2) then -- Two medium to sharp turns back to back discovered
+                        -- get the intersection between the last part of first tirn and first part of last turn
+                        local nextStartNode = nextSegment[1]
+                        local nextApexNode = findSegApex(nextSegment)
+                        local endLine = {sm.vec3.new(firstApexNode.pos.x,firstApexNode.pos.y,1),
+                                        sm.vec3.new(lastNode.pos.x,lastNode.pos.y,1)}
+                        local startLine = {sm.vec3.new(nextStartNode.pos.x,nextStartNode.pos.y,1),
+                                            sm.vec3.new(nextApexNode.pos.x,nextApexNode.pos.y,1)}
+                        local intersectionPoint = lineIntersect(endLine,startLine)
+                        if intersectionPoint ~= nil then
+                            --print(segID,nextSegID,"Got turn intersection point",intersectionPoint)
+                            intersectionPoint.z = nextStartNode.pos.z -- adjust Z back
+                            -- shift first and end points to intersectionpoint 
+                            lastNode.pos = getPosOffset(intersectionPoint, lastNode.outVector * -1, 2)
+                            nextStartNode.pos = getPosOffset(intersectionPoint, nextStartNode.outVector , 2)
+                        end
+                    end
+                end
+            end
+        end
+        -- put all "important" nodes into optImportants - Important =  Begining, apex, and end nodes of all turn segments
+        for segID=1, self.totalSegments do
+            local segment = findSegment(self.nodeChain,self.totalSegments,segID)
+            if segment == nil then 
+                print(" no segment found intersect") 
+                break
+            end
+            local segTurn = getSegTurn(segment[1].segType.TYPE)
+            if (segTurn >=1 or segTurn <=-1) then -- any turn
+                local segBegin = segment[1]
+                local segApex = findSegApex(segment)
+                local segEnd = segment[#segment]
+                table.insert(self.optImportants, segBegin)
+                table.insert(self.optImportants, segApex)
+                table.insert(self.optImportants, segEnd)
+            else
+                if segment[1].id == 1 then 
+                    table.insert(self.optImportants, segment[1])
+                elseif segment[#segment].id == self.nodeChain[#self.nodeChain].id then
+                    print('last id insert',segment[#segment].id,self.nodeChain[#self.nodeChain].id)
+                    table.insert(self.optImportants, segment[#segment])
+                end
+            end
+
+        end
+
+        -- Format optiImportants into optiSpline
+        --print("got optiimporants",#self.optImportants)
+        local splineArray = {}
+        
+        for k = 1, #self.optImportants do local v = self.optImportants[k]
+            local x = v.pos.x
+            local y = v.pos.y
+            print("imputting",v.id,x,y)
+            table.insert(splineArray, tonumber(x))
+		    table.insert(splineArray, tonumber(y))
+        end
+        local minShift= getMin(splineArray)
+        print("got min",minShift)
+        -- shift spline by min so no negatives
+        for k = 1, #splineArray do
+            splineArray[k] = splineArray[k] + math.abs(minShift)  -- pad by 1
+        end
+
+        for k, v in pairs(self.nodeChain) do
+            table.remove(self.nodeChain, k)
+        end
+        self:hardUpdateVisual()
+
+        if splineArray then
+            for i=1, #splineArray, 2 do
+                print(splineArray[i]..","..splineArray[i+1])
+            end
+            local spline = Spline()
+            local testSplint = {1.23,2.321,1.412,3.534,-2.412,3.534,4.4123,5.412}
+            local res = spline:getCurvePoints(testSplint)
+            print()
+            for i=1, #res, 2 do
+                print(res[i]..","..res[i+1])
+            end
+
+            for i = 1, #self.nodeSpline, 2 do 
+                local x = self.nodeSpline[i] - minShift
+                local y = self.nodeSpline[i+1] - minShift
+                local pos = sm.vec3.new(x,y,3)
+                table.insert(self.debugEffects,self:generateEffect(pos,sm.color.new('aa22ffff')))
+            end
+            return true
+        else
+            print("no splineArray?",splineArray)
+            return true
+        end
+
+       
+
+
+        self.phase2Done = true
+        self.phase2Running = false
+        self.phase3Running = true
+    elseif self.phase3Running then 
+        -- Begin to build spline off of new nodes
+        local node = self.optiSpline[self.p3ScanIndex]
+
+    end
+    self.scanClock = self.scanClock + 1
+    if self.scanClock >= 1000 then 
+        print('scan timeout')
+        return true
+    end
+
+end
+
+
+function Generator.testSmoothing(self) -- Updated smoothing algo
+    for k=1, #self.nodeChain do local v=self.nodeChain[k]
+        local perpV = v.perpVector
+        local vhDifLast = self:getNodeVH(v,v.last,perpV)
+        local vhDifNext =  self:getNodeVH(v.next,v,perpV)
+        local lastOverlap = false
+        local nextOverlap = false
+
+        if vhDifLast.vertical < 0 then -- Overlapped, trim
+            lastOverlap = true
+        end
+        if vhDifNext.vertical < 0 then
+            nextOverlap = true
+        end
+        -- delete self if overlapping nodes and not pinned
+
+       
+        calculateNewForceAngles(v)
+        local perpV = v.perpVector
+        -- Move other lines towards eachother
+        -- Get initial angle to next node
+        local initialAngle =math.abs(angleDiff(v.inVector,v.outVector))
+        
+        local moveThreshold = 0.001 -- Threshold before forcing node to move ("close enough" state)
+        -- test leftSide
+        local testLeftPos = getPosOffset(v.pos,perpV*-1,0.07) -- Dampen it based v.weight
+        local testLeftinVector = getNormalVectorFromPoints(v.last.pos,testLeftPos)
+        local testLeftoutVector = getNormalVectorFromPoints(testLeftPos,v.next.pos)
+        local testLeftAngle = math.abs(angleDiff(testLeftinVector,testLeftoutVector))
+        -- Test right side
+        local testRightPos = getPosOffset(v.pos,perpV*1,0.07) -- Dampen it based v.weight
+        local testRightinVector = getNormalVectorFromPoints(v.last.pos,testRightPos)
+        local testRightoutVector = getNormalVectorFromPoints(testRightPos,v.next.pos)
+        local testRightAngle = math.abs(angleDiff(testRightinVector,testRightoutVector))
+
+        
+        if not v.pinned then -- only if point isn't pinned down
+            if v.id == 134 then
+                --print(v.id,v.pos,"angle",testLeftAngle,testRightAngle,v.weight,v.last.id,v.next.id)
+            end
+            local difLeft = initialAngle - testLeftAngle -- 5,1 = 4
+            local difRight = initialAngle - testRightAngle  -- 5, 0.5 = 4.5
+            if difLeft > difRight and difLeft > moveThreshold  then 
+                if validChange(v,testLeftPos,perpV,-1) then
+                    v.pos = testLeftPos
+                    calculateNewForceAngles(v) -- DO this or no?
+                end
+            end
+            if difRight > difLeft and difRight > moveThreshold then 
+                if validChange(v,testRightPos,perpV,1) then
+                    v.pos = testRightPos
+                    calculateNewForceAngles(v) -- DO this or no?
+                end
+            end
+        end
+
+    end
+end
+
+
+
+function Generator.iterateSmoothing(self) -- {DEPRECIATING} Will try to find fastest average velocity (short path better...)
     for k=1, #self.nodeChain do local v=self.nodeChain[k]
         local perpV = v.perpVector
         local lessenDirection = getSign(v.force)
@@ -1437,14 +1830,14 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
                     --print("Deleting node",v.id,v.pos)
                     if v.pinned or v.weight > 1 then 
                         --print("canceling pinned removal...")
-                        break
+                        break -- should probably continue instead of break
                     end
                     v.last.next = v.next
                     v.next.last = v.last -- blip out
                     --print(v.last.id,v.next.id,v.pinned,v.weight)
                     self:removeNode(v.id)
                     --print(v.last.id,v.next.id,v.next.next.id,v.next.next.next.id)
-                    break
+                    break -- should continue instead of break?
                 end
             end
         end
@@ -1478,7 +1871,7 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
 
         -- which bigger? -- Do something about straight tyhrehshold??
         if not v.pinned then -- only if point isn't pinned down
-            if maxV1 > maxV2 + 0.012 then 
+            if maxV1 > maxV2 + 0.01 then 
                 --if maxV1 > maxV then
                     if testLoc1 == nil or perpV == nil then
                         print("nil test?",testLoc1,perpV)
@@ -1491,7 +1884,7 @@ function Generator.iterateSmoothing(self) -- {DEFAULT} Will try to find fastest 
                 --end
             end
 
-            if maxV2 > maxV1 + 0.012 then
+            if maxV2 > maxV1 + 0.01 then
                 --if maxV2 > maxV then
                     if validChange(v,testLoc2,perpV,-1) then
                         v.pos = testLoc2
@@ -1536,17 +1929,31 @@ end
 function Generator.quickSmooth(self,ammount)
     local scanLen = 0
     for i = 0, ammount do -- Have seperate optimize clock?
-        local finished = self:iterateSmoothing()
+        local finished = self:testSmoothing()
         if finished then
             self.smoothing = false
             self.scanClock = 0
-            print("QuickSMooth did finish")
+            print("QuickSMooth did finish",ammount)
             sm.gui.displayAlertText("Optimization Finished prematurely")
             break
         end 
         scanLen = scanLen + 1
     end
 end 
+
+
+function Generator.generateNewNode(self,pos,direction,lastNode) -- generates new mid node and manually assigns pos
+    local wallmidPoint, width,leftWall,rightWall,bank  = self:getWallMidpoint2(pos,direction,0)
+    if self.scanError then print("error generating curve") return end
+    local nextVector = getNormalVectorFromPoints(direction,wallmidPoint)
+    local wallmidPoint2, width,leftWall,rightWall,bank  = self:getWallMidpoint2(nextLocation,nextVector,1)
+    if self.scanError then print("error generating curve2") return end
+    local newDistance = lastNode.distance + getDistance(lastNode.mid,wallmidPoint2)
+    local newNode = self:generateMidNode(lastNode.id + 1,lastNode,wallmidPoint2,nextVector,newDistance,width,leftWall,rightWall,bank)
+    newNode.pos = pos -- set new actual Pos, midPoint will stay at wallMidPoint2
+    return newNode
+end
+
 
 function Generator.iterateScan(self)
 
@@ -1670,6 +2077,7 @@ function Generator.calculateApproxSpeeds(self) -- calculates approximate speeds/
     
 end
 
+
 function Generator.toggleVisual(self,nodeChain)
     print("displaying",self.visualizing)
     if self.visualizing then
@@ -1718,10 +2126,10 @@ function Generator.client_onFixedUpdate( self, timeStep )
         end
     end
     if self.smoothing and not self.instantOptimize then  
-        local finished = self:asyncSleep(self.iterateSmoothing,self.asyncTimeout2)
+        local finished = self:asyncSleep(self.optimizeRaceLine,self.asyncTimeout2)
         if finished then
             print("Generating segmens after optimization")
-            self:generateSegments()-- testing location
+            --self:generateSegments()-- testing location
             --self:printNodeChain()
             self.smoothing = false
             self.scanClock = 0
@@ -1734,7 +2142,7 @@ function Generator.client_onFixedUpdate( self, timeStep )
         end
         if self.scanClock >= self.scanLength  or self.smoothEqualCount > 3 then
             --print("Generating segmenst smoothcount")
-            self:generateSegments()-- testing location
+            --self:generateSegments()-- testing location
             --self:printNodeChain()
             self.smoothing = false
             self.scanClock = 0
@@ -1837,9 +2245,9 @@ function Generator.startOptimization(self)
     sm.gui.displayAlertText("Optimizing")
     if self.instantOptimize then -- Game freezing optimization loop
         while self.scanClock < self.scanLength do -- Have seperate optimize clock?
-            local finished = self:iterateSmoothing()
+            local finished = self:optimizeRaceLine()
             if finished then
-                self:generateSegments()
+                --self:generateSegments()
                 self.smoothing = false
                 self.scanClock = 0
                 print("finished Optimizing Track, saving")
@@ -1851,7 +2259,7 @@ function Generator.startOptimization(self)
             end 
         end 
         if self.scanClock >= self.scanLength then
-            self:generateSegments() -- moved segment generation to after optimization, makes more sense
+            --self:generateSegments() -- moved segment generation to after optimization, makes more sense
             self.smoothing = false
             self.scanClock = 0
             sm.gui.displayAlertText("Track too long to optimize")
