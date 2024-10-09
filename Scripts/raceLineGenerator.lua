@@ -102,6 +102,8 @@ function Generator.client_init( self )  -- Only do if server side???
     self.phase2Done = false
     self.phase3Running = false
     self.phase3Done = false
+	 self.phase4Running = false
+    self.phase4Done = false
 
     self.optImportants = {} -- Only important nodes like first, apex, and last
     self.optiSpline = {} -- formatted for spline util.lua
@@ -1796,10 +1798,31 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
         	--firstNode.force = vectorAngleDiff(firstNode.inVector,firstNode.outVector)
         	self.phase3Running = false
 			self.phase3Done = true
+			self.phase4Running = true
 	        print("finished scanning")
-			return true
+			return false
     	end
+	elseif self.phase4Running then  -- Phase 4: Adjusting nodes away from walls
+		if true then return true end -- temp skip for now
+		local allClear = true
+		-- For every node in nodechain, look both left and right for a wall, if a wall is closer than padding then move pos opposite
+		for k=1, #self.nodeChain do v = self.nodeChain[k]
+			calculateNewForceAngles(v) -- TODO: CHeck betweenForceAngles and calculateNewForceAngles2
+			local perpV = v.perpVector -- assuming left is -1
+			local lWallDist = getDistToWall(v,v.pos,perpV,-1)
+			if lWallDist  < WALL_PADDING  then  -- shift right
+				allClear = false
+				v.pos = getPosOffset(v.pos,perpV,0.1)
+			end
+			
+			local rWallDist = getDistToWall(v,v.pos,perpV,1)
+			if rWallDist  < WALL_PADDING  then -- shift left
+				allClear = false
+				v.pos = getPosOffset(v.pos,perpV *-1,0.1)
+			end
+		end
 	end
+
     self.scanClock = self.scanClock + 1 -- TODO: reset scan clock and timeout for every phase
     if self.scanClock >= 1000 then 
         print('scan timeout')
