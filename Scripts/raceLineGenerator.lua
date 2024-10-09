@@ -44,7 +44,7 @@ end
 function Generator.client_onDestroy(self)
     print("Generator destroyed")
     if self.effect:isPlaying() then
-        self.effect:stop()
+        self.effect:destroy()
     end
 
     self:stopVisualization()
@@ -1315,9 +1315,9 @@ end
 function Generator.removeNode(self,nodeID) -- removes node
     for k, v in pairs(self.nodeChain) do
 		if v.id == nodeID then
-			v.effect:stop()
-	        v.lEffect:stop()
-	        v.rEffect:stop()
+			v.effect:destroy()
+			v.lEffect:destroy()
+			v.rEffect:destroy()
 			table.remove(self.nodeChain, k)
 		end
     end
