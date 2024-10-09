@@ -4339,8 +4339,8 @@ function Driver.calculatePassOffset(self,opponentD,dir) -- calculates strenght o
     local oppWidth = (opponent.leftColDist + opponent.rightColDist)
     local selfWidth = self.leftColDist + self.rightColDist
     local speedDif = self.speed - opponent.speed
-    if speedDif < 0.2 then 
-        speedDif = 0.2 -- Will almost always be less than 2 in a normal situation
+    if speedDif < 0.1 then 
+        speedDif = 0.1 -- Will almost always be less than 2 in a normal situation
     elseif speedDif > 10 then
         speedDif = 10
     end
@@ -4354,7 +4354,7 @@ function Driver.calculatePassOffset(self,opponentD,dir) -- calculates strenght o
         distFromOpp = 1
     end
     if math.abs(desiredTrackPos) < self.goalNode.width/2.4 then -- As long as pass pos is within track width
-        strength = speedDif + math.abs(goalTrackPos-desiredTrackPos)*(4/distFromOpp) -- convert by distance away from opp
+        strength = speedDif + math.abs(goalTrackPos-desiredTrackPos)*(3/distFromOpp) -- convert by distance away from opp, smaller number = less ratio
         --print(self.tagText,"Pos on track",speedDif,math.abs(goalTrackPos-desiredTrackPos),distFromOpp)
     else
        --print(self.tagText,"offtrack Pass reduce",desiredTrackPos,strength)
@@ -4362,14 +4362,14 @@ function Driver.calculatePassOffset(self,opponentD,dir) -- calculates strenght o
         self:cancelPass("offtrack pass reduce 4366") -- remove flag?
     end
 
-    local multiplier = 1.9
+    local multiplier = 1
     -- TODO: have situational multiplier (banking, track width, speeddif, etc)
     if distFromOpp < 15 then 
-        multiplier = 2.1
+        multiplier = 1.1
     elseif distFromOpp < 5 then
-        multiplier = 2.2
+        multiplier = 1.7
     elseif distFromOpp < 1 then
-        multiplier = 2.3
+        multiplier = 2.5
     end
 
     --print(self.tagText,"goal",distFromOpp,strength)
