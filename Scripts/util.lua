@@ -826,3 +826,130 @@ function FindAttackableShape( worldPosition, radius, attackLevel )
 	end
 	return nil, nil
 end
+
+-- Color interploate
+function colourLerp(c1, c2, t)
+    local r = sm.util.lerp(c1.r, c2.r, t)
+    local g = sm.util.lerp(c1.g, c2.g, t)
+    local b = sm.util.lerp(c1.b, c2.b, t)
+    return sm.color.new(r,g,b)
+end
+
+--returns whatever the raycast hit
+function Raycast_GetHitObj(raycastResult)
+    return raycastResult:getShape() or raycastResult:getBody() or raycastResult:getCharacter() or raycastResult:getHarvestable() or raycastResult:getJoint() or raycastResult.type
+end
+
+
+Line = class()
+local line_up = sm.vec3.new(0,1,0)
+
+---@param thickness number
+---@param colour Color
+---@param soundEffect string
+---@param endParticle string
+function Line:init( thickness, colour, soundEffect, endParticle )
+    self.effect = sm.effect.createEffect("ShapeRenderable")
+    self.effect:setParameter("uuid", sm.uuid.new("b6cedcb3-8cee-4132-843f-c9efed50af7c"))
+    self.effect:setParameter("color", colour)
+    self.effect:setScale( sm.vec3.one() * thickness )
+
+    if soundEffect then
+        self.sound = sm.effect.createEffect( soundEffect )
+    end
+
+    self.colour = colour
+    self.thickness = thickness
+    self.endParticle = endParticle
+    self.spinTime = 0
+end
+
+
+---@param startPos Vec3
+---@param endPos Vec3
+---@param dt number
+---@param spinSpeed number
+function Line:update( startPos, endPos, dt, spinSpeed )
+    local delta = endPos - startPos
+    local length = delta:length()
+
+    if length < 0.0001 then return end
+
+    local rot = sm.vec3.getRotation(line_up, delta)
+    self.spinTime = self.spinTime + (dt or 0) * (spinSpeed or 0)
+    rot = rot * sm.quat.angleAxis( math.rad(self.spinTime), line_up )
+
+    local distance = sm.vec3.new(length, self.thickness, self.thickness)
+
+    self.effect:setPosition(startPos + delta * 0.5)
+    self.effect:setScale(distance)
+    self.effect:setRotation(rot)
+
+    if self.endParticle then
+        sm.particle.createParticle( self.endParticle, endPos, sm.quat.identity(), self.colour )
+    end
+
+    if self.sound then
+        self.sound:setPosition(startPos)
+        if not self.sound:isPlaying() then
+            self.sound:start()
+        end
+    end
+
+    if not self.effect:isPlaying() then
+        self.effect:start()
+    end
+end
+
+function Line:stop()
+    self.effect:stopImmediate()
+
+    if self.sound then
+        self.sound:stopImmediate()
+    end
+end
+
+--[[
+usage:
+Draws a line from the player character to the point theyre aiming at(only for the person who owns the tool)
+```lua
+Tool = class()
+function Tool:client_onCreate()
+    self.line = Line()
+    self.line:init( 0.1, sm.color.new(1,1,1) )
+end
+
+function Tool:client_onEquippedUpdate( lmb )
+    local shouldStop = not lmb
+    if lmb then
+        local hit, result = sm.localPlayer.getPlayer(7.5)
+        shouldStop = not hit
+
+        if hit then
+            self.line:update( self.tool:getPosition(), result.pointWorld )
+        end
+    end
+
+    if shouldStop and self.line.effect:isPlaying() then
+        self.line:stop()
+    end
+end
+```]]
+
+
+--convert a blueprint to dynamic or static (for importing with sm.creation)
+function convertBlueprint( bp, dynamic )
+  local bodies = bp.bodies
+  if #bodies ~= 0 then
+    for k, body in pairs( bodies ) do
+      bp.bodies[k].type = dynamic and 0 or 1
+    end
+  end
+end
+--Example usage:
+--Load the blueprint file with `sm.json.open`, then call this function with the blueprint table as the first param. The second parameter decides between static and dynamic, `true` = dynamic, `false` or `nil` = static.
+--Then convert the blueprint table to a json string using `sm.json.writeJsonString` and import it with `sm.creation.importFromString`. Don't forget to enable the `importTransforms` parameter, else it won't apply the setting.
+
+#scrapMechanic
+
+
