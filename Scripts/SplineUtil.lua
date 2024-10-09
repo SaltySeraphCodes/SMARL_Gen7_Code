@@ -59,8 +59,8 @@ function Spline.getCurvePoints(self,ptsa, tension, numOfSegments)
     end
 	
 	--print("inserting",ptsa[2])
-    table.insert(_pts, ptsa[2], 1) -- table gets mutated wrong
-    table.insert(_pts, ptsa[1], 1)
+    table.insert(_pts, 1, ptsa[2]) -- table gets mutated wrong
+    table.insert(_pts, 1, ptsa[1])
     table.insert(_pts, ptsa[pl - 1])
     table.insert(_pts, ptsa[pl - 0])
 	print("got",_pts)
