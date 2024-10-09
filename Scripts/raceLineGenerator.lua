@@ -1103,7 +1103,7 @@ function Generator.getWallMidpoint3(self,location,direction,cycle) -- new Method
     --print("Lwall RWall:",leftWallDist,rightWallDist)
     -- check previous leftWall/rightWall locations/distances/existence
     if cycle == 1 then
-        table.insert(self.debugEffects,self:generateEffect(location + self.shape.up *3.5 ,sm.color.new('ffff00ff'))) -- oarnge dot at start location
+        --table.insert(self.debugEffects,self:generateEffect(location + self.shape.up *3.5 ,sm.color.new('ffff00ff'))) -- oarnge dot at start location
     end
     
     local wallThreshold = self.wallThreshold--0.55 -- how much difference in floor height to determine a wall [[TODO: Make user controlable dynamic, sweet spot is 0.2]]
@@ -1260,7 +1260,7 @@ function Generator.analyzeSegment(self,initNode) -- Attempt # 5
     local straightThreshold = 1.5 -- angle difference between last and current node to be considered straight
     local straightCutoff = 4 -- how many straight nodes found before cutting off curve
     local turnDir = 0
-    local turnThreshold = 5-- how many degrees difference from initial node to determine a turn
+    local turnThreshold = 6-- how many degrees difference from initial node to determine a turn
     local turnCount = 0
     local turnCountThresh = 2 -- How many valid turning nodes before triggering apex node
     --print("startigna init",index,self.nodeChain[1].id,self.nodeChain[1].segID)
@@ -1842,19 +1842,32 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                 break
             end
             local segTurn = getSegTurn(segment[1].segType.TYPE)
-            if (segTurn >=1 or segTurn <=-1) then -- any turn
+            if (segTurn >=1 or segTurn <=-1) then
                 local segBegin = segment[1]
                 local segApex = findSegApex(segment)
                 local segEnd = segment[#segment]
-                table.insert(self.optImportants, segBegin)
-                table.insert(self.optImportants, segApex)
-                table.insert(self.optImportants, segEnd)
+                
+                if segTurn >=2 or segTurn <= -2 then -- only include begining and end of sharper turns,
+                    table.insert(self.optImportants, segBegin)
+                    table.insert(self.optImportants, segEnd)
+                    table.insert(self.debugEffects,self:generateEffect(segBegin.pos ,sm.color.new('ffff00ff'))) -- orange at spline pos
+                    table.insert(self.debugEffects,self:generateEffect(segEnd.pos ,sm.color.new('ffff00ff'))) -- orange at spline pos
+                end
+                if segApex == nil then
+                    print("no seg apex?",segID)
+                else
+                    table.insert(self.optImportants, segApex)
+                    table.insert(self.debugEffects,self:generateEffect(segApex.pos ,sm.color.new('ffff00ff'))) -- orange at spline pos
+                end
+                
             else
                 if segment[1].id == 1 then 
                     table.insert(self.optImportants, segment[1])
+                    table.insert(self.debugEffects,self:generateEffect(segment[1].pos ,sm.color.new('ffff00ff'))) -- orange at spline pos
                 elseif segment[#segment].id == self.nodeChain[#self.nodeChain].id then
                     print('last id insert',segment[#segment].id,self.nodeChain[#self.nodeChain].id)
                     table.insert(self.optImportants, segment[#segment])
+                    table.insert(self.debugEffects,self:generateEffect(segment[#segment].pos ,sm.color.new('ffff00ff'))) -- orange at spline pos
                 end
             end
 
@@ -1886,26 +1899,35 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
         print("Generating new node chain")
         if splineArray then
             for i=1, #splineArray, 2 do
-                --print(splineArray[i]..","..splineArray[i+1]) pre spline
+                --print(splineArray[i]..","..splineArray[i+1]) --pre spline
             end
             local spline = Spline()
             local splineRes = spline:getCurvePoints(splineArray,0.5,16)
             for i=1, #splineRes, 2 do
-                --print(res[i]..","..res[i+1]) postSpline
+                --print(splineRes[i]..","..splineRes[i+1])
             end
             
             print("creating spline effect")
             for i = 1, #splineRes, 2 do 
                 local x = splineRes[i]
                 local y = splineRes[i+1]
-                local pos = sm.vec3.new(x,y,self.location.z) -- TODO: instead of 3, use block position
-                --table.insert(self.debugEffects,self:generateEffect(pos,sm.color.new('aaff88ff')))
-				table.insert(self.nodeSpline,pos)
+                local pos = sm.vec3.new(x,y,self.location.z)
+                local lastPos = self.nodeSpline[#self.nodeSpline] 
+                --print(#self.nodeSpline,pos,lastPos,pos == lastPos)
+                if pos == lastPos then -- skip over dupe
+                    print(i/2,"got dupe",pos)
+                else
+                    --table.insert(self.debugEffects,self:generateEffect(pos,sm.color.new('aaff88ff')))
+				    table.insert(self.nodeSpline,pos)
+                    --table.insert(self.debugEffects,self:generateEffect(pos ,sm.color.new('ffff00ff'))) -- orange at spline pos
+
+                end
             end
         else
             print("no splineArray?",splineArray)
             return true
         end
+    
 
 		-- Initialize scan for nodeSpline
 		self.totalDistance = 0
@@ -1933,28 +1955,34 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
         print("Starting Phase4 Scan",startMid,startScanDir,#self.nodeChain)
 
     elseif self.phase4Running then 
-        print("Phase4 running",self.p4ScanIndex,#self.nodeChain)
+        --print("Phase4 running",self.p4ScanIndex,#self.nodeChain)
 		self.p4ScanIndex = self.p4ScanIndex + 1
 
         local lastNode = self.nodeChain[self.p4ScanIndex -1]
-		local nextLocation = self.nodeSpline[self.p4ScanIndex]
+		local nextLocation = self.nodeSpline[self.p4ScanIndex] -- old way, need to figure out tho
         nextLocation.z = lastNode.pos.z -- pin last location
-		local nextVector = (nextLocation - self.nodeSpline[self.p4ScanIndex -1]):normalize() -- should always start at 2
-    	--local wallmidPoint, width,leftWall,rightWall,bank  = self:getWallMidpoint2(nextLocation,self.scanVector,0) -- new midpoint based off of previous vector looking for perpendicular walls
+        local distance = getDistance(lastNode.pos,nextLocation)
+        --print(self.p4ScanIndex,distance,nextLocation - self.nodeSpline[self.p4ScanIndex -1])
+        local nextVector = (nextLocation - self.nodeSpline[self.p4ScanIndex -1]):normalize() -- should always start at 2
+        -- mid prediction version
+        local predictVector = self.nodeSpline[self.p4ScanIndex] - self.nodeSpline[self.p4ScanIndex -1]
+        local predictLoc = lastNode.midPos + predictVector -- Makes next location inference based on vector of others
+        predictLoc.z = lastNode.pos.z
+        predictVector = predictVector:normalize()
+    	--local wallmidPoint, width,leftWall,rightWall,bank  = self:getWallMidpoint3(nextLocation,self.scanVector,0) -- new midpoint based off of previous vector looking for perpendicular walls
     	--if self.scanError then return end
     	--local nextVector = getNormalVectorFromPoints(self.scanLocation,wallmidPoint)-- Measure from last node to current midPoint
 	    --REdo scan so next vector and scan vector are aligned with midpoint differences and not just scanvector
-	    print('scanning',nextLocation,nextVector,self.p4ScanIndex,self.p4ScanIndex-1,lastNode.id)
-        local wallmidPoint2, width,leftWall,rightWall,bank  = self:getWallMidpoint2(nextLocation,nextVector,1) -- TODO: determine if we need to find top
-    	if self.scanError then print("wmp2 p3 scan fail") return end
-	    local nextMid = wallmidPoint2 -- Do another nextVector?
+	    --print(lastNode.id,'scanning',lastNode.midPos,predictLoc,self.p4ScanIndex,predictVector)
+        --local wallmidPoint2, width,leftWall,rightWall,bank  = self:getWallMidpoint3(nextLocation,nextVector,1) -- TODO: determine if we need to find top
+    	local predictMidPoint, width, leftWall, rightWall, bank  = self:getWallMidpoint3(predictLoc,predictVector,1)
+        if self.scanError then print("wmp2 p3 scan fail") return end
+	    local nextMid = predictMidPoint
 	    --local nextVector2 = getNormalVectorFromPoints(self.scanLocation,wallmidPoint2)-- Measure from last node to current midPoint can remove nextVector2 if necessary, doubles as inVector
-        print("post wall scan",self.p4ScanIndex,#self.nodeChain)
-        if nextVector == nil then
-	        print("Pscan3 nil vector")
+        if predictMidPoint == nil then
+	        print("Pscan4 nil vector")
 	    end
 	
-	    
 	    if lastNode == nil then
 	        print("could not find node index")
 	        self.scanError = true
@@ -1962,19 +1990,19 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
 	        return true  
 	    end
 	    self.totalDistance = self.totalDistance + getDistance(lastNode.midPos,nextMid)
-        print("generating new node",self.p4ScanIndex,#self.nodeChain)
-	    local newNode = self:generateMidNode(self.p4ScanIndex,lastNode,nextMid,nextVector,self.totalDistance,width,leftWall,rightWall,bank)
-		newNode.pos = nextLocation -- adjust race line to spline location 
+	    --local newNode = self:generateMidNode(self.p4ScanIndex,lastNode,nextMid,nextVector,self.totalDistance,width,leftWall,rightWall,bank)
+        local newNode = self:generateMidNode(self.p4ScanIndex,lastNode,nextMid,predictVector,self.totalDistance,width,leftWall,rightWall,bank)
+
+        newNode.pos = nextLocation -- adjust race line to spline location 
         newNode.pos.z = nextMid.z -- adjust to accurace z height
         --TODO: actually look down and adjust z based off of raycast to floor
-	    if math.abs(nextVector.z) >0.05 then
-	        newNode.incline = nextVector.z
+	    if math.abs(predictVector.z) >0.05 then -- was nextVector.z
+	        newNode.incline = predictVector.z
 	        --newNode.pinned = false -- TODO: Check validity of pinning incline nodes
 	    end
 	    -- Finish calculations on previous node
 	    lastNode.next = newNode
 	    lastNode.outVector = getNormalVectorFromPoints(lastNode.pos,newNode.pos)
-        print("PostNodechain",#self.nodeChain,newNode.id)
 	    --lastNode.force = vectorAngleDiff(lastNode.inVector,lastNode.outVector) do we need this for optimizations
 	    -- Add effects and put into node chain
 	    if leftWall == nil or rightWall == nil or nextMid == nil then
@@ -1993,8 +2021,6 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
 	    table.insert(self.effectChain,self:generateEffect(newNode.pos))
 	    table.insert(self.effectChain,self:generateEffect(leftWall))
 	    table.insert(self.effectChain,self:generateEffect(rightWall))
-
-        print("inserting into nodechain",#self.nodeChain,newNode.id,newNode.effect)
 	    table.insert(self.nodeChain, newNode)
 	    --check if at end of node spline
 	    if self.p4ScanIndex >= #self.nodeSpline then -- 1is padding just in case?

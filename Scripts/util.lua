@@ -950,6 +950,3 @@ end
 --Load the blueprint file with `sm.json.open`, then call this function with the blueprint table as the first param. The second parameter decides between static and dynamic, `true` = dynamic, `false` or `nil` = static.
 --Then convert the blueprint table to a json string using `sm.json.writeJsonString` and import it with `sm.creation.importFromString`. Don't forget to enable the `importTransforms` parameter, else it won't apply the setting.
 
-#scrapMechanic
-
-
