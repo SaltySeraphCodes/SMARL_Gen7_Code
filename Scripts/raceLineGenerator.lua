@@ -1315,6 +1315,9 @@ end
 function Generator.removeNode(self,nodeID) -- removes node
     for k, v in pairs(self.nodeChain) do
 		if v.id == nodeID then
+			v.effect:stop()
+	        v.lEffect:stop()
+	        v.rEffect:stop()
 			table.remove(self.nodeChain, k)
 		end
     end
@@ -1686,6 +1689,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
         for k, v in pairs(self.nodeChain) do
             table.remove(self.nodeChain, k)
         end
+		self.nodeChain = {}
         self:hardUpdateVisual()
 
         if splineArray then
@@ -1713,29 +1717,90 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
             return true
         end
 
-       
-
+		-- Setup Starter node
+		-- Pretty much reset first scan variables
+		self.totalDistance = 0
+		
+		local startScanDir = (self.nodeSpline[2] - self.nodeSpline[1]):normalize()
+		local startMid, width,leftWall,rightWall,bank = self:getWallMidpoint(self.nodeSpline[1],startScanDir,1)
+		print("Starting Phase3 Scan",startMid,startScanDir)
+		local startingNode = self:generateMidNode(self.nodeIndex,nil,startMid,startScanDir,0,width,leftWall,rightWall,bank)
+		startingNode.pos = self.nodeSpline[1] -- manually set point
+   		table.insert(self.nodeChain, startingNode)
 
         self.phase2Done = true
         self.phase2Running = false
         self.phase3Running = true
     elseif self.phase3Running then 
-		-- Begin to build spline off of new nodes
-		if self.p3ScanIndex > #self.nodeSpline then
-			print("Reached end of nodes",self.p3ScanIndex)
-			self.phase3Running = false
-		end
-		local pos = self.nodeSpline[self.p3ScanIndex]
-		print(self.p3ScanIndex,"generating",pos)
-		if pos then
-			local node = {pos,self.p3ScanIndex}
-		else
-			print("no pos in spline?",self.p3ScanIndex)
-		end
 		self.p3ScanIndex = self.p3ScanIndex + 1
-		--return true
-    end
-    self.scanClock = self.scanClock + 1
+		local nextLocation = self.nodeSpline[self.p3ScanIndex]
+		local nextVector = (nextLocation - self.nodeSpline[-1]):normalize() -- should always start at 2
+    	--local wallmidPoint, width,leftWall,rightWall,bank  = self:getWallMidpoint2(nextLocation,self.scanVector,0) -- new midpoint based off of previous vector looking for perpendicular walls
+    	--if self.scanError then return end
+    	--local nextVector = getNormalVectorFromPoints(self.scanLocation,wallmidPoint)-- Measure from last node to current midPoint
+	    --REdo scan so next vector and scan vector are aligned with midpoint differences and not just scanvector
+	    local wallmidPoint2, width,leftWall,rightWall,bank  = self:getWallMidpoint2(nextLocation,nextVector,1) -- TODO: determine if we need to find top
+    	if self.scanError then print("wmp2 p3 scan fail") return end
+	    local nextMid = wallmidPoint2 -- Do another nextVector?
+	    --local nextVector2 = getNormalVectorFromPoints(self.scanLocation,wallmidPoint2)-- Measure from last node to current midPoint can remove nextVector2 if necessary, doubles as inVector
+	    if nextVector == nil then
+	        print("Pscan3 nil vector")
+	    end
+	
+	    local lastNode = self.nodeChain[self.p3ScanIndex -1]
+	    if lastNode == nil then
+	        print("could not find node index")
+	        self.scanError = true
+	        self.errorReason = "Could not format optimized node chain, (contact seraph)"
+	        return true  
+	    end
+	    --print(self.nodeIndex,"lastNode",lastNode.id)
+	    self.totalDistance = self.totalDistance + getDistance(lastNode.mid,nextMid)
+	    local newNode = self:generateMidNode(self.p3ScanIndex,lastNode,nextMid,nextVector,self.totalDistance,width,leftWall,rightWall,bank)
+		newNode.pos = nextLocation -- adjust race line to spline location 
+	    if math.abs(nextVector.z) >0.05 then
+	        newNode.incline = nextVector.z
+	        --newNode.pinned = false -- TODO: Check validity of pinning incline nodes
+	    end
+	    -- Finish calculations on previous node
+	    lastNode.next = newNode
+	    lastNode.outVector = getNormalVectorFromPoints(lastNode.pos,newNode.pos)
+	    --lastNode.force = vectorAngleDiff(lastNode.inVector,lastNode.outVector) do we need this for optimizations
+	    -- Add effects and put into node chain
+	    if leftWall == nil or rightWall == nil or nextMid == nil then
+	        print("Error finding wall and mid location")
+	        print(leftWall,rightWall,nextMid)
+	    else
+	        local newEffect = self:generateEffect(newNode.pos)
+	        local leftEffect = self:generateEffect(leftWall + sm.vec3.new(0,0,1),sm.color.new("2244ee")) -- left wall blue
+	        local rightEffect = self:generateEffect(rightWall + sm.vec3.new(0,0,1),sm.color.new("22ee44")) -- right wall green
+	        newNode.effect = newEffect -- 
+	        newNode.lEffect = leftEffect --
+	        newNode.rEffect = rightEffect --  
+	    end
+	    table.insert(self.effectChain,self:generateEffect(newNode.pos))
+	    table.insert(self.effectChain,self:generateEffect(leftWall))
+	    table.insert(self.effectChain,self:generateEffect(rightWall))
+
+	    table.insert(self.nodeChain, newNode)
+	    --check if at end of node spline
+	    if self.p3ScanIndex >= #self.nodeSpline then -- 1is padding just in case?
+			print("Reached end of spline",self.p3ScanIndex)
+        	local firstNode = self.nodeChain[1]
+        	newNode.next = firstNode -- link back to begining
+        	newNode.outVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos)
+        	--newNode.force = vectorAngleDiff(newNode.inVector,newNode.outVector)
+
+        	firstNode.last = newNode
+        	firstNode.inVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos) -- or lastNode.outVector if too much
+        	--firstNode.force = vectorAngleDiff(firstNode.inVector,firstNode.outVector)
+        	self.phase3Running = false
+			self.phase3Done = true
+	        print("finished scanning")
+			return true
+    	end
+	end
+    self.scanClock = self.scanClock + 1 -- TODO: reset scan clock and timeout for every phase
     if self.scanClock >= 1000 then 
         print('scan timeout')
         return true
@@ -1952,19 +2017,6 @@ function Generator.quickSmooth(self,ammount)
 end 
 
 
-function Generator.generateNewNode(self,pos,direction,lastNode) -- generates new mid node and manually assigns pos
-    local wallmidPoint, width,leftWall,rightWall,bank  = self:getWallMidpoint2(pos,direction,0)
-    if self.scanError then print("error generating curve") return end
-    local nextVector = getNormalVectorFromPoints(direction,wallmidPoint)
-    local wallmidPoint2, width,leftWall,rightWall,bank  = self:getWallMidpoint2(nextLocation,nextVector,1)
-    if self.scanError then print("error generating curve2") return end
-    local newDistance = lastNode.distance + getDistance(lastNode.mid,wallmidPoint2)
-    local newNode = self:generateMidNode(lastNode.id + 1,lastNode,wallmidPoint2,nextVector,newDistance,width,leftWall,rightWall,bank)
-    newNode.pos = pos -- set new actual Pos, midPoint will stay at wallMidPoint2
-    return newNode
-end
-
-
 function Generator.iterateScan(self)
 
     self.nodeIndex = self.nodeIndex + 1
@@ -2139,8 +2191,8 @@ function Generator.client_onFixedUpdate( self, timeStep )
         local finished = self:asyncSleep(self.optimizeRaceLine,self.asyncTimeout2)
         if finished then
             print("Generating segmens after optimization")
-            --self:generateSegments()-- testing location
-            --self:printNodeChain()
+            self:generateSegments()-- testing location
+            self:printNodeChain()
             self.smoothing = false
             self.scanClock = 0
             sm.gui.displayAlertText("Optimization Finished")
@@ -2152,8 +2204,8 @@ function Generator.client_onFixedUpdate( self, timeStep )
         end
         if self.scanClock >= self.scanLength  or self.smoothEqualCount > 3 then
             --print("Generating segmenst smoothcount")
-            --self:generateSegments()-- testing location
-            --self:printNodeChain()
+            self:generateSegments()-- testing location
+            self:printNodeChain()
             self.smoothing = false
             self.scanClock = 0
             print("Optimization actually finished")
