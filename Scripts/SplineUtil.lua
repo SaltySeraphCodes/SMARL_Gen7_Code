@@ -63,9 +63,6 @@ function Spline.getCurvePoints(self,ptsa, tension, numOfSegments)
     table.insert(_pts, 1, ptsa[1])
     table.insert(_pts, ptsa[pl - 1])
     table.insert(_pts, ptsa[pl - 0])
-	print("got",_pts)
-	print()
-	print(ptsa)
 	--/ 1. loop goes through point array
 	--/ 2. loop goes through each segment between the two points + one point before and after
 	----for (i = 2 i < pl i += 2)
