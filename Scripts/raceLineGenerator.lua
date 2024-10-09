@@ -1677,12 +1677,10 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
             print("imputting",v.id,x,y)
             table.insert(splineArray, tonumber(x))
 		    table.insert(splineArray, tonumber(y))
-        end
-        local minShift= getMin(splineArray)
-        print("got min",minShift)
+		end
         -- shift spline by min so no negatives
         for k = 1, #splineArray do
-            splineArray[k] = splineArray[k] + math.abs(minShift)  -- pad by 1
+            splineArray[k] = splineArray[k] -- pad by 1
         end
 
         for k, v in pairs(self.nodeChain) do
@@ -1696,19 +1694,20 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
             end
             local spline = Spline()
             local testSplint = {1.23,2.321,1.412,3.534,-2.412,3.534,4.4123,5.412}
-            local res = spline:getCurvePoints(testSplint)
+            local res = spline:getCurvePoints(splineArray)
             print()
             for i=1, #res, 2 do
                 print(res[i]..","..res[i+1])
             end
+			
 
-            for i = 1, #self.nodeSpline, 2 do 
-                local x = self.nodeSpline[i] - minShift
-                local y = self.nodeSpline[i+1] - minShift
+            for i = 1, #splineArray, 2 do 
+                local x = splineArray[i]
+                local y = splineArray[i+1]
                 local pos = sm.vec3.new(x,y,3)
-                table.insert(self.debugEffects,self:generateEffect(pos,sm.color.new('aa22ffff')))
+                table.insert(self.debugEffects,self:generateEffect(pos,sm.color.new('aaff88ff')))
+				table.insert(self.nodeSpline,pos)
             end
-            return true
         else
             print("no splineArray?",splineArray)
             return true
@@ -1721,9 +1720,20 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
         self.phase2Running = false
         self.phase3Running = true
     elseif self.phase3Running then 
-        -- Begin to build spline off of new nodes
-        local node = self.optiSpline[self.p3ScanIndex]
-
+		-- Begin to build spline off of new nodes
+		if self.p3ScanIndex > #self.nodeSpline then
+			print("Reached end of nodes",self.p3ScanIndex)
+			self.phase3Running = false
+		end
+		local pos = self.nodeSpline[self.p3ScanIndex]
+		print(self.p3ScanIndex,"generating",pos)
+		if pos then
+			local node = {pos,self.p3ScanIndex}
+		else
+			print("no pos in spline?",self.p3ScanIndex)
+		end
+		self.p3ScanIndex = self.p3ScanIndex + 1
+		--return true
     end
     self.scanClock = self.scanClock + 1
     if self.scanClock >= 1000 then 
