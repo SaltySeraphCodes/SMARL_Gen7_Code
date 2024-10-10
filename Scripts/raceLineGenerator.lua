@@ -1054,7 +1054,7 @@ function Generator.getWallMidpoint3(self,location,direction,cycle) -- new Method
     local inTunnel = false
     local floorHeight,floorData = sm.physics.raycast(location + (self.shape.up *scanFromHeight), location + (self.shape.up * -60)) -- TODO: balance height to prevent confusion...
     local ceilingHeight,ceilingData = sm.physics.raycast(location + self.shape.up *1.1, location + self.shape.up * 50) -- Check for ceiling (initioal tunnel or starting line stuff)
-    table.insert(self.debugEffects,self:generateEffect(location + (self.shape.up *scanFromHeight),sm.color.new('ff0000ff'))) -- oarnge dot at start location
+    --table.insert(self.debugEffects,self:generateEffect(location + (self.shape.up *scanFromHeight),sm.color.new('ff0000ff'))) -- oarnge dot at start location
 
     local floor = location.z -- setting flor to be previous floor 
     if floorHeight then
@@ -1344,14 +1344,14 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
     local flag = nil
     -- Set midpoint as apex, but once a node gets closest to wall, that can be re-set as new apex
     local startNode, endNode, finished = self:analyzeSegment(firstNode) -- returns segment start and end
-    --print(firstNode.id)
+    --print("firstNode",firstNode.id,#self.nodeChain)
     --print("First scan got", startNode.id,endNode.id)
     local lastNode
     local firstSegment = getSegment(self.nodeChain,firstNode,startNode) -- create segment
     --print("betweenSeg?",#firstSegment,firstNode.id,startNode.id)
     if #firstSegment > 1 then -- if curve has straight seg before
         local sType,angle = defineSegmentType(firstSegment)
-        --print(segID,"Setting Between segment (start)",firstNode.id,startNode.id,type.TYPE,angle)
+        --print(segID,"Setting Between segment (start)",firstNode.id,startNode.id,sType.TYPE,angle)
         local output = segID.." setting between seg at start, " .. firstNode.id .. " - " .. startNode.id .. " : " .. sType.TYPE
         --sm.log.info(output)
         setSegmentType(firstSegment,sType,angle,segID)
@@ -1364,7 +1364,7 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
     local segment = getSegment(self.nodeChain,startNode,endNode)
     local sType,angle = defineSegmentType(segment)
     self:setSegmentApex(segment)
-    --print(segID,"setting first segment",startNode.id,endNode.id,type.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
+    --print(segID,"setting first segment",startNode.id,endNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
     local output = segID.." setting first segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
     --sm.log.info(output)
     setSegmentType(segment,sType,angle,segID)
@@ -1379,7 +1379,7 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         startNode = endNode.next
         lastNode = startNode -- store last segment end
         startNode,endNode,finished = self:analyzeSegment(startNode)
-        --print("post Segment:",startNode.id,endNode.id,segID)
+       -- print("post Segment:",startNode.id,endNode.id,segID)
 
         -- check for segment between
         --print("finding segments",lastNode.id,startNode.id,endNode.id)
@@ -1388,7 +1388,7 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         if #betweenSeg > 1 then -- If there is no segment between last turn and next turn
             --print("set between seg")
             local sType,angle = defineSegmentType(betweenSeg)
-            --print(segID,"setting between segment",lastNode.id,startNode.id,type.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
+            --print(segID,"setting between segment",lastNode.id,startNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
             local output = segID.." setting between segment " .. lastNode.id .. " - " .. startNode.id .. " : " .. sType.TYPE
             --sm.log.info(output)
             --print("setting segment type between",lastNode.id,startNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
@@ -1407,9 +1407,6 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         local output = segID.." setting next segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
         --sm.log.info(output)
         setSegmentType(segment,sType,angle,segID)
-
-        
-
         if finished then -- TODO: Figure if this will still work
             -- Check between then set final segment?
             done = true
@@ -1752,11 +1749,11 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                             lnPos = getPosOffset(lastNode.pos, lastNodeVector, 0.1) 
 
                             
-                            fnPos = getPosOffset(fnPos, firstNodePerp, 0.15) -- offset outwards (lef/right) until wall
-                            lnPos = getPosOffset(lnPos, lastNodePerp, 0.1) 
+                            fnPos = getPosOffset(fnPos, firstNodePerp, 0.05) -- offset outwards (lef/right) until wall
+                            lnPos = getPosOffset(lnPos, lastNodePerp, 0.05) 
 
-                            fnPos = getPosOffset(fnPos, firstNode.outVector * -1, 0.01) -- offset forward/backward until wall
-                            lnPos = getPosOffset(lnPos, lastNode.outVector, 0.15) 
+                            fnPos = getPosOffset(fnPos, firstNode.outVector * -1, 0.1) -- offset forward/backward until wall
+                            lnPos = getPosOffset(lnPos, lastNode.outVector, 0.1) 
 
 
                             -- now shif
@@ -1809,10 +1806,10 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
             local vhDifNext =  self:getNodeVH(v.next,v,perpV)
             local lastOverlap = false
             local nextOverlap = false
-            if vhDifLast.vertical < 10 then -- Overlapped, trim
+            if vhDifLast.vertical <40 then -- Overlapped, trim
                 lastOverlap = true
             end
-            if vhDifNext.vertical < 35 then
+            if vhDifNext.vertical < 40 then
                 nextOverlap = true
             end
             -- delete self if overlapping nodes and not pinned
@@ -1834,14 +1831,15 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                         self:removeNode(v.id)
                         break -- return false
                     end
-                elseif lastOverlap then
+                end
+                if lastOverlap then
                     if v.last.pinned then
                          --print("Cutting",k,v.id,vhDifNext)
-                         --all_trimmed = false
-                         --v.last.next = v.next
-                         --v.next.last = v.last
-                         --self:removeNode(v.id)
-                         --break -- return false
+                         all_trimmed = false
+                         v.last.next = v.next
+                         v.next.last = v.last
+                         self:removeNode(v.id)
+                         break -- return false
                     end
                 end  
             end
@@ -1854,6 +1852,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
 
 
         -- Cutss off overlapping turns
+        print("doing intersect")
         for segID=1, self.totalSegments do
             local segment = findSegment(self.nodeChain,self.totalSegments,segID)
             if segment ~= nil then 
@@ -1865,23 +1864,27 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                     if segID < self.totalSegments then
                         local nextSegID = segID + 1
                         local nextSegment = findSegment(self.nodeChain,self.totalSegments,nextSegID)
-                        local nextSegTurn = getSegTurn(nextSegment[1].segType.TYPE)
-                        if (nextSegTurn >=2 or nextSegTurn <=-2) then -- Two medium to sharp turns back to back discovered
-                            -- get the intersection between the last part of first tirn and first part of last turn
-                            local nextStartNode = nextSegment[1]
-                            local nextApexNode = findSegApex(nextSegment)
-                            local endLine = {sm.vec3.new(firstApexNode.pos.x,firstApexNode.pos.y,1),
-                                            sm.vec3.new(lastNode.pos.x,lastNode.pos.y,1)}
-                            local startLine = {sm.vec3.new(nextStartNode.pos.x,nextStartNode.pos.y,1),
-                                                sm.vec3.new(nextApexNode.pos.x,nextApexNode.pos.y,1)}
-                            local intersectionPoint = lineIntersect(endLine,startLine)
-                            if intersectionPoint ~= nil then
-                                print(segID,nextSegID,"Got turn intersection point",intersectionPoint)
-                                intersectionPoint.z = nextStartNode.pos.z -- adjust Z back
-                                -- shift first and end points to intersectionpoint 
-                                lastNode.pos = getPosOffset(intersectionPoint, lastNode.outVector * -1, 7)
-                                nextStartNode.pos = getPosOffset(intersectionPoint, nextStartNode.outVector, 7)
+                        if nextSegment then 
+                            local nextSegTurn = getSegTurn(nextSegment[1].segType.TYPE)
+                            if (nextSegTurn >=2 or nextSegTurn <=-2) then -- Two medium to sharp turns back to back discovered
+                                -- get the intersection between the last part of first tirn and first part of last turn
+                                local nextStartNode = nextSegment[1]
+                                local nextApexNode = findSegApex(nextSegment)
+                                local endLine = {sm.vec3.new(firstApexNode.pos.x,firstApexNode.pos.y,1),
+                                                sm.vec3.new(lastNode.pos.x,lastNode.pos.y,1)}
+                                local startLine = {sm.vec3.new(nextStartNode.pos.x,nextStartNode.pos.y,1),
+                                                    sm.vec3.new(nextApexNode.pos.x,nextApexNode.pos.y,1)}
+                                local intersectionPoint = lineIntersect(endLine,startLine)
+                                if intersectionPoint ~= nil then
+                                    print(segID,nextSegID,"Got turn intersection point",intersectionPoint)
+                                    intersectionPoint.z = nextStartNode.pos.z -- adjust Z back
+                                    -- shift first and end points to intersectionpoint 
+                                    lastNode.pos = getPosOffset(intersectionPoint, lastNode.outVector * -1, 7)
+                                    nextStartNode.pos = getPosOffset(intersectionPoint, nextStartNode.outVector, 7)
+                                end
                             end
+                        else
+                            print('skipsegFind0')
                         end
                     end
                 else   -- turns are shallower or straight
@@ -1891,7 +1894,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                 --return false
             end
         end
-        --print("saving important parts") Separate into phase 3?
+        print("saving important parts") --Separate into phase 3?
         -- put all "important" nodes into optImportants - Important =  Begining, apex, and end nodes of all turn segments
         for segID=1, self.totalSegments do
             local segment = findSegment(self.nodeChain,self.totalSegments,segID)
@@ -1930,7 +1933,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                     end
                 end
             else
-                print(" segment find break, skipping") 
+                print(" spline segment find break, skipping") 
             end
 
         end
@@ -1938,6 +1941,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
         self.phase2Done = true
         self.phase2Running = false
         self.phase3Running = true
+        print("Beginning Phase 3")
     elseif self.phase3Running then -- Phase 3, generating new spline for nodechain and initing scan
         -- Format optiImportants into optiSpline
         --print("got optiimporants",#self.optImportants)
@@ -1965,7 +1969,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                 --print(splineArray[i]..","..splineArray[i+1]) --pre spline
             end
             local spline = Spline()
-            local splineRes = spline:getCurvePoints(splineArray,0.2,8)
+            local splineRes = spline:getCurvePoints(splineArray,0.3,20)
             for i=1, #splineRes, 2 do
                 --print(splineRes[i]..","..splineRes[i+1])
             end
@@ -1997,7 +2001,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
 		self.totalDistance = 0
 		local startScanDir = (self.nodeSpline[2] - self.nodeSpline[1]):normalize()
 		local startMid, width,leftWall,rightWall,bank = self:getWallMidpoint(self.nodeSpline[1],startScanDir,1)
-		local startingNode = self:generateMidNode(self.nodeIndex,nil,startMid,startScanDir,0,width,leftWall,rightWall,bank)
+		local startingNode = self:generateMidNode(self.p4ScanIndex,nil,startMid,startScanDir,0,width,leftWall,rightWall,bank)
 		startingNode.pos = self.nodeSpline[1] -- manually set point
         startingNode.pos.z = startMid.z -- adjust z value
         --print("put in starting node",startingNode.midPos,startingNode.pos)
@@ -2016,7 +2020,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
         self.phase3Done = true
         self.phase3Running = false
         self.phase4Running = true
-        print("Starting Phase4 Scan",#self.nodeChain,#self.nodeSpline)
+        print("Starting Phase4 Scan",#self.nodeChain,#self.nodeSpline,self.nodeChain[1].id)
        
     elseif self.phase4Running then 
         --print("Phase4 running",self.p4ScanIndex,#self.nodeChain)
@@ -2084,10 +2088,10 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
 	    --table.insert(self.effectChain,self:generateEffect(leftWall))
 	    --table.insert(self.effectChain,self:generateEffect(rightWall))
 	    table.insert(self.nodeChain, newNode)
-        --print("nc2",self.p4ScanIndex,#self.nodeSpline,#self.nodeChain)
 	    --check if at end of node spline
+        --print("nc2",self.p4ScanIndex,newNode.id,#self.nodeChain,self.nodeChain[1].id,self.nodeChain[#self.nodeChain].id)
+
 	    if self.p4ScanIndex >= #self.nodeSpline then -- 1is padding just in case?
-			print("Reached end of spline",self.p4ScanIndex)
         	local firstNode = self.nodeChain[1]
         	newNode.next = firstNode -- link back to begining
         	newNode.outVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos)
@@ -2095,16 +2099,22 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
 
         	firstNode.last = newNode
         	firstNode.inVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos) -- or lastNode.outVector if too much
+            --print()
         	--firstNode.force = vectorAngleDiff(firstNode.inVector,firstNode.outVector)
         	self.phase4Running = false
 			self.phase4Done = true
 			self.phase5Running = true
 	        print("finished scanning")
+            print("Reached end of spline",self.p4ScanIndex,newNode.id,#self.nodeChain,self.nodeChain[1].id,self.nodeChain[#self.nodeChain].id)
+
 			return false
     	end
+
 	elseif self.phase5Running then  -- Phase 4: Adjusting nodes away from walls
 		--print('phase 5 running')
 		local allClear = true
+        --print("nc3",v.id,#self.nodeChain)
+
         calculateNewForceAngles(v) -- TODO: CHeck betweenForceAngles and calculateNewForceAngles2
 		-- For every node in nodechain, look both left and right for a wall, if a wall is closer than padding then move pos opposite
 		for k=1, #self.nodeChain do v = self.nodeChain[k]
