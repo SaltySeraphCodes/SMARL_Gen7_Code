@@ -1969,7 +1969,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                 --print(splineArray[i]..","..splineArray[i+1]) --pre spline
             end
             local spline = Spline()
-            local splineRes = spline:getCurvePoints(splineArray,0.3,20)
+            local splineRes = spline:getCurvePoints(splineArray,0.25,14)
             for i=1, #splineRes, 2 do
                 --print(splineRes[i]..","..splineRes[i+1])
             end
@@ -2115,9 +2115,9 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
 		local allClear = true
         --print("nc3",v.id,#self.nodeChain)
 
-        calculateNewForceAngles(v) -- TODO: CHeck betweenForceAngles and calculateNewForceAngles2
 		-- For every node in nodechain, look both left and right for a wall, if a wall is closer than padding then move pos opposite
 		for k=1, #self.nodeChain do v = self.nodeChain[k]
+            calculateNewForceAngles(v) -- TODO: CHeck betweenForceAngles and calculateNewForceAngles2
 			local perpV = v.perpVector -- assuming left is -1
 			local lWallDist = getDistToWall(v,v.pos,perpV,-1)
 			if lWallDist  < WALL_PADDING  then  -- shift right
