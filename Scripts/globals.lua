@@ -49,7 +49,16 @@ TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
 
 -- New manual Checkpoint globals
 NODE_CHAIN = {}
-CHECK_POINTS = {}
+CHECK_POINT_CONFIG = {
+    editing = 0,
+    hasChange = false,
+    wallPad = 7,
+    tension = 0.4,
+    nodes = 10,
+    spacing = 2, -- Spacing between nodes, Deletes any nodes that are closer
+    pos_arr = {}, -- List of Vec3s for each position
+    shape_arr = {}, --list of vec3s for each shape (more permanent)
+}
 
 SEGMENT_TYPES = {
     {
@@ -183,6 +192,16 @@ function sortCameras()
     --print("Sorting Cameras")
     table.sort(ALL_CAMERAS, cameraCompare)
     --print(ALL_CAMERAS)
+end
+
+
+function chpoCompare(a,b)
+    --print(a.cameraID)
+	return a['cpIndex'] < b['cpIndex']
+end
+
+function sortCheckpoints()
+    table.sort(CHECK_POINT_CONFIG.shape_arr, chpoCompare)
 end
 
 function setSmarCam(cam)
@@ -321,6 +340,24 @@ function displayNodeMap(nodeMap,location) -- attempts to display nodemap
     end
     print(mapString)
 end
+
+
+function GenerateVisualPath(path,exportArr) --generates the line effect for  a path
+	for k = 1, #path do local v = path
+		if k == #path then
+			return
+		end
+        local startPos = v
+        local endPos = path[k+1]
+        local line = Line()
+        line:init(0.2,sm.color.new(1,1,1)) -- white
+        line.update(startPos,endPos)
+        table.insert(exportArr, line)
+    end
+    return exportArr
+end
+
+
 
 function findClosestNode(nodeChain,location)
     --print("fnn")
