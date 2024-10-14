@@ -406,7 +406,18 @@ function SmarlCamera.client_onReload(self)
 end
 
 function SmarlCamera.client_onFixedUpdate( self, timeStep )
+	local moveVel = self.tool:getRelativeMoveDirection()*2.5
 	
+	if getRaceControl() ~= nil and getRaceControl().viewIngCamera == true then
+		print("ignoring input")
+	else
+		if self.freeCamActive then 
+			--print("moveVel",moveVel)
+			-- dont do jumping
+			moveVel.z = 0
+			self.moveAccel = moveVel
+		end
+	end
 	--print(sm.tool.interactState)
 end
 

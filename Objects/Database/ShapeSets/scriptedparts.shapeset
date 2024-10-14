@@ -343,7 +343,7 @@
                }
             ]
          },
-         "rotationSet" : "PropZ",
+         "rotationSet" : "PropY",
          "scripted" : {
             "classname" : "CheckPoint",
             "filename" : "$MOD_DATA/Scripts/CheckPoint.lua"

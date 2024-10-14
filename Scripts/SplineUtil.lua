@@ -31,7 +31,7 @@ end
 --
 
 function Spline.getCurvePoints(self,ptsa, tension, numOfSegments)
-	print('getcurvepoints',#ptsa,tension,numOfSegments)
+	--print('getcurvepoints',#ptsa,tension,numOfSegments)
 	-- use input value if provided, or use a default value	 
 	tension = (tension or 0.5)
 	numOfSegments = (numOfSegments or 16)

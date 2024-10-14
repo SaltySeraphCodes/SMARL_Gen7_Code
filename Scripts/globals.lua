@@ -1,3 +1,5 @@
+dofile "util.lua"
+
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
 SMAR_VERSION = "1.8.0" -- New Racing Line Scan algo, Custom behavior UI, Adjusted Braking behavior
@@ -49,7 +51,7 @@ TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
 
 -- New manual Checkpoint globals
 NODE_CHAIN = {}
-CHECK_POINT_CONFIG = {
+CHECK_POINT_CONFIG = { -- client side
     editing = 0,
     hasChange = false,
     wallPad = 7,
@@ -353,6 +355,7 @@ function GenerateVisualPath(path,exportArr) --generates the line effect for  a p
         line:init(0.2,sm.color.new(1,1,1)) -- white
         line.update(startPos,endPos)
         table.insert(exportArr, line)
+        print("drawing line",line)
     end
     return exportArr
 end
@@ -1092,8 +1095,8 @@ function defineSegmentType(segment) -- defines a segment based off of invector a
             local angleDif = (lastAngle -newAngle)
             if math.abs(angleDif) > 50 then 
                 local absDif = math.abs(lastAngle) - math.abs(newAngle)
-                --print("Got sharp dif",lastAngle,newAngle,absDif)
-                if absDif < 15 then
+                --print("Got sharp dif",node.id,lastAngle,newAngle,absDif)
+                if absDif < 45 then
                     --print("False alarm",absDif,-angleDif)
                     if getSign(lastAngle) == 1 and getSign(newAngle) == -1 then -- Went from right to left
                         angleDif = absDif * getSign(newAngle)

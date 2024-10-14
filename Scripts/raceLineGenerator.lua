@@ -46,6 +46,7 @@ function Generator.client_onDestroy(self)
     if self.effect:isPlaying() then
         self.effect:destroy()
     end
+    self:eraseCurManPoints()
 
     self:stopVisualization()
 end
@@ -119,8 +120,8 @@ function Generator.client_init( self )  -- Only do if server side???
     self.debug =true  -- Debug flag -- REMEMBER TO TURN THIS OFF
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
-    self.optimizeStrength = 0
-    self.racifyLineOpt = false -- Makes racing line more "racelike"
+    self.optimizeStrength = 4
+    self.racifyLineOpt = true -- Makes racing line more "racelike"
     self.asyncTimeout = 0 -- Scan speed [0 fast, 1 = 1per sec]   
     self.asyncTimeout2 = 0 -- optimization speed
 
@@ -259,6 +260,7 @@ function Generator.showVisualization(self) --starts all effects
         for k=1, #self.nodeChain do local v=self.nodeChain[k]
             if v.effect ~= nil then
                 if not v.effect:isPlaying() then
+                    --print("starting nodechain effect",k,v.pos)
                     v.effect:start()
                 end
             end
@@ -626,7 +628,7 @@ function Generator.findWallTopDown(self,location,direction,cycle,threshold) -- s
     -- original location is estimated position based off of last wall
     -- stores floor location and if floor height threshold is passed then will return wall location
    local scanHeight = threshold + 20 -- how high from location to start scan
-   local perpOffset = 1 -- start 2 away from center block
+   local perpOffset = 2 -- start 2 away from center block
    local perpLimit = 60  -- end scan dist
    local floorValue = nil
    local scanGrain = 0.25 -- Sweeet spot may need adjustment [0.25]
@@ -638,6 +640,7 @@ function Generator.findWallTopDown(self,location,direction,cycle,threshold) -- s
    for k= perpOffset, perpLimit, scanGrain do -- scans from pre direction, to post direction
            hit,data = sm.physics.raycast(scanStart,scanEnd) -- shoot raycast down
            if cycle == 1 then
+                --print("insert effect")
                 --table.insert(self.debugEffects,self:generateEffect(scanStart,sm.color.new('1111ffff'))) -- blue dot at start location
                 --table.insert(self.debugEffects,self:generateEffect(scanEnd,sm.color.new('11ff11ff'))) -- green dot at end location
            end
@@ -645,7 +648,7 @@ function Generator.findWallTopDown(self,location,direction,cycle,threshold) -- s
            if hit then -- found floor
                if cycle == 1 then
                     --table.insert(self.debugEffects,self:generateEffect(scanStart,sm.color.new('1111ffff'))) -- blue dot at start location
-                   --table.insert(self.debugEffects,self:generateEffect(data.pointWorld,sm.color.new('11ff11ff'))) -- green dot at end location
+                    --table.insert(self.debugEffects,self:generateEffect(data.pointWorld,sm.color.new('11ff11ff'))) -- green dot at end location
                end
 
                floorLoc = data.pointWorld.z
@@ -655,7 +658,9 @@ function Generator.findWallTopDown(self,location,direction,cycle,threshold) -- s
                if floorValue and math.abs((floorLoc - floorValue))  > threshold then -- if there is a large change in floorthreshold
                    --print("found potential wall",math.abs(floorLoc - floorValue),threshold)
                    --self:createEfectLine(scanStart,data.pointWorld,sm.color.new('aaaaff')) -- white ish line
-                   foundWall = data.pointWorld
+                    foundWall = data.pointWorld
+                    table.insert(self.debugEffects,self:generateEffect(data.pointWorld+ sm.vec3.new(0,0,4),sm.color.new('11ff11ff'))) -- green dot at end location
+
                    break -- stop looping here
                else
                    floorValue = floorLoc -- adjust floor location in case uneven terrain?
@@ -674,8 +679,9 @@ function Generator.findWallTopDown(self,location,direction,cycle,threshold) -- s
            scanEnd = scanStart + sm.vec3.new(0,0,-scanHeight*1.5) -- scan down
    end
    if foundWall == nil then  -- just put a wall at the max scan location
-        print("Max limit for wall",floorLoc)
-        foundWall = floorLoc
+        print("Max limit for wall",scanEnd)
+        table.insert(self.debugEffects,self:generateEffect(scanEnd+ sm.vec3.new(0,0,4),sm.color.new('ff1111ff'))) -- green dot at end location
+        foundWall = scanEnd
    end
    return foundWall,floorValue
 end
@@ -744,7 +750,7 @@ function Generator.checkForSharpEdge(self,midPoint,newWall,cycle) -- TODO: Deter
            --print("Sharp Wall Edge",wallChange)
            if cycle == 1 then
                --self:createEfectLine(location,searchLocation,sm.color.new('ee127fff')) -- red ish line
-               table.insert(self.debugEffects,self:generateEffect(midPoint,sm.color.new('ff0000ff'))) -- red dot at start locationi
+               --table.insert(self.debugEffects,self:generateEffect(midPoint,sm.color.new('ff0000ff'))) -- red dot at start locationi
                --table.insert(self.debugEffects,self:generateEffect(searchLocation,sm.color.new('00ff00ff'))) -- green dot at scan location
                --table.insert(self.debugEffects,self:generateEffect(newWall,sm.color.new('0000ffff'))) -- blue dot at wall location
                --self:createEfectLine(location,lData.pointWorld,sm.color.new('ee127fff')) -- left is more red
@@ -810,16 +816,17 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
     else
         --print(location.z - floor) -- bug, it sees going gdown but doesnt determine flat
         if location.z - floor > 0.3 then
-            print("Road going down")
+            --print("Road going down",location.z - floor)
             location.z = frontData.pointWorld.z
         end
     end
+    --table.insert(self.debugEffects,self:generateEffect(location + (self.shape.up *scanFromHeight),sm.color.new('ff0000ff'))) -- oarnge dot at start location
 
     -- left wall Initial Find
     if inTunnel then -- if in tunnel just look directly left and right for walls
         leftWall = self:getWallFlatUp(location,-perp2,1) -- find left wall
     else
-        leftWall,leftFloor = self:findWallTopDown(location,-perp2,1,self.wallThreshold)
+        leftWall,leftFloor = self:findWallTopDown(location,-perp2,cycle,self.wallThreshold)
     end
     if leftWall == nil then
         print("Finding Left wall failed",leftWall,location,cycle)
@@ -832,7 +839,7 @@ function Generator.getWallMidpoint(self,location,direction,cycle) -- cycle is ne
     if inTunnel then -- if in tunnel just look directly left and right for walls
         rightWall = self:getWallFlatUp(location,perp2,1) -- find left wall
     else
-        rightWall,rightFloor = self:findWallTopDown(location,perp2,1,self.wallThreshold)
+        rightWall,rightFloor = self:findWallTopDown(location,perp2,cycle,self.wallThreshold)
     end
     if rightWall == nil then
         print("Finding Right Wall failed",rightWall,location,cycle)
@@ -1280,10 +1287,10 @@ function Generator.analyzeSegment(self,initNode) -- Attempt # 5
     local lastAngle = 0
     local lastAngleDif = 0
     local numStraight = 0
-    local straightThreshold = 2 -- angle difference between last and current node to be considered straight
-    local straightCutoff = 4 -- how many straight nodes found before cutting off curve
+    local straightThreshold = 3 -- min angle difference between last and current node to be considered straight
+    local straightCutoff = 2 -- how many straight nodes found before cutting off curve
     local turnDir = 0
-    local turnThreshold = 5-- how many degrees difference from initial node to determine a turn
+    local turnThreshold = 6-- how many degrees difference from initial node to determine a turn
     local turnCount = 0
     local turnCountThresh = 2 -- How many valid turning nodes before triggering apex node
     --print("startigna init",index,self.nodeChain[1].id,self.nodeChain[1].segID)
@@ -1589,10 +1596,10 @@ end
 
 -- Working algorithm that is much better at pinning apex/turn efficient points
 function Generator.racifyLine(self)
-    local straightThreshold = 15 -- Minimum length of nodes a straight has to be
-    local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
+    local straightThreshold = 13 -- Minimum length of nodes a straight has to be
+    local nodeOffset = 2 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
     local shiftAmmount = 0.05  -- Maximum node pin shiftiging amound (>2)
-    local lockWeight = 10
+    local lockWeight = 6
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
     -- TODO: only racify when there curve is a medium or more
@@ -2000,6 +2007,8 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
                 --print(#self.nodeSpline,pos,lastPos,pos == lastPos)
                 if pos == lastPos then -- skip over dupe
                     --print(i/2,"got dupe",pos)
+                elseif pos and lastPos and getDistance(pos,lastPos) < 5 then 
+                    --print(got things to clos)
                 else
                     --table.insert(self.debugEffects,self:generateEffect(pos,sm.color.new('aaff88ff')))
 				    table.insert(self.nodeSpline,pos)
@@ -2509,16 +2518,17 @@ end
 
 
 function Generator.eraseCurManPoints(self) -- Erases curPoints
-    for k = 1, #self.manPointsFX do local v = self.manPointsFX[k]
+    for k = #self.manPointsFX,1,-1 do local v = self.manPointsFX[k] -- iterate backwards cuz things get skipped
 	    if v then
 			if v:isPlaying() then
 				v:stop() --or just stop anywhere
             end
 			v:destroy()
 			table.remove(self.manPointsFX,k)
+            table.remove(self.manPosArr,k)
 		end
 	end
-	CHECK_POINTS_CONFIG.posArray = {} -- delete other set point
+	self.manPointsFX = {} -- delete other set point
 end
 
 function Generator.drawCurManPoints(self) -- adds fx to fxtable
@@ -2529,21 +2539,28 @@ function Generator.drawCurManPoints(self) -- adds fx to fxtable
     end
 
 	-- Or use line (Compile this into a function that goes through all the points and generates lines between
-	--GenerateVisualPath(self.manPosArr) -- TODO: make all functions in globals capitalize
+	--self.manPointsFX = GenerateVisualPath(self.manPosArr) -- TODO: make all functions in globals capitalize
+    -- Still needs fixing
 end
 
-function Generator.generateManPosArr(self) -- generates manual pos spline based on CHECK_POINTS
-	local mPointArr = CHECK_POINT_CONFIG.pos_arr
-	table.insert(mPointArr,self.location,1) -- starting node first
-	table.insert(mPointArr,self.location) -- Starting point also at end to complete loop -- Make different color?
+function Generator.generateManPosArr(self) -- generates manual pos spline based on CHECK_POINT_CONFIG
+	local mPointArr = {} --CHECK_POINT_CONFIG.pos_arr
+
+	table.insert(mPointArr,self.location.x) -- starting node last
+    table.insert(mPointArr,self.location.y) -- starting node first
 	for k = 1, #CHECK_POINT_CONFIG.pos_arr do local v = CHECK_POINT_CONFIG.pos_arr[k]
         local x = v.x
         local y = v.y
-        print("Inserting",x,y)
+        --print("Inserting",x,y)
         table.insert(mPointArr, tonumber(x))
         table.insert(mPointArr, tonumber(y))
     end
-    
+    print(getDistance(CHECK_POINT_CONFIG.pos_arr[#CHECK_POINT_CONFIG.pos_arr],self.location))
+    if getDistance(CHECK_POINT_CONFIG.pos_arr[#CHECK_POINT_CONFIG.pos_arr],self.location) < 50 then -- auto complete when close
+        table.insert(mPointArr,self.location.x) -- starting node last
+        table.insert(mPointArr,self.location.y)
+    end
+    --print(mPointArr)
     -- mPointArray is now all important points formatted for spline
     if mPointArr then -- Turn into spline
         local spline = Spline()
@@ -2552,17 +2569,21 @@ function Generator.generateManPosArr(self) -- generates manual pos spline based 
         for i = 1, #splineRes, 2 do 
             local x = splineRes[i]
             local y = splineRes[i+1]
-            local newZPos = 1 -- LookForFloor(x,y,maxDist?)
+            local newZPos = self.location.z
+
+            local floorHeight,floorData = sm.physics.raycast(sm.vec3.new(x,y,newZPos) + self.shape.up *2.5, sm.vec3.new(x,y,newZPos) + self.shape.up * -60) -- TODO: remove because not important
+            if floorHeight then
+                newZPos = floorData.pointWorld.z + 0.6
+            end
             local pos = sm.vec3.new(x,y,newZPos) -- TODO: replace with "look for floor function"
             lastZPos = newZPos
             local lastPos = self.manPosArr[#self.manPosArr]
-            --print(#self.nodeSpline,pos,lastPos,pos == lastPos)
             if pos == lastPos then -- skip over dupe
                 --print(i/2,"got dupe",pos)
             elseif i >= #splineRes -2 then -- or 1? Skip over last node to prevent nodes too close
-                print("skipping final node") -- If this doesnt work then we can just do it after this loop runs
-            elseif getDistance(lastPos,pos) < CHECK_POINT_CONFIG.spacing then -- Should work since lastPos is only the ones that are inputted
-                print("Skipping close node")
+                --print("skipping final node") -- If this doesnt work then we can just do it after this loop runs
+            elseif lastPos and getDistance(lastPos,pos) < CHECK_POINT_CONFIG.spacing then -- Should work since lastPos is only the ones that are inputted
+                --print("Skipping close node")
             else
                 table.insert(self.manPosArr,pos)
                 --table.insert(self.debugEffects,self:generateEffect(pos ,sm.color.new('ffff00ff'))) -- orange at spline pos
@@ -2601,81 +2622,56 @@ function Generator.confirmManPoints(self) -- actually puts nodes into nodechain
     self.totalDistance = 0
 	local startScanDir = (self.manPosArr[2] - self.manPosArr[1]):normalize() -- Might be off, could use self.shape:at()
 	local startMid, width,leftWall,rightWall,bank = self:getWallMidpoint(self.manPosArr[1],startScanDir,1)
-	local startingNode = self:generateMidNode(self.p4ScanIndex,nil,startMid,startScanDir,0,width,leftWall,rightWall,bank)
-	startingNode.pos = self.nodeSpline[1] -- manually set point
+	local startingNode = self:generateMidNode(1,nil,startMid,startScanDir,0,width,leftWall,rightWall,bank)
+	startingNode.pos = self.manPosArr[1] -- manually set point
     startingNode.pos.z = startMid.z -- adjust z value, todo, actally do another findFloorlocation
         --print("put in starting node",startingNode.midPos,startingNode.pos)
-        if leftWall == nil or rightWall == nil or startMid == nil then -- TODO: conoslidate this to function
-	        print("Error finding wall and mid location")
-	        print(leftWall,rightWall,nextMid)
-	    else
-	        local newEffect = self:generateEffect(startingNode.pos)
-	        local leftEffect = self:generateEffect(leftWall + sm.vec3.new(0,0,1),sm.color.new("2244ee")) -- left wall blue
-	        local rightEffect = self:generateEffect(rightWall + sm.vec3.new(0,0,1),sm.color.new("22ee44")) -- right wall green
-	        startingNode.effect = newEffect -- 
-	        startingNode.lEffect = leftEffect --
-	        startingNode.rEffect = rightEffect --  
-	    end
-   		table.insert(self.nodeChain, startingNode)
-        self.phase3Done = true
-        self.phase3Running = false
-        self.phase4Running = true
-        print("Starting Phase4 Scan",#self.nodeChain,#self.nodeSpline,self.nodeChain[1].id)
-       
-    elseif self.phase4Running then 
-        --print("Phase4 running",self.p4ScanIndex,#self.nodeChain)
-		self.p4ScanIndex = self.p4ScanIndex + 1
-
-        local lastNode = self.nodeChain[self.p4ScanIndex -1]
-		local nextLocation = self.nodeSpline[self.p4ScanIndex] -- old way, need to figure out tho
-        nextLocation.z = lastNode.pos.z -- pin last location
-        local distance = getDistance(lastNode.pos,nextLocation)
-        --print(self.p4ScanIndex,distance,nextLocation - self.nodeSpline[self.p4ScanIndex -1])
-        local nextVector = (nextLocation - self.nodeSpline[self.p4ScanIndex -1]):normalize() -- should always start at 2
-        -- mid prediction version
-        --local predictVector = self.nodeSpline[self.p4ScanIndex] - self.nodeSpline[self.p4ScanIndex -1]
-        --local predictLoc = lastNode.midPos + predictVector -- Makes next location inference based on vector of others
-        --predictLoc.z = lastNode.pos.z
-        --predictVector = predictVector:normalize()
-    	--local wallmidPoint, width,leftWall,rightWall,bank  = self:getWallMidpoint3(nextLocation,self.scanVector,0) -- new midpoint based off of previous vector looking for perpendicular walls
-    	--if self.scanError then return end
-    	--local nextVector = getNormalVectorFromPoints(self.scanLocation,wallmidPoint)-- Measure from last node to current midPoint
-	    --REdo scan so next vector and scan vector are aligned with midpoint differences and not just scanvector
-	    --print(lastNode.id,'scanning',lastNode.midPos,predictLoc,self.p4ScanIndex,predictVector)
-        local wallmidPoint2, width,leftWall,rightWall,bank  = self:getWallMidpoint3(nextLocation,nextVector,1) -- TODO: determine if we need to find top
-    	--local predictMidPoint, width, leftWall, rightWall, bank  = self:getWallMidpoint3(predictLoc,predictVector,1)
+    if leftWall == nil or rightWall == nil or startMid == nil then -- TODO: conoslidate this to function
+        print("Error finding wall and mid location")
+        print(leftWall,rightWall,nextMid)
+	else
+        local newEffect = self:generateEffect(startingNode.pos)
+        local leftEffect = self:generateEffect(leftWall + sm.vec3.new(0,0,1),sm.color.new("2244ee")) -- left wall blue
+        local rightEffect = self:generateEffect(rightWall + sm.vec3.new(0,0,1),sm.color.new("22ee44")) -- right wall green
+        startingNode.effect = newEffect -- 
+        startingNode.lEffect = leftEffect --
+        startingNode.rEffect = rightEffect --  
+    end
+   	table.insert(self.nodeChain, startingNode)
+    for i = 2, #self.manPosArr do
+        local lastNode = self.nodeChain[i -1]
+        local nextLocation = self.manPosArr[i] -- old way, need to figure out tho
+        nextLocation.z = lastNode.pos.z -- pin last location TODO: check if this breaks everything
+        --local distance = getDistance(lastNode.pos,nextLocation)
+        local nextVector = (nextLocation - self.manPosArr[i - 1]):normalize() -- should always start at 2
+        local wallmidPoint, width,leftWall,rightWall,bank  = self:getWallMidpoint(nextLocation,nextVector,1) -- TODO: determine if we need to find top
         if self.scanError then print("wmp2 p3 scan fail") return end
-	    local nextMid = wallmidPoint2
-	    --local nextVector2 = getNormalVectorFromPoints(self.scanLocation,wallmidPoint2)-- Measure from last node to current midPoint can remove nextVector2 if necessary, doubles as inVector
-        if wallmidPoint2 == nil then
-	        print("Pscan4 nil vector")
+        if wallmidPoint == nil then
+	        print("Confirm wall scan err")
 	    end
-	
 	    if lastNode == nil then
 	        print("could not find node index")
 	        self.scanError = true
 	        self.errorReason = "Could not format optimized node chain, (contact seraph)"
 	        return true  
 	    end
-	    self.totalDistance = self.totalDistance + getDistance(lastNode.midPos,nextMid)
-	    local newNode = self:generateMidNode(self.p4ScanIndex,lastNode,nextMid,nextVector,self.totalDistance,width,leftWall,rightWall,bank)
-        --local newNode = self:generateMidNode(self.p4ScanIndex,lastNode,nextMid,predictVector,self.totalDistance,width,leftWall,rightWall,bank)
-
+        --print(i,"last node",lastNode.midPos,wallmidPoint)
+	    self.totalDistance = self.totalDistance + getDistance(lastNode.midPos,wallmidPoint)
+	    local newNode = self:generateMidNode(i,lastNode,wallmidPoint,nextVector,self.totalDistance,width,leftWall,rightWall,bank)
         newNode.pos = nextLocation -- adjust race line to spline location 
-        newNode.pos.z = nextMid.z -- adjust to accurace z height
-        --TODO: actually look down and adjust z based off of raycast to floor
+        newNode.pos.z = wallmidPoint.z -- adjust to accurace z height
+        --TODO: actually look down and adjust z based off of raycast to floor (done in manPosArr)
 	    if math.abs(nextVector.z) >0.05 then -- was nextVector.z
 	        newNode.incline = nextVector.z
-	        --newNode.pinned = false -- TODO: Check validity of pinning incline nodes
 	    end
 	    -- Finish calculations on previous node
 	    lastNode.next = newNode
 	    lastNode.outVector = getNormalVectorFromPoints(lastNode.pos,newNode.pos)
 	    --lastNode.force = vectorAngleDiff(lastNode.inVector,lastNode.outVector) do we need this for optimizations
 	    -- Add effects and put into node chain
-	    if leftWall == nil or rightWall == nil or nextMid == nil then
+	    if leftWall == nil or rightWall == nil or wallmidPoint == nil then
 	        print("Error finding wall and mid location")
-	        print(leftWall,rightWall,nextMid)
+	        print(leftWall,rightWall,wallmidPoint)
 	    else
 	        local newEffect = self:generateEffect(newNode.pos)
 	        local leftEffect = self:generateEffect(leftWall + sm.vec3.new(0,0,1),sm.color.new("2244ee")) -- left wall blue
@@ -2688,18 +2684,44 @@ function Generator.confirmManPoints(self) -- actually puts nodes into nodechain
 	    --table.insert(self.effectChain,self:generateEffect(leftWall))
 	    --table.insert(self.effectChain,self:generateEffect(rightWall))
 	    table.insert(self.nodeChain, newNode)
+
 	    --check if at end of node spline
-        --print("nc2",self.p4ScanIndex,newNode.id,#self.nodeChain,self.nodeChain[1].id,self.nodeChain[#self.nodeChain].id)
-
-    -- Now we iterate and find walls and midpoints for each point on self.self.manPosArr
-    -- Starting node first:
-
+        if i >= #self.manPosArr then -- 1is padding just in case?
+        	local firstNode = self.nodeChain[1]
+        	newNode.next = firstNode -- link back to begining
+        	newNode.outVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos)
+        	--newNode.force = vectorAngleDiff(newNode.inVector,newNode.outVector)
+        	firstNode.last = newNode
+        	firstNode.inVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos) -- or lastNode.outVector if too much
+        	--firstNode.force = vectorAngleDiff(firstNode.inVector,firstNode.outVector)
+            print("Reached end of spline",i,newNode.id,#self.nodeChain,self.nodeChain[1].id,self.nodeChain[#self.nodeChain].id)
+			return true
+    	end
+    end
 end
 
 -- Other functs
 function Generator.client_onFixedUpdate( self, timeStep ) 
     self.location = sm.shape.getWorldPosition(self.shape)
     self.onHover = cl_checkHover(self.shape)
+
+    -- Check for manual points first, ignore scan
+    if #CHECK_POINT_CONFIG.shape_arr > 0  then
+        self.manualPoints = true 
+    else
+        if self.manualPoints then
+            self.manualPoints = false
+            self:eraseCurManPoints()
+        end
+    end
+
+    if self.manualPoints then
+        self:handleManualPoints()
+    else
+        
+    end
+
+
     self:tickClock()
     --print(self.scanError)
     if self.scanError then
@@ -2714,22 +2736,7 @@ function Generator.client_onFixedUpdate( self, timeStep )
         end
     end
 
-    -- Check for manual points first, ignore scan
-    if #CHECK_POINT_CONFIG.shape_arr > 0  then
-        self.manualPoints = true 
-    else
-        if self.manualPoints then
-            self.manualPoints = false
-        end
-    end
-
-    if self.manualPoints then
-        self:handleManualPoints()
-    else
-        if self.showingManualPoints then
-            self:toggleManualPoints(false) -- force false
-        end
-    end
+    
 
 
     if self.scanning and not self.instantScan then -- Debug scan
@@ -2744,7 +2751,6 @@ function Generator.client_onFixedUpdate( self, timeStep )
             if self.racifyLineOpt then
                 self:racifyLine()
             end
-            print('seg?')
             self:startOptimization()
             
             --self:hardUpdateVisual()
@@ -2757,7 +2763,7 @@ function Generator.client_onFixedUpdate( self, timeStep )
         end
     end
     if self.smoothing and not self.instantOptimize then  
-        local finished = self:asyncSleep(self.optimizeRaceLine,self.asyncTimeout2)
+        local finished = self:asyncSleep(self.iterateSmoothing,self.asyncTimeout2)
         if finished then
             self.isOptimizing = false
             print("Generating segmens after optimization")
@@ -2805,10 +2811,12 @@ function Generator.tickClock(self)
         self.globalTimer = floorCheck
     end
     if self.debug then
-        if self.scanning == false and #self.nodeChain <=1 and self.isOptimizing == false then
-            if not self.visualizing then
-                self:toggleVisual(self.nodeChain)
-            end
+        if not self.visualizing then
+            --print("toggle visual")
+            self:toggleVisual(self.nodeChain)
+        end
+        if self.scanning == false and #self.nodeChain <=1 and self.isOptimizing == false and self.manualPoints == false then
+            print('start debug scan')
             self:startTrackScan()
         end
     end
@@ -2887,7 +2895,7 @@ function Generator.startOptimization(self)
     sm.gui.displayAlertText("Optimizing")
     if self.instantOptimize then -- Game freezing optimization loop
         while self.scanClock < self.scanLength do -- Have seperate optimize clock?
-            local finished = self:optimizeRaceLine()
+            local finished = self:iterateSmoothing() -- giving up on new rl gen for now
             if finished then
                 self.isOptimizing = false
                 self:generateSegments()
@@ -2933,7 +2941,20 @@ end
 function Generator.client_onInteract(self,character,state)
     if state then
         if self.manualPoints == true  then
-            self:confirmManPoints()
+            self:eraseCurManPoints()
+            self:generateManPosArr()
+            --self:drawCurManPoints()
+            local result = self:confirmManPoints()
+            if result then 
+                --self:quickSmooth(10) -- is this even needed?
+                self:showVisualization()
+                self:generateSegments()
+                print("Finished Segment Gen, Optimizing Race line")
+                sm.gui.displayAlertText("Manual Race Line Generation Finished")
+                if self.saveTrack then
+                    self:saveRacingLine()
+                end
+            end
             return
         end 
         if character:isAiming() then -- if char is aiming then downforce detect
@@ -2956,8 +2977,12 @@ end
 
 function Generator.client_onUpdate(self,timeStep)
     if self.onHover then 
-        sm.gui.setInteractionText( self.useText,"Start Scan", self.tinkerText,"Set Sensitivity","")
-        -- TODO, Set center icon to nothing?
+        if sm.localPlayer.getPlayer().character:isCrouching() then
+            sm.gui.setInteractionText( self.useText,"Debug Mode", self.tinkerText,"Decrease Sensitivity","")
+        else
+            -- TODO: change to confirm man text if man nodes == true
+            sm.gui.setInteractionText( self.useText,"Start Scan", self.tinkerText,"Increase Sensitivity","")
+        end
     else
     end
 
