@@ -43,10 +43,12 @@ function CheckPoint.server_onCreate( self )
 end
 
 function CheckPoint.client_onDestroy(self)
+    --print('cldest',self.id)
     self:cl_removeNode(self.id)
 end
 
 function CheckPoint.server_onDestroy(self) -- remove node
+    --print('servdest',self.id)
 end
 
 function CheckPoint.client_init( self ) 
@@ -54,13 +56,23 @@ function CheckPoint.client_init( self )
     self.onHover = false
     self.useText =  sm.gui.getKeyBinding( "Use", true )
     self.tinkerText = sm.gui.getKeyBinding( "Tinker", true )
-
-    table.insert(CHECK_POINT_CONFIG.shape_arr,self)
-    table.insert(CHECK_POINT_CONFIG.pos_arr,self.location)
-    self.id = #CHECK_POINT_CONFIG.shape_arr
-    --TODO: do a shape_arr and pos_arr checker
-    print("Adding checkpoint",self.id,self.location)
-    self:cl_showAlert("Created Checkpoint    "..self.id)
+    --print("adding node?",CHECK_POINT_CONFIG.editing)
+    if CHECK_POINT_CONFIG.editing ~= 0 then -- Editing checkpoint
+        --print("adding editing checkpoint",CHECK_POINT_CONFIG.editing)
+        table.insert(CHECK_POINT_CONFIG.shape_arr,CHECK_POINT_CONFIG.editing,self)
+        table.insert(CHECK_POINT_CONFIG.pos_arr,CHECK_POINT_CONFIG.editing,self.location)
+        self.id = CHECK_POINT_CONFIG.editing
+        print("Edited checkpoint",self.id,self.location)
+        self:cl_showAlert("Edited Checkpoint    "..self.id)
+        CHECK_POINT_CONFIG.editing = 0
+    else
+        table.insert(CHECK_POINT_CONFIG.shape_arr,self)
+        table.insert(CHECK_POINT_CONFIG.pos_arr,self.location)
+        self.id = #CHECK_POINT_CONFIG.shape_arr
+        --TODO: do a shape_arr and pos_arr checker
+        print("Adding checkpoint",self.id,self.location)
+        self:cl_showAlert("Created Checkpoint    "..self.id)
+    end
     CHECK_POINT_CONFIG.hasChange = true
 end
 
@@ -70,6 +82,7 @@ end
 
 function CheckPoint.server_init(self)
    -- moved everything client side for now
+   --table.insert(CHECK_POINT_CONFIG.shape_arr,self)
 end
 
 function CheckPoint.client_onRefresh( self )
@@ -98,20 +111,22 @@ end
 
 
 function CheckPoint.cl_removeNode(self,nodeID) -- removes node
-    if nodeID ~= #CHECK_POINT_CONFIG.shape_arr then
-        --print("editing node?")
-    end
     for k, v in pairs(CHECK_POINT_CONFIG.shape_arr) do
 		if v.id == nodeID then
 			table.remove(CHECK_POINT_CONFIG.shape_arr, k)
             table.remove(CHECK_POINT_CONFIG.pos_arr,k)
 		end
     end
-    -- re index
-    for k, v in pairs(CHECK_POINT_CONFIG.shape_arr) do
-        v.id = k
+    -- re index only when not editing
+    if CHECK_POINT_CONFIG.editing ~= 0 then
+        for k, v in pairs(CHECK_POINT_CONFIG.shape_arr) do
+            v.id = k
+        end
+        --self:cl_showAlert("Editing Checkpoint  "..nodeID)
+    else
+        self:cl_showAlert("Removed Checkpoint  "..nodeID)
     end
-    self:cl_showAlert("Removed Checkpoint  "..self.id)
+    
     CHECK_POINT_CONFIG.hasChange = true
 end
 
@@ -192,11 +207,24 @@ function CheckPoint.cl_changeNodes(self,amnt)
 end
 
 function CheckPoint.server_onProjectile(self,hitLoc,time,shotFrom) -- Functionality when hit by spud gun
-	print("spud hit")
+	print("Destroying all")
+    for k = #CHECK_POINT_CONFIG.shape_arr, 1, -1 do
+        local shape = CHECK_POINT_CONFIG.shape_arr[k].shape
+        if shape then 
+            print("destroying",shape)
+            shape:destroyShape()
+        else
+            print("no shape?")
+        end
+            
+    end
 end
 
 function CheckPoint.server_onMelee(self,data) -- Functionality when hit by hammer
-	print("melehit",data) -- Means save node?
+	--print("melehit",self.id,#CHECK_POINT_CONFIG.shape_arr) -- Means save node?
+    self:sv_sendAlert("Editing Checkpoint  "..self.id)
+    CHECK_POINT_CONFIG.editing = self.id
+    self.shape:destroyShape()
 end
 -- Parameter editing functs
 
@@ -229,7 +257,12 @@ end
 
 function CheckPoint.client_onUpdate(self,timeStep)
     if self.onHover then 
-        if sm.localPlayer.getPlayer().character:isCrouching() then
+        local item = sm.localPlayer.getActiveItem()
+        if item == sm.uuid.new("ed185725-ea12-43fc-9cd7-4295d0dbf88b") then -- holding sledgehammer
+            sm.gui.setInteractionText("" ,"Hit to edit node position","",tostring(self.id),"")
+        elseif item == sm.uuid.new("c5ea0c2f-185b-48d6-b4df-45c386a575cc") then -- holding potato rifle
+            sm.gui.setInteractionText("" ,"Shoot to remove all check points","","","")
+        elseif sm.localPlayer.getPlayer().character:isCrouching() then
             sm.gui.setInteractionText( self.useText,"Decrease Smoothness", self.tinkerText,"Decrease Nodes","")
         else
             sm.gui.setInteractionText( self.useText,"Increase Smoothness", self.tinkerText,"Increase Nodes","")

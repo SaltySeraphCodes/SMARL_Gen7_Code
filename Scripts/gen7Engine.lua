@@ -221,11 +221,10 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     if self.driver == nil and self.noDriverError == false then print ("NO Driver, Please connect engine to driver block") self:sv_setDriverError(true) return 0 end
     if self.curRPM == nil then print("No rpm") return 0 end
     if self.engineStats == nil or self.noStatsError then return 0 end
-    if not self.driver.racing then -- slow down?
+    if not self.driver.racing and not self.driver.experiment then -- slow down?
         if self.driver.userControl then
             -- noop
         else
-            --print("stop car")
             self.curVRPM = 0
             return 0 -- stop car?
         end
@@ -234,9 +233,9 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     if self.accelInput > 0  or (self.driver.userControl and self.accelInput == -1 and self.curGear == -1) then -- throttle says accelerate
         if self.curGear >= 0 then -- increase rpm
             local maxAccel = self:getGearAccel(self.curGear) + ((self.driver.handicap or 1)/2000) -- small acceleration boos too
-            --print(self.driver.id,self.driver.handiCap,self.driver.handicap/70)
             rpmIncrement = ratioConversion(0,1,maxAccel,0,self.accelInput) --+ (self.driver.handicap/200) -- TODO: replace 70 with max handicap
-        
+            --print(self.driver.tagText,rpmIncrement,self.accelInput)
+
         elseif self.curGear == 0 then -- zero gear, stop engine
             return 0
         
@@ -250,7 +249,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
             end
             --print("engineREverse",rpmIncrement)
         end
-        --print("accel",self.accelInput,rpmIncrement)
+        --print("accel",self.accelInput,rpmIncrement,self.curGear)
     elseif self.accelInput < 0 then -- Braking
         --print(self.accelInput,self.curRPM)
         if self.curRPM > 10 then
@@ -327,7 +326,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     elseif  nextRPM <= -40 then --(-self.engineStats.MAX_SPEED or -ENGINE_SPEED_LIMIT) then -- Shouldnt go anywhere near this while reversing
         nextRPM = -40 --(-self.engineStats.MAX_SPEED or -ENGINE_SPEED_LIMIT)
     end
-    --print(self.driver.id,nextRPM,draftTS,handiTS)
+    --print('aa-',self.driver.id,nextRPM,self.engineStats.MAX_SPEED)
     -- failsafe engine limiter
     if nextRPM > (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 9 then -- General overspeed
         --print(self.driver.tagText,"Engine Limit Reached",nextRPM)
@@ -465,7 +464,6 @@ function Engine.server_onFixedUpdate( self, timeStep )
     self:parseParents()
     self:updateType()
     if not self.noDriverError and not self.noStatsError then
-        
         self.curRPM = self:calculateRPM()
         self.VRPM = self:calculateVRPM() -- calculate virtual rpm depending on gearing (mostly for sounds?)
     end

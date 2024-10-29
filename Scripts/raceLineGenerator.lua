@@ -91,7 +91,6 @@ function Generator.client_init( self )  -- Only do if server side???
     self.lastDif = 0
     self.smoothEqualCount = 0
     self.smoothAmmount = 25 -- how many smoothing iterations to do in preprocess
-    self.saveTrack = true
 
     self.segSearch = 0
     self.segSearchTimeout = 100
@@ -118,20 +117,29 @@ function Generator.client_init( self )  -- Only do if server side???
     self.wallThreshold = 0.40
     self.wallPadding = WALL_PADDING -- = 5 US
     self.debug =true  -- Debug flag -- REMEMBER TO TURN THIS OFF
+    self.saveTrack = false -- whether to save the track to world -- remembet to turn on
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
-    self.optimizeStrength = 4
-    self.racifyLineOpt = true -- Makes racing line more "racelike"
+    self.optimizeStrength = 1
+    self.racifyLineOpt = false -- Makes racing line more "racelike"
     self.asyncTimeout = 0 -- Scan speed [0 fast, 1 = 1per sec]   
     self.asyncTimeout2 = 0 -- optimization speed
 
-
+    -- Editing auto checkpoints
+    self.nodeHovered = nil -- which node is hovering
+    self.editingNode = false -- whether editing node position or not
+    self.customSelect = 0
+    self.customSmoothStart = nil
+    self.customSmoothEnd = nil
+    self.customSmoothLive = false
 
     -- Manual Checkpoint Vars
     self.manLineFX = {} -- Contains Vec3Nodes (important nodes) for spline
     self.manPosArr = {} -- Contains vec3Nodes for full spline positions
     self.manPointsFX = {} -- Contains Effect OBjs for visualizing manPosArr
     self.manualPoints = false
+    self.debugMan = true
+    self.finishedManScan = false
     -- error states
     self.scanError = false
     self.errorLocation = nil
@@ -211,6 +219,11 @@ end
 function Generator.stopVisualization(self) -- Stops all effects in node chain (specify in future?)
     --debugPrint(self.debug,'Stopionng visualizaition')
     for k=1, #self.nodeChain do local v=self.nodeChain[k]
+        if v.sphereTrigger ~= nil then
+            --print('deleting', v.sphereTrigger:getUserData())
+            sm.areaTrigger.destroy(v.sphereTrigger)
+            v.sphereTrigger = nil
+        end
         if v.effect ~= nil then
             v.effect:stop()
         end
@@ -289,6 +302,24 @@ function Generator.showVisualization(self) --starts all effects
     --end
 end
 
+function Generator.onEnter( self, trigger, results )
+    --print("entered",trigger,results)
+    local userData = trigger:getUserData()
+    print("Entered Node",userData.node_id)
+end
+
+
+function Generator.updateSphereTriggerUserData(self,node,data) -- destroys and recreates sphere trigger with updated userdatea
+    local newTrigger = nil
+    if node and node.sphereTrigger then 
+        --print("destroying old and making new")
+        sm.areaTrigger.destroy(node.sphereTrigger)
+        newTrigger = cl_generateSphereTrigger(node.id,node.pos)
+    end
+    return newTrigger
+end
+
+
 function Generator.updateVisualization(self) -- moves/updates effects according to nodeChain
     for k=1, #self.nodeChain do local v=self.nodeChain[k]
         if v.effect == nil then
@@ -297,6 +328,25 @@ function Generator.updateVisualization(self) -- moves/updates effects according 
         if v.effect ~= nil then
             if v.pos ~= nil then -- possibly only trigger on change
                 v.effect:setPosition(v.pos)
+                -- Attaching AreaTriggers to the node but only while visuals are true
+                if v.sphereTrigger == nil then -- if non existent, generate new one
+                    --print("316create")
+                    v.sphereTrigger = cl_generateSphereTrigger(v.id,v.pos)
+                    --v.sphereTrigger:bindOnEnter("onEnter") for debug purposes
+                else
+                    v.sphereTrigger:setWorldPosition(v.pos) -- updates trigger space
+                    local triggerNodeId = v.sphereTrigger:getUserData().node_id
+                    if triggerNodeId == nil or triggerNodeId ~= v.id then
+                        --print("update ST",v.id,triggerNodeId)
+                        local newTrigger = self:updateSphereTriggerUserData(v,{['node_id']=v.id})
+                        if newTrigger then
+                            v.sphereTrigger = newTrigger
+                            --print("settinge new trigger",v.id,'old:',triggerNodeId,'cur:',v.sphereTrigger:getUserData().node_id,newTrigger:getUserData().node_id)
+                        else
+                            print("no new trig?")
+                        end
+                    end
+                end 
                 if self.showSpeeds then
                     if v.vMax ~= nil then
                         local color = getSpeedColorScale(self.maxSpeed,self.minSpeed,v.vMax)
@@ -315,11 +365,45 @@ function Generator.updateVisualization(self) -- moves/updates effects according 
                     end
                 end
 
+                if v.id == self.nodeHovered then -- turn hovered node white (until changed??)
+                    if v.hovered == false then  -- only run once
+                        v.hovered = true
+                        local color = sm.color.new(0xffffffff)
+                        v.effect:setParameter( "Color", color )
+                        v.effect:start()
+                    end 
+                else
+                    if v.id == self.customSmoothStart then
+
+                    elseif v.id == self.customSmoothEnd then
+
+                    end
+
+                    if v.hovered == true then  -- turn back to whatever
+                        v.hovered = false
+                        v.effect:stop()
+                        if v.segType ~= nil then
+                            local color = sm.color.new(v.segType.COLOR)
+                            v.effect:setParameter( "Color", color )
+                        end
+                        --v.effect:start()
+                    end 
+                end
+
                 if self.visualizing then
+                    if v.sphereTrigger == nil then
+                        v.sphereTrigger = cl_generateSphereTrigger(v.id,v.pos) -- create new trigger , might have to send to network
+                        v.sphereTrigger:bindOnEnter("onEnter")
+                    end
                     if not v.effect:isPlaying() then
                         v.effect:start()
                     end
                 else
+                    if v.sphereTrigger ~= nil then
+                        --print('deleting', v.sphereTrigger:getUserData())
+                        sm.areaTrigger.destroy(v.sphereTrigger)
+                        v.sphereTrigger = nil
+                    end
                     v.effect:stop()
                 end
                 if self.showWalls then
@@ -383,12 +467,13 @@ function Generator.generateMidNode(self,index,previousNode,location,inVector,dis
    -- print("making node",dirVector)
    -- TODO: upgrade to perpvector2
    -- TODO: remove righwallTop
+   -- Hovered is when area trigger is hovered over
     if inVector == nil then
         print("node gen no inVector")
     end
     return {id = index, pos = location, outVector = nil, last = previousNode, inVector = inVector, force = nil, distance = distance, 
             perpVector = generatePerpVector(inVector), midPos = location, pitPos = nil, width = width, next = nil, effect = nil, 
-            segType = nil, segID = nil, pinned = false, weight = 1, incline = 0, apex = 0,
+            segType = nil, segID = nil, pinned = false, weight = 1, incline = 0, apex = 0, areaTrigger = nil, hovered = false,
             leftWall = leftWall,rightWall = rightWall,leftWallTop = leftWallTop, rightWallTop = rightWallTop ,bank = bank} -- move effect?
 end
 
@@ -659,7 +744,7 @@ function Generator.findWallTopDown(self,location,direction,cycle,threshold) -- s
                    --print("found potential wall",math.abs(floorLoc - floorValue),threshold)
                    --self:createEfectLine(scanStart,data.pointWorld,sm.color.new('aaaaff')) -- white ish line
                     foundWall = data.pointWorld
-                    table.insert(self.debugEffects,self:generateEffect(data.pointWorld+ sm.vec3.new(0,0,4),sm.color.new('11ff11ff'))) -- green dot at end location
+                    --table.insert(self.debugEffects,self:generateEffect(data.pointWorld+ sm.vec3.new(0,0,4),sm.color.new('11ff11ff'))) -- green dot at end location
 
                    break -- stop looping here
                else
@@ -1451,6 +1536,234 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
     --print(self.nodeChain[#self.nodeChain-1].id,self.nodeChain[#self.nodeChain-1].segType)
 end
 
+
+
+
+------------------------ portion for seg gen after man conmfirm ----------------
+
+function Generator.backTraceSegmentMan(self,initNode,startNode,straightThreshold,straightCutoff) -- goes backwards and finds beginning of turn + 3 nodes
+    if initNode == nil then print("Error No init node") return end
+    if initNode.id == startNode.id then 
+        print("same init and start, single node trace: returning stright",initNode.id,startNode.id)
+        return initNode
+    end
+    local index = startNode.id - 1
+    local initAngle = vectorToDegrees(initNode.outVector)
+    local lastAngle = 0
+    local lastAngleDif = 0
+    local numStraight = 0
+    --local straightThreshold = straightThreshold or 1 -- angle difference before not considered straight line
+    --local straightCutoff = straightCutoff or 3 -- how many straight nodes found before cutting of segment
+    
+    for k = index, initNode.id ,-1 do local node = self.nodeChain[k] -- used to back trace until 1, Changed to backtrace to startnode
+        if node.id == self.nodeChain[1].id or node.id == initNode.id then -- Beginning of segment found
+            return node
+        end
+        -- determine if node is the last node of last segment then quit
+        --local angle = getNodeAngle(initNode,node)
+        local curAngle = vectorToDegrees(node.outVector)
+        local initAngleDif = math.abs(initAngle - curAngle)
+        local curAngleDif =  math.abs(curAngle - lastAngle)
+
+        if curAngleDif < straightThreshold then -- lastAngleDif == nil checked before
+            numStraight = numStraight + 1 -- straight found?
+            lastAngle = curAngle
+            lastAngleDif = curAngleDif
+        else -- continue to watch curve
+            lastAngleDif = curAngleDif
+            numStraight = 0 -- reset counter
+            lastAngle = curAngle
+            lastAngleDif = curAngleDif
+        end
+
+        if numStraight >= straightCutoff then -- enough to end curve
+            numStraight = 0
+            return node
+        end
+    end
+
+end
+
+--segment analyzer attempt # 6 
+function Generator.analyzeSegmentMan(self,initNode) -- Attempt # 5
+    if initNode == nil then print("Error No init node") return end
+    local index = initNode.id
+    local initAngle = vectorToDegrees(initNode.outVector)
+    local apexNode = nil
+    local apexAngle = 0
+    local lastAngle = 0
+    local lastAngleDif = 0
+    local numStraight = 0
+    local straightThreshold = 4 -- min angle difference between last and current node to be considered straight
+    local straightCutoff = 1 -- how many straight nodes found before cutting off curve
+    local turnDir = 0
+    local turnThreshold = 5-- how many degrees difference from initial node to determine a turn
+    local turnCount = 0
+    local turnCountThresh = 1 -- How many valid turning nodes before triggering apex node
+    --print("startigna init",index,self.nodeChain[1].id,self.nodeChain[1].segID)
+    for k = index, #self.nodeChain do local node = self.nodeChain[k] -- maybe not do whole chain?
+        if node.next.id == self.nodeChain[1].id then
+            startNode = self:backTraceSegmentMan(initNode,node,straightThreshold,straightCutoff) -- backtraces to start
+            --print("first backtraced",startNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+            return startNode,node, true
+        end
+        
+        local angle = getNodeAngle(initNode,node) -- double check this
+        --local angle = vectorAngleDiff(initNode.outVector,node.outVector)
+        local curAngle = vectorToDegrees(node.outVector)
+        local initAngleDif = math.abs(curAngle - initAngle) -- smooths out going from 180 to - 180
+        local curAngleDif =  math.abs(curAngle - lastAngle) -- difference from last angle node
+        if math.abs(curAngleDif) > 50 then -- check for sharp angle meaning it jumped from - to +
+            local absDif = math.abs(lastAngle) - math.abs(curAngle)
+            print("Got sharp dif2",lastAngle,curAngle,absDif)
+            if absDif < 5 then
+                curAngleDif = absDif * getSign(curAngleDif)
+            end
+        end
+        print(node.id,"angleDif",initAngleDif,curAngleDif,curAngle-initAngle,curAngle,initAngle)
+        
+        if apexNode ~= nil then -- if curve has been discovered , continue down curve until straight path found or reversal of turn
+            if curAngleDif <= straightThreshold then
+                numStraight = numStraight + 1
+                lastAngle = curAngle
+                lastAngleDif = curAngleDif
+            else
+                lastAngleDif = curAngleDif
+                lastAngle = curAngle
+                numStraight = 0 -- reset counter
+            end
+
+            if numStraight >= straightCutoff then -- If cutoff number of "straight nodes found"
+                --print("found straight", backtracing)
+                startNode = self:backTraceSegmentMan(initNode,apexNode,straightThreshold,straightCutoff) -- Go back from the discovered turn node to the begining of the straight
+                numStraight = 0
+                return startNode,node,false
+            end
+        else -- No Curve discovered, check if any of the angles are greater than the turn discovery, possibly count how many are above thresh?
+            if initAngleDif >= turnThreshold then -- angle > turnThreshold
+                --print("theshboof",initAngleDif,turnCount,turnCountThresh)
+                if turnCount < turnCountThresh then
+                    turnCount = turnCount + 1
+                    lastAngle = curAngle
+                    lastAngleDif = curAngleDif
+                else
+                    --print("Discovered turning node",node.id,initAngleDif,turnCount,turnCountThresh)
+                    apexNode = node -- Not technicaly apex node but this is the discovered turning node
+                    lastAngleDif = curAngleDif -- angle
+                    apexAngle = angle
+                    lastAngle = curAngle
+                    -- increment TurnDiscovery Counter if desired
+                end
+            else
+                lastAngle = curAngle
+            end
+        end
+    end
+end
+
+
+function Generator.scanTrackSegmentsMan(self) -- Pairs with analyze Segments TODO: run a filterpass over segments and combine all like/adjacent segments into one segID
+    local firstNode = self.nodeChain[1]
+    local segID = 1
+    local done = false
+    local finished = false
+    local flag = nil
+    -- Set midpoint as apex, but once a node gets closest to wall, that can be re-set as new apex
+    local startNode, endNode, finished = self:analyzeSegmentMan(firstNode) -- returns segment start and end
+    --print("firstNode",firstNode.id,#self.nodeChain)
+    --print("First scan got", startNode.id,endNode.id)
+    local lastNode
+    local firstSegment = getSegment(self.nodeChain,firstNode,startNode) -- create segment
+    --print("betweenSeg?",#firstSegment,firstNode.id,startNode.id)
+    if #firstSegment > 1 then -- if curve has straight seg before
+        local sType,angle = defineSegmentType(firstSegment)
+        --print(segID,"Setting Between segment (start)",firstNode.id,startNode.id,sType.TYPE,angle)
+        local output = segID.." setting between seg at start, " .. firstNode.id .. " - " .. startNode.id .. " : " .. sType.TYPE
+        --sm.log.info(output)
+        setSegmentType(firstSegment,sType,angle,segID)
+        segID = segID + 1
+        --lastNode = startNode
+        --startNode
+    else
+        --sm.log.info("no between seg at start")
+    end
+    local segment = getSegment(self.nodeChain,startNode,endNode)
+    local sType,angle = defineSegmentType(segment)
+    self:setSegmentApex(segment)
+    print(segID,"setting first segment",startNode.id,endNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
+    local output = segID.." setting first segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
+    sm.log.info(output)
+    setSegmentType(segment,sType,angle,segID)
+    segID = segID + 1
+    lastNode = endNode
+     -- store whatever the last node was to find between segments
+    
+    local scanTimeout = #self.nodeChain + 1
+    local timeoutCounter = 0
+    while not done do -- Why are we doing this?
+        --print("StartLoop",startNode.id,endNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+        startNode = endNode.next
+        lastNode = startNode -- store last segment end
+        startNode,endNode,finished = self:analyzeSegmentMan(startNode)
+       -- print("post Segment:",startNode.id,endNode.id,segID)
+
+        -- check for segment between
+        --print("finding segments",lastNode.id,startNode.id,endNode.id)
+        local betweenSeg = getSegment(self.nodeChain,lastNode,startNode) -- discover if there is segment before first "turn segment"
+        --print("betweenseg?",lastNode.id,startNode.id, #betweenSeg, self.nodeChain[1].id,self.nodeChain[1].segID)
+        if #betweenSeg > 1 then -- If there is no segment between last turn and next turn
+            --print("set between seg")
+            local sType,angle = defineSegmentType(betweenSeg)
+            print(segID,"setting between segment",lastNode.id,startNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
+            local output = segID.." setting between segment " .. lastNode.id .. " - " .. startNode.id .. " : " .. sType.TYPE
+            sm.log.info(output)
+            --print("setting segment type between",lastNode.id,startNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+            setSegmentType(betweenSeg,sType,angle,segID)
+            --print("post set segment between",self.nodeChain[1].id,self.nodeChain[1].segID)
+            segID = segID + 1
+        else -- set a segment between them first
+            --print(segID,"no between seg",#betweenSeg,self.nodeChain[1].id,self.nodeChain[1].segID)
+        end    
+        -- Acutally set turn segment
+        --print("getting segment",startNode.id,endNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
+        local segment = getSegment(self.nodeChain,startNode,endNode)
+        self:setSegmentApex(segment)
+        local sType,angle = defineSegmentType(segment)
+        print(segID,"setting segment type",startNode.id,endNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
+        local output = segID.." setting next segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
+        sm.log.info(output)
+        setSegmentType(segment,sType,angle,segID)
+        if finished then -- TODO: Figure if this will still work
+            -- Check between then set final segment?
+            done = true
+            break
+        end
+
+        -- Iterate forward (timeout and segment?)
+        segID = segID +1 
+        timeoutCounter = timeoutCounter + 1
+        if timeoutCounter >= scanTimeout then 
+            print("track seg scan timeout",timeoutCounter,scanTimeout)
+            break
+        end
+    end
+    self.totalSegments = segID
+    
+    print("Finished scan, Segment Count:",self.totalSegments,"Node Count:",#self.nodeChain)
+    --print(self.nodeChain[#self.nodeChain-1].id,self.nodeChain[#self.nodeChain-1].segType)
+end
+
+
+
+function Generator.generateSegmentsMan(self) -- starts loading track segments, better results after optimization is complete
+    self:scanTrackSegmentsMan()
+    self:hardUpdateVisual()
+end
+
+-------------------- end manPortion ------------
+
+
+
 function Generator.generateSegments(self) -- starts loading track segments, better results after optimization is complete
     self:scanTrackSegments()
     self:hardUpdateVisual()
@@ -1472,7 +1785,7 @@ function Generator.simplifyNodeChain(self)
 end
 
 -- Saving and loading?
-function Generator.saveRacingLine(self) -- Saves nodeChain, may freeze game --TODO: have ways for people to send me their nodes to make track SMAR certified, (send client json? send file?)
+function Generator.saveRacingLine(self) -- client Saves nodeChain, may freeze game --TODO: have ways for people to send me their nodes to make track SMAR certified, (send client json? send file?)
     self.simpNodeChain = self:simplifyNodeChain()
     local data = {channel = TRACK_DATA, raceLine = true} -- Eventually have metaData too?
     self.network:sendToServer("sv_saveData",data)
@@ -1518,6 +1831,11 @@ end
 function Generator.removeNode(self,nodeID) -- removes node
     for k, v in pairs(self.nodeChain) do
 		if v.id == nodeID then
+            if v.sphereTrigger then
+                --print('deleting', v.sphereTrigger:getUserData())
+                sm.areaTrigger.destroy(v.sphereTrigger)
+                v.sphereTrigger = nil
+            end
             if v.effect then
                 v.effect:destroy()
                 v.effect:stop()
@@ -2233,6 +2551,85 @@ function Generator.testSmoothing(self) -- Updated smoothing algo
     end
 end
 
+function Generator.iterateCustomSmoothing(self)
+    self:customSmoothing(self.customSmoothStart,self.customSmoothEnd)
+end
+
+
+function Generator.customSmoothing(self,startID,endID) -- Updated smoothing algo that only goes between start and end points
+    -- TODO: generate an array to handle the potential start/end wrapparound    
+    if startID == nil or endID == nil then return end -- possibly have end be the length of nodechain if nil?
+    for k=startID, endID do local v=self.nodeChain[k]
+        local perpV = v.perpVector
+        local vhDifLast = self:getNodeVH(v,v.last,perpV)
+        local vhDifNext =  self:getNodeVH(v.next,v,perpV)
+        local lastOverlap = false
+        local nextOverlap = false
+
+        if vhDifLast.vertical < 1 then -- Overlapped, trim
+            lastOverlap = true
+        end
+        if vhDifNext.vertical < 1 then
+            --nextOverlap = true
+        end
+
+        if not v.pinned then -- if self is not important
+            if nextOverlap then -- if close enough to next node
+                if v.next.pinned == false then
+                    v.last.next = v.next
+                    v.next.last = v.last
+                    self:removeNode(v.id)
+                    break -- return false
+                end
+            end
+            if lastOverlap then
+                if v.last.pinned == false then
+                     v.last.next = v.next
+                     v.next.last = v.last
+                     self:removeNode(v.id)
+                     break -- return false
+                end
+            end  
+        end
+       
+        calculateNewForceAngles(v)
+        local perpV = v.perpVector
+        -- Move other lines towards eachother
+        -- Get initial angle to next node
+        local initialAngle =math.abs(angleDiff(v.inVector,v.outVector))
+        
+        local moveThreshold = 0.002 -- Threshold before forcing node to move ("close enough" state)
+        -- test leftSide
+        local testLeftPos = getPosOffset(v.pos,perpV*-1,0.05) -- Dampen it based v.weight
+        local testLeftinVector = getNormalVectorFromPoints(v.last.pos,testLeftPos)
+        local testLeftoutVector = getNormalVectorFromPoints(testLeftPos,v.next.pos)
+        local testLeftAngle = math.abs(angleDiff(testLeftinVector,testLeftoutVector))
+        -- Test right side
+        local testRightPos = getPosOffset(v.pos,perpV*1,0.05) -- Dampen it based v.weight
+        local testRightinVector = getNormalVectorFromPoints(v.last.pos,testRightPos)
+        local testRightoutVector = getNormalVectorFromPoints(testRightPos,v.next.pos)
+        local testRightAngle = math.abs(angleDiff(testRightinVector,testRightoutVector))
+
+        
+        if not v.pinned then -- only if point isn't pinned down
+            local difLeft = initialAngle - testLeftAngle -- 5,1 = 4
+            local difRight = initialAngle - testRightAngle  -- 5, 0.5 = 4.5
+            if difLeft > difRight and difLeft > moveThreshold  then 
+                if validChange(v,testLeftPos,perpV,-1) then
+                    v.pos = testLeftPos
+                    calculateNewForceAngles(v) -- DO this or no?
+                end
+            end
+            if difRight > difLeft and difRight > moveThreshold then 
+                if validChange(v,testRightPos,perpV,1) then
+                    v.pos = testRightPos
+                    calculateNewForceAngles(v) -- DO this or no?
+                end
+            end
+        end
+
+    end
+end
 
 
 function Generator.iterateSmoothing(self) -- {DEPRECIATING} Will try to find fastest average velocity (short path better...)
@@ -2380,6 +2777,24 @@ function Generator.quickSmooth(self,ammount)
         scanLen = scanLen + 1
     end
 end 
+
+
+
+function Generator.customQuickSmooth(self,ammount,startID,endID) -- only smooths between the startNode and end node (passed as IDs?)
+    local scanLen = 0
+    for i = 0, ammount do -- Have seperate optimize clock?
+        local finished = self:customSmoothing(startID,endID)
+        if finished then
+            self.smoothing = false
+            self.scanClock = 0
+            print("QuickSMooth did finish",ammount)
+            sm.gui.displayAlertText("Optimization Finished prematurely")
+            break
+        end 
+        scanLen = scanLen + 1
+    end
+end 
+
 
 
 function Generator.iterateScan(self)
@@ -2555,7 +2970,7 @@ function Generator.generateManPosArr(self) -- generates manual pos spline based 
         table.insert(mPointArr, tonumber(x))
         table.insert(mPointArr, tonumber(y))
     end
-    print(getDistance(CHECK_POINT_CONFIG.pos_arr[#CHECK_POINT_CONFIG.pos_arr],self.location))
+    --print(getDistance(CHECK_POINT_CONFIG.pos_arr[#CHECK_POINT_CONFIG.pos_arr],self.location))
     if getDistance(CHECK_POINT_CONFIG.pos_arr[#CHECK_POINT_CONFIG.pos_arr],self.location) < 50 then -- auto complete when close
         table.insert(mPointArr,self.location.x) -- starting node last
         table.insert(mPointArr,self.location.y)
@@ -2695,8 +3110,137 @@ function Generator.confirmManPoints(self) -- actually puts nodes into nodechain
         	firstNode.inVector = getNormalVectorFromPoints(newNode.pos,firstNode.pos) -- or lastNode.outVector if too much
         	--firstNode.force = vectorAngleDiff(firstNode.inVector,firstNode.outVector)
             print("Reached end of spline",i,newNode.id,#self.nodeChain,self.nodeChain[1].id,self.nodeChain[#self.nodeChain].id)
-			return true
+            self.finishedManScan = true -- putting here too just in case
+			--return true
     	end
+    end
+    local done = false
+    while not done do -- add iff to check if walls needed? or just have set to 0
+        local allClear = true
+        -- For every node in nodechain, look both left and right for a wall, if a wall is closer than padding then move pos opposite
+        for k=1, #self.nodeChain do v = self.nodeChain[k]
+            calculateNewForceAngles(v) -- TODO: CHeck betweenForceAngles and calculateNewForceAngles2
+            local perpV = v.perpVector -- assuming left is -1
+            local lWallDist = getDistToWall(v,v.pos,perpV,-1)
+            if lWallDist  < WALL_PADDING  then  -- shift right
+                allClear = false
+                v.pos = getPosOffset(v.pos,perpV,0.1)
+                --print(k,"shiftRight",v.pos)
+            end
+            
+            local rWallDist = getDistToWall(v,v.pos,perpV,1)
+            if rWallDist  < WALL_PADDING  then -- shift left
+                allClear = false
+                v.pos = getPosOffset(v.pos,perpV *-1,0.1)
+                --print(k,"sheiftLeft",v.pos)
+            end
+        end
+        if allClear == true then
+            print("finished wasll shift, done")
+            done = true
+            self.finishedManScan = true -- do this within so it gets mutated no matter when called
+            return true
+        end
+    end
+end
+
+function Generator.checkForEditNode(self) -- checks fo character blocking and muteates edit node and such
+    -- Check for editing trigger
+    local item = sm.localPlayer.getActiveItem() -- not really necessary
+    local char = sm.localPlayer.getPlayer().character
+    --print(char:getActiveAnimations())
+
+    if item == sm.uuid.new("ed185725-ea12-43fc-9cd7-4295d0dbf88b") then -- holding sledgehammer
+        if findKeyValue(char:getActiveAnimations(),'name','sledgehammer_guard_into') then
+            self.shortStarted = true
+        end
+
+        if findKeyValue(char:getActiveAnimations(),'name','sledgehammer_guard_idle') then
+            self.shortStarted = false
+            if self.editingNode == false and self.nodeHovered ~= nil then
+                print("starting edit node")
+                self.editingNode = true
+            elseif self.nodeHovered == nil and self.customSmoothLive == false then -- iterate smoothing
+                self.customSmoothLive = true
+            end
+        else -- no longer blocking
+            if self.editingNode == true then
+                --print("Stopping edit node edit node")
+                self.editingNode = false
+                --print("quickSmooth",self.customSmoothStart,self.customSmoothEnd)
+                --self:customQuickSmooth(25,self.customSmoothStart,self.customSmoothEnd)
+            elseif self.customSmoothLive then
+                self.customSmoothLive = false -- stop iteration
+            end
+        end
+    
+        if findKeyValue(char:getActiveAnimations(),'name','sledgehammer_guard_exit') then
+            if self.shortStarted == true then
+
+                --print("got short press right click")
+                self.shortClick = true
+            end
+        else
+            if self.shortClick == true then
+                self.shortStarted = false
+                self.shortClick = false
+                self:setCustomSmoothNode() 
+            end
+        end
+
+    else
+
+    end
+end
+
+function Generator.setCustomSmoothNode(self)
+    if self.nodeHovered then 
+        if self.customSelect == 0 then -- Set starting node id
+            print("set Smooth Start",self.nodeHovered)
+            self.customSmoothStart = self.nodeHovered
+            sm.gui.displayAlertText("Smoothing Start: " .. tostring(self.customSmoothStart))
+        elseif self.customSelect == 1 then 
+            print("Set smooth end",self.nodeHovered)
+            self.customSmoothEnd = self.nodeHovered
+            sm.gui.displayAlertText("Smoothing End: " .. tostring(self.customSmoothEnd))
+        end
+    else
+        print("not hovering over node")
+
+    end
+
+    if self.customSelect == 1 then self.customSelect = 0 
+    elseif self.customSelect == 0 then self.customSelect = 1 end
+end
+
+
+
+function Generator.handleHovering(self) -- for editing nodes specifically
+    if not self.editingNode and self.scanning == false and self.smoothing == false then -- check for hover when not editing, otherwise we just edit
+        local nodeData = cl_checkHoverAT() -- Just checks for general area trigger hovers
+        if nodeData then -- hovering anode
+            if self.nodeHovered ~= nodeData.node_id then
+                --print("Hovering Node",nodeData.node_id) -- Do a check if exists?
+                self.nodeHovered = nodeData.node_id
+            end
+        else -- remove the hover
+            self.nodeHovered = nil
+        end
+    end
+
+    if self.editingNode and self.nodeHovered ~= nil then -- move the node to the left/right perpVector
+        local node = self.nodeChain[self.nodeHovered]
+        local originPos = node.pos
+        local hit, result = sm.localPlayer.getRaycast(100)
+        if hit then 
+            local pos = result.pointWorld
+            node.pos = pos
+            if node.pinned == false then
+                node.pinned = true
+            end
+            --print('moving node',originPos,pos)
+        end
+
     end
 end
 
@@ -2704,6 +3248,11 @@ end
 function Generator.client_onFixedUpdate( self, timeStep ) 
     self.location = sm.shape.getWorldPosition(self.shape)
     self.onHover = cl_checkHover(self.shape)
+    
+    self:checkForEditNode()
+
+    self:handleHovering()
+
 
     -- Check for manual points first, ignore scan
     if #CHECK_POINT_CONFIG.shape_arr > 0  then
@@ -2737,6 +3286,10 @@ function Generator.client_onFixedUpdate( self, timeStep )
     end
 
     
+    -- custom smoothign
+    if self.customSmoothLive then 
+        local finished = self:asyncSleep(self.iterateCustomSmoothing,self.asyncTimeout2)
+    end
 
 
     if self.scanning and not self.instantScan then -- Debug scan
@@ -2819,6 +3372,23 @@ function Generator.tickClock(self)
             print('start debug scan')
             self:startTrackScan()
         end
+        if self.manualPoints == true and self.debugMan and  self.finishedManScan == false then
+            self:eraseCurManPoints()
+            self:generateManPosArr()
+            --self:drawCurManPoints()
+            local result = self:confirmManPoints()
+            if result then 
+                --self:quickSmooth(10) -- is this even needed?
+                self:showVisualization()
+                self:generateSegmentsMan()
+                print("Finished Segment Gen, Optimizing Race line")
+                sm.gui.displayAlertText("Manual Race Line Generation Finished")
+                if self.saveTrack then
+                    self:saveRacingLine()
+                end
+            end
+            return
+        end 
     end
             
 end
@@ -2941,6 +3511,7 @@ end
 function Generator.client_onInteract(self,character,state)
     if state then
         if self.manualPoints == true  then
+            self.finishedManScan = false
             self:eraseCurManPoints()
             self:generateManPosArr()
             --self:drawCurManPoints()
@@ -2948,7 +3519,7 @@ function Generator.client_onInteract(self,character,state)
             if result then 
                 --self:quickSmooth(10) -- is this even needed?
                 self:showVisualization()
-                self:generateSegments()
+                self:generateSegmentsMan()
                 print("Finished Segment Gen, Optimizing Race line")
                 sm.gui.displayAlertText("Manual Race Line Generation Finished")
                 if self.saveTrack then
@@ -2976,14 +3547,34 @@ function Generator.client_onInteract(self,character,state)
 end
 
 function Generator.client_onUpdate(self,timeStep)
+    local item = sm.localPlayer.getActiveItem()
+    local char = sm.localPlayer.getPlayer().character
     if self.onHover then 
-        if sm.localPlayer.getPlayer().character:isCrouching() then
-            sm.gui.setInteractionText( self.useText,"Debug Mode", self.tinkerText,"Decrease Sensitivity","")
+        if item == sm.uuid.new("ed185725-ea12-43fc-9cd7-4295d0dbf88b") then -- holding sledgehammer
+            sm.gui.setInteractionText( self.useText,"Hit save Racing Line To World","","")
         else
-            -- TODO: change to confirm man text if man nodes == true
-            sm.gui.setInteractionText( self.useText,"Start Scan", self.tinkerText,"Increase Sensitivity","")
+            if sm.localPlayer.getPlayer().character:isCrouching() then
+                sm.gui.setInteractionText( self.useText,"Debug Mode", self.tinkerText,"Decrease Sensitivity","")
+            else
+                -- TODO: change to confirm man text if man nodes == true
+                sm.gui.setInteractionText( self.useText,"Start Scan", self.tinkerText,"Increase Sensitivity","")
+            end
         end
     else
+        if item == sm.uuid.new("ed185725-ea12-43fc-9cd7-4295d0dbf88b") then -- holding sledgehammer
+            local rightClickGUI = ""
+            if self.nodeHovered == nil then 
+                sm.gui.setInteractionText(rightClickGUI ,"Edit Highlighted Node Position","","")
+            else
+                if self.editingNode == false then
+                    sm.gui.setInteractionText(rightClickGUI ,"Edit Node Position","",tostring(self.nodeHovered),"")
+                else
+                    sm.gui.setInteractionText(rightClickGUI ,"Editing Node","",tostring(self.nodeHovered),"")
+                end
+            end
+        else
+
+        end
     end
 
 end
@@ -3007,4 +3598,17 @@ function Generator.client_onTinker( self, character, state )
             self.network:sendToServer('cl_changeWallSense',1)
         end
 	end
+end
+
+
+
+function Generator.client_onMelee(self,data) -- Functionality when hit by hammer, Saves track again 
+	--print("cl melehit",data)
+    self:generateSegments() -- uses normal way for now
+    self:saveRacingLine()-- client??
+end
+
+function Generator.server_onMelee(self,data) -- Functionality when hit by hammer, Saves track again 
+	--print("sv rl mele")
+    --self.network.sendToClients("cl_onMele",data)
 end

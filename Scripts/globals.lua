@@ -19,7 +19,7 @@ RACE_CONTROL = nil -- Contains race control Object
 ALL_CAMERAS = {}
 CAMERA_LEADERS = {} -- car ids and car points
 -- HARD LIMITS no engine can go past this on acident
-ENGINE_SPEED_LIMIT = 250 -- Car should never get this high anyways but just in case
+ENGINE_SPEED_LIMIT = 1000 -- Car should never get this high anyways but just in case
 
 --
 
@@ -29,9 +29,9 @@ DEFAULT_FRICTION = 0.0006046115371 -- Friction coeficient -- could be wrong
 
 -- Conversion Rates
 VELOCITY_ROTATION_RATE = 0.37 -- 1 rotation speed ~= 0.37 velocity length -- How fast wheels should rotate (engine  speed) to achieve a certain velocity
-DECELERATION_RATE = -9.1 -- Multiply this number by the braking speed to get the aproximate deceleration rate for brake distance calculaitons (decrease for longer breaking distances)
+DECELERATION_RATE = -13.3 -- Multiply this number by the braking speed to get the aproximate deceleration rate for brake distance calculaitons (decrease for longer breaking distances)
 -- VMAX calculation defaults
-MAX_VELOCITY = 150
+MAX_VELOCITY = 1000
 DEFAULT_MAX_STEER_VEL = 2
 DEFAULT_MINOR_STEER_VEL = 26
 DEFAULT_MAX_STEER = (MAX_STEER_VALUE or 55)
@@ -42,7 +42,7 @@ DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- stee
 -- Track generation options -- possibly move to track piece?
 FORCE_SENSITIVIY = 4 -- How much angle differences affect total force on node chain
 FORCE_THRESHOLD = 0.01 -- when nodes accept where they are
-WALL_PADDING = 9
+WALL_PADDING = 8
 TRACK_DATA = 1 -- Location to save world storage for the racing line
 
 TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
@@ -116,17 +116,17 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 100, -- 80
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.75, -- 1?
-        GEARING = {0.45,0.4,0.45,0.3,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.45,0.4,0.40,0.3,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 100/5 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "formula", -- Fast
         COLOR = "7f7f7fff", -- Light gray
-        MAX_SPEED = 130,
+        MAX_SPEED = 150,
         MAX_ACCEL = 0.7,
         MAX_BRAKE = 0.85,
-        GEARING = {0.46,0.45,0.5,0.4,0.20}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 130/5
+        GEARING = {0.46,0.45,0.5,0.3,0.20}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 150/5
     },
     {
         TYPE = "insane", -- Insane -- add custom later?
@@ -269,14 +269,41 @@ function cl_checkHover(check_shape) -- checks if shape is being looked at
 end
 
 
+function validateAT (trigger)
+    local data = trigger:getUserData()
+    if data then 
+        return data
+    end
+end
+
+function cl_checkHoverAT(sphereTrigger) -- Checks if sphereTrigger is seen
+    --local hit,raycastResult = sm.localPlayer.getRaycast(10)
+    local hit,raycastResult = sm.physics.raycast( sm.localPlayer.getRaycastStart(), 
+                                                sm.localPlayer.getRaycastStart() + (sm.localPlayer.getDirection() * 70),
+                                                nil,
+                                                sm.physics.filter.areaTrigger)
+    if hit then
+        local target = raycastResult:getAreaTrigger()
+        if target then
+            local status, data = pcall(validateAT,target) -- Could pcall whole function
+            if status == false then  return false end
+            return data
+        else 
+            return false
+        end
+    else
+        return false
+    end
+    return false
+end
+
+
 -- Car helpers
 
 function displayCarRadar(radar) -- prints fun radar
     print(
 
     )
-
-
 end
 
 
@@ -360,7 +387,13 @@ function GenerateVisualPath(path,exportArr) --generates the line effect for  a p
     return exportArr
 end
 
-
+function cl_generateSphereTrigger(id,pos)
+    -- send to server?
+    -- radius, position, rotation filter, userdata
+    local trigger = sm.areaTrigger.createSphere(1, pos, nil, nil, {['node_id']=id})
+    --print('create tgrgger',id,pos)
+    return trigger
+end
 
 function findClosestNode(nodeChain,location)
     --print("fnn")
@@ -1154,9 +1187,7 @@ end
 
 -- Helpers
 function fullTableMatch(table,key,value) -- checks if all objects in tables key matches value
-    print('cm',#table)
     for i,v in ipairs(table) do
-        print('vhr',v[key])
         if v[key] ~= value then
             return false
         end
@@ -1164,6 +1195,17 @@ function fullTableMatch(table,key,value) -- checks if all objects in tables key 
     return true
 end
 
+function findKeyValue(table,key,value) -- finds if key = value within a table
+    --print('cm',#table,table)
+    for i=1 ,#table do local v = table[i][key]
+        --print(i,v)
+        --print('check',v)
+        if v == value then
+            return true
+        end
+    end
+    return false
+end
 
 function getPosOffset(location,vector,step)
     --print("old location",location,vector,vector*step)
@@ -1572,10 +1614,50 @@ function getVmax(angle,maxSteer,minSteer,maxVel,minVel)
     return A0 * math.exp(k*angle)
 end
 
-function getVmax2(angle,maxSteermminSteer,maxVel,minVel)
-
+function getVmax2(angle,maxSpeed,minSpeed) -- uses a ratio to determine speed from engines
+    if angle < 0.25 then 
+        return maxSpeed + 5 -- returns full speeds on straights~ give leeway for drafting
+    end
+    local speed =  logarithmic_linear_decrease(angle,120,minSpeed)
+    if speed < minSpeed then return minSpeed end 
+    return speed
 end
 
+function linear_decrease(input, initial_output, final_output)
+    local input_range = 2.3 -- Assuming input range is 0 to 1
+    local output_range = initial_output - final_output
+    local coefficient = output_range / input_range
+  
+    local output = initial_output - coefficient * input
+    return output
+end
+
+function logarithmic_linear_decrease(input, initial_output, final_output)
+    local input_range = 2.5 -- Assuming input range is 0 to 3
+    local output_range = initial_output - final_output
+  
+    -- Linear component:
+    local linear_decrease = output_range / input_range * input
+  
+    -- Logarithmic component:
+    local logarithmic_decrease = math.log(input + 1) * output_range / 20
+  
+    -- Combine linear and logarithmic decrease:
+    local total_decrease = linear_decrease + logarithmic_decrease
+  
+    local output = initial_output - total_decrease
+    return output
+  end
+
+
+function linear_increase(input, initial_output, final_output)
+    local input_range = 2.3 -- Assuming input range is 0 to 1
+    local output_range = final_output - initial_output
+    local coefficient = output_range / input_range
+
+    local output = initial_output + coefficient * input
+    return output
+end
 -- Get maximum Value in a table
 function getMax(arr)
     local max = nil
@@ -1650,6 +1732,27 @@ function checkMin(previous,current)
         return previous
     end
 end
+
+
+function compareKeyMin(a,b,key)
+    local aVal = a[key]
+    local bVal = b[key]
+    if aVal == nil and bVal == nil then
+        print("CompareKey compare nil",key)
+        return 0
+    end
+
+    if aVal == nil or bVal == nil then
+        return (a or b)
+    end
+
+    if aVal > bVal then
+        return b
+    else
+        return a
+    end
+end
+
 
 function getNextItem(linkedList,itemIndex,direction) -- Gets {direction} items ahead/behind in a linked list (handles wrapping)
     local nextIndex = 1
