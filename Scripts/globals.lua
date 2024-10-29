@@ -2,7 +2,8 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.0" -- New Racing Line Scan algo, Custom behavior UI, Adjusted Braking behavior
+SMAR_VERSION = "1.8.1" -- QOL Fixes for raceline generator
+-- planned 1.9.0 -- Updated Car accel/brake functionality
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -1098,7 +1099,7 @@ function findSegApex(segment)
             return node
         end
     end
-    --print("")
+   print("apexFind")
 end
 
 function getNodeAngle(node1,node2) -- gets the angle difference between node 1 in vector and node2 outvector

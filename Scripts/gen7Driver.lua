@@ -2822,11 +2822,11 @@ function Driver.refineBrakeSpeed(self,vMax,segBeginNode,segEndNode) -- refines v
     if segEndNode == nil then return vMax end
     vMax = vMax + tWidth/7 -- higher value is more punishment for thinner tracks
     vMax = vMax - math.abs(self.trackPosition)/1.7  --- TODO: figure out racing line closeness/ trackPos  Adjust max velocity based on closeness to center of track
-    if self.passing.isPassing then vMax = vMax +0.6 end -- go a bit slower while passing?
+    if self.passing.isPassing then vMax = vMax +1.5 end -- go a bit slower while passing?
     if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~= 0 then -- slow down when there is car alongside 
         vMax = vMax - 1
     else
-        vMax = vMax + .8 -- speeds up if clear air
+        vMax = vMax + .5 -- speeds up if clear air
     end
     if tWidth <= 30 then -- if track is thinner, slow down more
         vMax = vMax - (vMax/6)
@@ -2850,7 +2850,7 @@ function Driver.refineBrakeSpeed(self,vMax,segBeginNode,segEndNode) -- refines v
 
 
     local slowDownThreshold = 3.5
-    local slowDownMultiplier = 0.9
+    local slowDownMultiplier = 0.8
     
     if radar and distFront and (distRight and distLeft) then 
         if distFront <= slowDownThreshold then -- potential car ahead
@@ -2978,7 +2978,7 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
     --self:debugOutput(1,{"shouldBrake?",vMax, self.speed,brakeDist})
     if self.speed > vMax then
         --print(self.tagText,"Overspeed Brake",vMax)
-        self:debugOutput(1,{"Overspeed Braking",segBegin.segID,vMax,self.speed})
+        --self:debugOutput(1,{"Overspeed Braking",segBegin.segID,vMax,self.speed})
         return 1 -- make easy braking function // based off of distance from node (ajustable by skill/state), not hard braking
     else -- Looking ahead if not currently in slow zone
         segID = getNextIndex(self.totalSegments,segID,1)
@@ -3029,7 +3029,7 @@ function Driver.getBraking(self) -- TODO: Determine if there is a car ahead of s
                 --print("Dist Grater:",self.speed,maxSpeed,brakeDist,distToTurn)
                 --self:debugOutput(25,{"Dist:",brakeDist,distToTurn,self.speed,maxSpeed})
                 if brakeDist > distToTurn then
-                    self:debugOutput(1,{"braking:",segBegin.segID,turnType,self.speed,maxSpeed})
+                    --self:debugOutput(1,{"braking:",segBegin.segID,turnType,self.speed,maxSpeed})
                     return 1 -- Skill based param too
                 else
                     -- taper into brake?
@@ -3556,7 +3556,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
 
     if collisionDist >=0  and collisionDist < self.passDistance then -- if opponent is somewhat close in front
         --print(self.tagText,"check pass?",self.speed-opponent.speed, self.carRadar.front,vhDist,math.abs(vhDist['horizontal']) <= self.goalNode.width )
-        if speedDif > 0.2 then -- If self is approaching apponent
+        if speedDif > 0.05 then -- If self is approaching apponent
             if not oppFlags.pass and not self.passing.isPassing then  -- If not currently passing the opp
                 if collisionDist <= self.carRadar.front and math.abs(vhDist['horizontal']) <= self.goalNode.width*1.8 then -- If this car is the closest front car according to local radar
                     --print(self.tagText,"determinen pass Location")

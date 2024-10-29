@@ -116,12 +116,12 @@ function Generator.client_init( self )  -- Only do if server side???
     -- USER CONTROLABLE VARS:
     self.wallThreshold = 0.40
     self.wallPadding = WALL_PADDING -- = 5 US
-    self.debug =true  -- Debug flag -- REMEMBER TO TURN THIS OFF
-    self.saveTrack = false -- whether to save the track to world -- remembet to turn on
+    self.debug =false  -- Debug flag -- REMEMBER TO TURN THIS OFF
+    self.saveTrack = true -- whether to save the track to world -- remembet to turn on
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
-    self.optimizeStrength = 1
-    self.racifyLineOpt = false -- Makes racing line more "racelike"
+    self.optimizeStrength = 4
+    self.racifyLineOpt = true -- Makes racing line more "racelike"
     self.asyncTimeout = 0 -- Scan speed [0 fast, 1 = 1per sec]   
     self.asyncTimeout2 = 0 -- optimization speed
 
@@ -373,12 +373,6 @@ function Generator.updateVisualization(self) -- moves/updates effects according 
                         v.effect:start()
                     end 
                 else
-                    if v.id == self.customSmoothStart then
-
-                    elseif v.id == self.customSmoothEnd then
-
-                    end
-
                     if v.hovered == true then  -- turn back to whatever
                         v.hovered = false
                         v.effect:stop()
@@ -389,6 +383,40 @@ function Generator.updateVisualization(self) -- moves/updates effects according 
                         --v.effect:start()
                     end 
                 end
+
+                if v.id == self.customSmoothStart then
+                    local color = sm.color.new(0x7777ffff)
+                    v.effect:setParameter( "Color", color )
+                    if v.csStartHighlight == nil or v.csStartHighlight == false then
+                        print("changing color start")
+                        v.effect:stop()
+                        v.effect:start()
+                        v.csStartHighlight = true
+                    end
+                else
+                    if v.csStartHighlight and v.csStartHighlight == true then
+                        v.effect:stop()
+                        v.csStartHighlight = false
+                    end
+                end
+
+                if v.id == self.customSmoothEnd then
+                    local color = sm.color.new(0xff7777ff)
+                    v.effect:setParameter( "Color", color )
+                    if v.csEndHighlight == nil or v.csEndHighlight == false then
+                        print('changing colr end')
+                        v.effect:stop()
+                        v.effect:start()
+                        v.csEndHighlight = true
+                    end
+                else
+                    if v.csEndHighlight and v.csEndHighlight == true then
+                        v.effect:stop()
+                        v.csEndHighlight = false
+                    end
+                end
+
+                    
 
                 if self.visualizing then
                     if v.sphereTrigger == nil then
@@ -1472,7 +1500,7 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
     end
     local segment = getSegment(self.nodeChain,startNode,endNode)
     local sType,angle = defineSegmentType(segment)
-    self:setSegmentApex(segment)
+    --self:setSegmentApex(segment)
     --print(segID,"setting first segment",startNode.id,endNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
     local output = segID.." setting first segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
     --sm.log.info(output)
@@ -1510,7 +1538,7 @@ function Generator.scanTrackSegments(self) -- Pairs with analyze Segments TODO: 
         -- Acutally set turn segment
         --print("getting segment",startNode.id,endNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
         local segment = getSegment(self.nodeChain,startNode,endNode)
-        self:setSegmentApex(segment)
+        --self:setSegmentApex(segment)
         local sType,angle = defineSegmentType(segment)
         --print(segID,"setting segment type",startNode.id,endNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
         local output = segID.." setting next segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
@@ -1689,7 +1717,7 @@ function Generator.scanTrackSegmentsMan(self) -- Pairs with analyze Segments TOD
     end
     local segment = getSegment(self.nodeChain,startNode,endNode)
     local sType,angle = defineSegmentType(segment)
-    self:setSegmentApex(segment)
+    --self:setSegmentApex(segment)
     print(segID,"setting first segment",startNode.id,endNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
     local output = segID.." setting first segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
     sm.log.info(output)
@@ -1727,7 +1755,7 @@ function Generator.scanTrackSegmentsMan(self) -- Pairs with analyze Segments TOD
         -- Acutally set turn segment
         --print("getting segment",startNode.id,endNode.id,self.nodeChain[1].id,self.nodeChain[1].segID)
         local segment = getSegment(self.nodeChain,startNode,endNode)
-        self:setSegmentApex(segment)
+        --self:setSegmentApex(segment)
         local sType,angle = defineSegmentType(segment)
         print(segID,"setting segment type",startNode.id,endNode.id,sType.TYPE,angle,self.nodeChain[1].id,self.nodeChain[1].segID)
         local output = segID.." setting next segment " .. startNode.id .. " - " .. endNode.id .. " : " .. sType.TYPE
@@ -1903,9 +1931,9 @@ end
 
 -- New ALgo?1
 function Generator.racifyLine3(self)
-    local straightThreshold = 15 -- Minimum length of nodes a straight has to be
+    local straightThreshold = 9 -- Minimum length of nodes a straight has to be
     local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
-    local shiftAmmount = 0.05  -- Maximum node pin shiftiging amound (>2)
+    local shiftAmmount = 2  -- Maximum node pin shiftiging amound (>2)
     local lockWeight = 10
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
@@ -1915,9 +1943,9 @@ end
 -- Working algorithm that is much better at pinning apex/turn efficient points
 function Generator.racifyLine(self)
     local straightThreshold = 13 -- Minimum length of nodes a straight has to be
-    local nodeOffset = 2 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
-    local shiftAmmount = 0.05  -- Maximum node pin shiftiging amound (>2)
-    local lockWeight = 6
+    local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
+    local shiftAmmount = 0.1   -- Maximum node pin shiftiging amound (>2)
+    local lockWeight = 10
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
     -- TODO: only racify when there curve is a medium or more
@@ -2529,9 +2557,6 @@ function Generator.testSmoothing(self) -- Updated smoothing algo
 
         
         if not v.pinned then -- only if point isn't pinned down
-            if v.id == 134 then
-                --print(v.id,v.pos,"angle",testLeftAngle,testRightAngle,v.weight,v.last.id,v.next.id)
-            end
             local difLeft = initialAngle - testLeftAngle -- 5,1 = 4
             local difRight = initialAngle - testRightAngle  -- 5, 0.5 = 4.5
             if difLeft > difRight and difLeft > moveThreshold  then 
@@ -2635,102 +2660,73 @@ end
 function Generator.iterateSmoothing(self) -- {DEPRECIATING} Will try to find fastest average velocity (short path better...)
     for k=1, #self.nodeChain do local v=self.nodeChain[k]
         local perpV = v.perpVector
-        local lessenDirection = getSign(v.force)
-        --local changeVector = perpV * lessenDirection
-        --print(changeVector.z)
+        local vhDifLast = self:getNodeVH(v,v.last,perpV)
+        local vhDifNext =  self:getNodeVH(v.next,v,perpV)
+        local lastOverlap = false
+        local nextOverlap = false
 
-        --- NEW calculation of hinge force
-        -- Gets distance along perpV direction last and next node are
-        local vhDif1 = self:getNodeVH(v,v.last,perpV)
-        local vhDif2 =  self:getNodeVH(v.next,v,perpV)
-
-        local lastC = false
-        local nextC = false
-
-        if vhDif1.vertical < 1.5 then
-            --print("closenodeLast")
-            lastC = true
+        if vhDifLast.vertical < 1 then -- Overlapped, trim
+            lastOverlap = true
         end
-        if vhDif2.vertical < 1.5 then
-            --print("closenodeNext")
-            nextC = true
+        if vhDifNext.vertical < 1 then
+            --nextOverlap = true
         end
 
-        if getDistance(v.last.pos,v.next.pos) < 1.5 then
-            --print("really close nodes d")
-            lastC = true
-            nextC = true
-        end
-        if not v.pinned then
-            if v.weight == 1 then 
-                if lastC or nextC then -- delete middle node
-                    --print("Deleting node",v.id,v.pos)
-                    if v.pinned or v.weight > 1 then 
-                        --print("canceling pinned removal...")
-                        break -- should probably continue instead of break
-                    end
+        if not v.pinned then -- if self is not important
+            if nextOverlap then -- if close enough to next node
+                if v.next.pinned == false then
                     v.last.next = v.next
-                    v.next.last = v.last -- blip out
-                    --print(v.last.id,v.next.id,v.pinned,v.weight)
+                    v.next.last = v.last
                     self:removeNode(v.id)
-                    --print(v.last.id,v.next.id,v.next.next.id,v.next.next.next.id)
-                    break -- should continue instead of break?
+                    break -- return false
+                end
+            end
+            if lastOverlap then
+                if v.last.pinned == false then
+                     v.last.next = v.next
+                     v.next.last = v.last
+                     self:removeNode(v.id)
+                     break -- return false
+                end
+            end  
+        end
+       
+        calculateNewForceAngles(v)
+        local perpV = v.perpVector
+        -- Move other lines towards eachother
+        -- Get initial angle to next node
+        local initialAngle =math.abs(angleDiff(v.inVector,v.outVector))
+        
+        local moveThreshold = 0.001 -- Threshold before forcing node to move ("close enough" state)
+        -- test leftSide
+        local testLeftPos = getPosOffset(v.pos,perpV*-1,self.dampening/v.weight) -- Dampen it based v.weight
+        local testLeftinVector = getNormalVectorFromPoints(v.last.pos,testLeftPos)
+        local testLeftoutVector = getNormalVectorFromPoints(testLeftPos,v.next.pos)
+        local testLeftAngle = math.abs(angleDiff(testLeftinVector,testLeftoutVector))
+        -- Test right side
+        local testRightPos = getPosOffset(v.pos,perpV*1,self.dampening/v.weight) -- Dampen it based v.weight
+        local testRightinVector = getNormalVectorFromPoints(v.last.pos,testRightPos)
+        local testRightoutVector = getNormalVectorFromPoints(testRightPos,v.next.pos)
+        local testRightAngle = math.abs(angleDiff(testRightinVector,testRightoutVector))
+
+        
+        if not v.pinned then -- only if point isn't pinned down
+            local difLeft = initialAngle - testLeftAngle -- 5,1 = 4
+            local difRight = initialAngle - testRightAngle  -- 5, 0.5 = 4.5
+            if difLeft > difRight and difLeft > moveThreshold  then 
+                if validChange(v,testLeftPos,perpV,-1) then
+                    v.pos = testLeftPos
+                    calculateNewForceAngles(v) -- DO this or no?
+                end
+            end
+            if difRight > difLeft and difRight > moveThreshold then 
+                if validChange(v,testRightPos,perpV,1) then
+                    v.pos = testRightPos
+                    calculateNewForceAngles(v) -- DO this or no?
                 end
             end
         end
 
-        local sumHoz = math.deg(vhDif1.horizontal - vhDif2.horizontal) -- decrease SumHoz?
-        v.sumHoz = sumHoz
-        local pointAngle = math.abs(posAngleDif3(v.pos,v.inVector,v.next.pos)) * 10
-        local maxV = getVmax(pointAngle)
-        v.vMaxEst = maxV
-
-        -- Calculate two directions to go and check maxVest
-        
-        local changeDirection1 = perpV * 1--sumHoz
-        if v.weight > 1 then
-            --print("Moving",self.dampening/v.weight,v.pinned)
-        end
-        -- TODO: refactor this into consolidated code
-        local testLoc1 = getPosOffset(v.pos,changeDirection1,self.dampening/v.weight) -- Dampen it based v.weight
-        local testLoc1inVector = getNormalVectorFromPoints(v.last.pos,testLoc1) -- use tempPos?
-        local testLoc1outVector = getNormalVectorFromPoints(testLoc1,v.next.pos) -- use tempPos?
-        local pointAngle1 = math.abs(posAngleDif3(testLoc1,testLoc1inVector,v.next.pos)) * 10
-        local maxV1 = getVmax(pointAngle1) 
-
-        local changeDirection2 = perpV * -1 --sumHoz
-        local testLoc2 = getPosOffset(v.pos,changeDirection2,self.dampening/v.weight)
-        local testLoc2inVector = getNormalVectorFromPoints(v.last.pos,testLoc2) -- use tempPos?
-        local testLoc2outVector = getNormalVectorFromPoints(testLoc2,v.next.pos) -- use tempPos?
-        local pointAngle2 = math.abs(posAngleDif3(testLoc2,testLoc2inVector,v.next.pos)) * 10
-        local maxV2 = getVmax(pointAngle2)
-
-
-        -- which bigger? -- Do something about straight tyhrehshold??
-        if not v.pinned then -- only if point isn't pinned down
-            if maxV1 > maxV2 + 0.01 then 
-                --if maxV1 > maxV then
-                    if testLoc1 == nil or perpV == nil then
-                        print("nil test?",testLoc1,perpV)
-                    end
-                    if validChange(v,testLoc1,perpV,1) then
-                        v.pos = testLoc1
-                        v.vMaxEst = maxV1
-                        calculateNewForceAngles(v)
-                    end
-                --end
-            end
-
-            if maxV2 > maxV1 + 0.01 then
-                --if maxV2 > maxV then
-                    if validChange(v,testLoc2,perpV,-1) then
-                        v.pos = testLoc2
-                        v.vMaxEst = maxV2
-                        calculateNewForceAngles(v)
-                    end
-                --end
-            end
-        end
     end
     
     -- actually propogate
@@ -3157,7 +3153,7 @@ function Generator.checkForEditNode(self) -- checks fo character blocking and mu
 
         if findKeyValue(char:getActiveAnimations(),'name','sledgehammer_guard_idle') then
             self.shortStarted = false
-            if self.editingNode == false and self.nodeHovered ~= nil then
+            if self.editingNode == false and self.nodeHovered ~= nil and not self.customSmoothLive then
                 print("starting edit node")
                 self.editingNode = true
             elseif self.nodeHovered == nil and self.customSmoothLive == false then -- iterate smoothing
@@ -3530,6 +3526,7 @@ function Generator.client_onInteract(self,character,state)
         end 
         if character:isAiming() then -- if char is aiming then downforce detect
             self.network:sendToServer('sv_toggleRacify',state)
+            -- TODO: change tooltip text
         elseif character:isCrouching() then
             self.debug = not self.debug -- togle debug
             self:toggleVisual(self.nodeChain)

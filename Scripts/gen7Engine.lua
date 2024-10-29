@@ -280,13 +280,13 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
 
     local draftTS = 0 -- * global.draftStrengthHow much to increase the top speed by ()
     if self.driver.drafting and self.accelInput >= 0.9 and getRaceControl().draftingEnabled == true then -- only work while accelerating, can get in the way of brakes
-        draftTS = 5 -- * draftStrength --TODO: add draft strength UI var in RaceControl
+        draftTS = 7 -- * draftStrength --TODO: add draft strength UI var in RaceControl
         rpmIncrement = rpmIncrement + 0.00015 -- * global.draftStrength
     end
     -- handicap handing
     local handiTS = 0
     --print(self.driver.id,self.driver.handiCap)
-    handiTS = (self.driver.handicap or 1)/24
+    handiTS = (self.driver.handicap or 1)/23
     --print(self.driver.id,handiTS)
 
     --print(self.curRPM,rpmIncrement)
@@ -310,13 +310,13 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
         if self.driver.drafting then -- and drafting enabled...
             --print(self.driver.tagText,"drafting lim reach",nextRPM)
             nextRPM =nextRPM - (rpmIncrement*1.04)
-            if nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS ) +  5 then -- if over by 5 then increase reduction
+            if nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS ) +  7 then -- if over by 5 then increase reduction
                 nextRPM =nextRPM - (rpmIncrement*1.1)
             end
         elseif self.driver.passing.isPassing then -- if driver is passing
             --print(self.driver.tagText,"Passing lim reach",nextRPM)
             nextRPM =nextRPM - (rpmIncrement*1.02)
-        elseif nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS +  handiTS) + 5 then -- if generally over speed by 5 then increase reduction
+        elseif nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS +  handiTS) + 7 then -- if generally over speed by 5 then increase reduction
             nextRPM = nextRPM -  (rpmIncrement*1.1)
         else -- not drafting or passing ( just cooling down from it)
             --nextRPM = (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS --old code, hard set
@@ -328,7 +328,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     end
     --print('aa-',self.driver.id,nextRPM,self.engineStats.MAX_SPEED)
     -- failsafe engine limiter
-    if nextRPM > (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 9 then -- General overspeed
+    if nextRPM > (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 10 then -- General overspeed
         --print(self.driver.tagText,"Engine Limit Reached",nextRPM)
         --nextRPM = (self.engineStats.MAX_SPEED + draftTS + handiTS +7  or nextRPM - 0.5) -- old
         nextRPM =nextRPM -  (rpmIncrement*1.5)
