@@ -7009,7 +7009,7 @@ function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client t
     end
     local endTime = CLOCK()
     
-    self.lastClientUpdateTime = CLOCK() -- 
+    
 end
 
 function Driver.client_onUpdate(self,timeStep) -- lag test
@@ -7017,6 +7017,8 @@ function Driver.client_onUpdate(self,timeStep) -- lag test
         sm.gui.setInteractionText( self.useText,"reset?", self.tinkerText,"start downforce detection","" )
     else
     end
+    local dt = string.format("%.4f",timeStep)
+    --print("dr:",dt)
 end
 
 function Driver.client_onClientDataUpdate(self,data)

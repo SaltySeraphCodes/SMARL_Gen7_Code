@@ -1114,7 +1114,7 @@ function Control.server_onFixedUpdate(self)
         self:sv_sendAlert("Race Finished")
         self.raceResultsShown = true
     end
-    
+    self.lastClientUpdateTime = CLOCK()
 end
 
 function Control.client_onFixedUpdate(self) -- key press readings and what not clientside
@@ -1300,8 +1300,10 @@ function Control.client_onUpdate(self,dt)
         self.RaceMenu:setText("HandiValue", tostring(handiValue) )
     end
 
-    camDir = sm.camera.getDirection()
-   --print("RC cl onUpdate after")
+    camDir = sm.camera.getDirection() -- ???
+
+    local dt = string.format("%.4f",dt)
+    --print("rc:",dt)
 end
 
 -- networking

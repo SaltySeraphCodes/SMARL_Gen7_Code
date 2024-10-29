@@ -3,4 +3,5 @@ JsonData/cameraInput.json
 JsonData/zoomControls.json
 Cache/
 .DS_Store
+.vscode/
 
