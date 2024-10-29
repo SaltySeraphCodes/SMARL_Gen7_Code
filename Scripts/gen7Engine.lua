@@ -310,13 +310,13 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
         if self.driver.drafting then -- and drafting enabled...
             --print(self.driver.tagText,"drafting lim reach",nextRPM)
             nextRPM =nextRPM - (rpmIncrement*1.04)
-            if nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS ) +  7 then -- if over by 5 then increase reduction
+            if nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS ) +  6 then -- if over by 5 then increase reduction
                 nextRPM =nextRPM - (rpmIncrement*1.1)
             end
         elseif self.driver.passing.isPassing then -- if driver is passing
             --print(self.driver.tagText,"Passing lim reach",nextRPM)
             nextRPM =nextRPM - (rpmIncrement*1.02)
-        elseif nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS +  handiTS) + 7 then -- if generally over speed by 5 then increase reduction
+        elseif nextRPM > ((self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS +  handiTS) + 6 then -- if generally over speed by 5 then increase reduction
             nextRPM = nextRPM -  (rpmIncrement*1.1)
         else -- not drafting or passing ( just cooling down from it)
             --nextRPM = (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS --old code, hard set
@@ -328,7 +328,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     end
     --print('aa-',self.driver.id,nextRPM,self.engineStats.MAX_SPEED)
     -- failsafe engine limiter
-    if nextRPM > (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 10 then -- General overspeed
+    if nextRPM > (self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 9 then -- General overspeed
         --print(self.driver.tagText,"Engine Limit Reached",nextRPM)
         --nextRPM = (self.engineStats.MAX_SPEED + draftTS + handiTS +7  or nextRPM - 0.5) -- old
         nextRPM =nextRPM -  (rpmIncrement*1.5)

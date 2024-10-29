@@ -72,6 +72,10 @@ function Generator.client_init( self )  -- Only do if server side???
     self.visualizing = false
     self.useText =  sm.gui.getKeyBinding( "Use", true )
     self.tinkerText = sm.gui.getKeyBinding( "Tinker", true )
+    self.leftClickText = sm.gui.getKeyBinding("Create",true)
+    self.rightClickText = sm.gui.getKeyBinding("Attack",true)
+
+    -- Other key bindings: NextCreateRotation  LiftUp  LiftDown ForceBuild Use
     self.onHover = false
     self.showSpeeds = false
     self.showSegments = true
@@ -3504,6 +3508,23 @@ function Generator.printNodeChain(self)
     end
 end
 
+function Generator.client_canInteract(self)
+    local item = sm.localPlayer.getActiveItem()
+    local char = sm.localPlayer.getPlayer().character
+    sm.gui.setCenterIcon( "Hit" )
+    if item == sm.uuid.new("ed185725-ea12-43fc-9cd7-4295d0dbf88b") then -- holding sledgehammer
+        sm.gui.setInteractionText( "",self.leftClickText,"Save Racing Line")
+    else
+        if sm.localPlayer.getPlayer().character:isCrouching() then
+            sm.gui.setInteractionText( self.useText,"Debug Mode", self.tinkerText,"Decrease Sensitivity","")
+        else
+            -- TODO: change to confirm man text if man nodes == true
+            sm.gui.setInteractionText( self.useText,"Start Scan", self.tinkerText,"Increase Sensitivity","")
+        end
+    end
+    return true
+end
+
 function Generator.client_onInteract(self,character,state)
     if state then
         if self.manualPoints == true  then
@@ -3546,32 +3567,33 @@ end
 function Generator.client_onUpdate(self,timeStep)
     local item = sm.localPlayer.getActiveItem()
     local char = sm.localPlayer.getPlayer().character
-    if self.onHover then 
+    --[[if self.onHover then 
+        sm.gui.setCenterIcon( "" )
         if item == sm.uuid.new("ed185725-ea12-43fc-9cd7-4295d0dbf88b") then -- holding sledgehammer
-            sm.gui.setInteractionText( self.useText,"Hit save Racing Line To World","","")
+            sm.gui.setCenterIcon( "Hit" )
+            sm.gui.setInteractionText( "",self.leftClickText,"Save Racing Line")
         else
+            sm.gui.setCenterIcon( "Hit" )
             if sm.localPlayer.getPlayer().character:isCrouching() then
                 sm.gui.setInteractionText( self.useText,"Debug Mode", self.tinkerText,"Decrease Sensitivity","")
             else
                 -- TODO: change to confirm man text if man nodes == true
                 sm.gui.setInteractionText( self.useText,"Start Scan", self.tinkerText,"Increase Sensitivity","")
             end
+        end]]
+    if item == sm.uuid.new("ed185725-ea12-43fc-9cd7-4295d0dbf88b") and not self.hover then -- holding sledgehammer while not looking at the block
+        if self.nodeHovered == nil then 
+            sm.gui.setCenterIcon( "Hit" )
+            sm.gui.setInteractionText("",self.rightClickText ,"(Hold) Edit Node Position")
+        else
+            if self.editingNode == false then
+                sm.gui.setInteractionText("",self.rightClickText ,"Edit Node" ..tostring(self.nodeHovered) .. "Position")
+            else
+                sm.gui.setInteractionText("" ,"", "Editing Node" ..tostring(self.nodeHovered))
+            end
         end
     else
-        if item == sm.uuid.new("ed185725-ea12-43fc-9cd7-4295d0dbf88b") then -- holding sledgehammer
-            local rightClickGUI = ""
-            if self.nodeHovered == nil then 
-                sm.gui.setInteractionText(rightClickGUI ,"Edit Highlighted Node Position","","")
-            else
-                if self.editingNode == false then
-                    sm.gui.setInteractionText(rightClickGUI ,"Edit Node Position","",tostring(self.nodeHovered),"")
-                else
-                    sm.gui.setInteractionText(rightClickGUI ,"Editing Node","",tostring(self.nodeHovered),"")
-                end
-            end
-        else
 
-        end
     end
 
 end

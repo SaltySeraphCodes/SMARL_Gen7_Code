@@ -2822,7 +2822,7 @@ function Driver.refineBrakeSpeed(self,vMax,segBeginNode,segEndNode) -- refines v
     if segEndNode == nil then return vMax end
     vMax = vMax + tWidth/7 -- higher value is more punishment for thinner tracks
     vMax = vMax - math.abs(self.trackPosition)/1.7  --- TODO: figure out racing line closeness/ trackPos  Adjust max velocity based on closeness to center of track
-    if self.passing.isPassing then vMax = vMax +1.5 end -- go a bit slower while passing?
+    if self.passing.isPassing then vMax = vMax +1.3 end -- go a bit slower while passing?
     if self.carAlongSide.left ~= 0 or self.carAlongSide.right ~= 0 then -- slow down when there is car alongside 
         vMax = vMax - 1
     else
