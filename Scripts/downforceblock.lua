@@ -8,7 +8,7 @@ end
 -- Turns on when car starts braking
 DownforceBlock = class( nil )
 DownforceBlock.maxChildCount = -1
-DownforceBlock.maxParentCount = -1
+DownforceBlock.maxParentCount = 0
 DownforceBlock.connectionInput = sm.interactable.connectionType.power + sm.interactable.connectionType.logic
 DownforceBlock.connectionOutput =sm.interactable.connectionType.logic
 DownforceBlock.colorNormal = sm.color.new( 0x9999ffff )

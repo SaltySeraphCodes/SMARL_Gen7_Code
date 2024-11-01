@@ -2,8 +2,8 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.5" -- Behavior fixes for cars, downforce and handicap update
--- planned 1.9.0 -- Updated Car accel/brake functionality
+SMAR_VERSION = "1.8.8" --Error Checking recognition and recovery Overhaul along with
+-- planned 1.9.0 -- Full Release for Driver overhaul and barebones for Gen8
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
 MOD_FOLDER = "$CONTENT_DATA/" -- ID to open files in content
@@ -108,7 +108,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 85, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.4,
         MAX_BRAKE = 0.65,
-        GEARING = {0.5,0.45,0.18,0.14}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.5,0.45,0.18,0.16}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 85/4 -- LImit for VRPM TODO: adjust properly
     },
     {
@@ -117,7 +117,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 100, -- 80
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.75, -- 1?
-        GEARING = {0.51,0.40,0.25,0.19,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.51,0.40,0.25,0.19,0.17}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 100/5 -- LImit for VRPM TODO: adjust properly
     },
     {
@@ -126,7 +126,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 150,
         MAX_ACCEL = 0.7,
         MAX_BRAKE = 0.85,
-        GEARING = {0.46,0.35,0.25,0.20,0.16}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.46,0.35,0.25,0.20,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 150/5
     },
     {
@@ -135,7 +135,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 250,
         MAX_ACCEL = 1,
         MAX_BRAKE = 0.90,
-        GEARING = {0.48,0.4,0.30,0.21,0.17}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.48,0.4,0.30,0.21,0.19}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 250/5
     },
     {

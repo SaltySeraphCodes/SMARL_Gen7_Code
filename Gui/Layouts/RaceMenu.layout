@@ -23,7 +23,7 @@
             <Widget type="Widget" skin="PanelEmpty" name="ContainerHostPanel" position_real="0.056218 0.00694444 0.942078 0.92129688524">
                 
                 <Widget type="Widget" name = "DraftPicker" skin="PanelEmpty" position_real="0 0.1 1 0.1">
-                    <Widget name="DraftText" skin="TextBox" type="TextBox" position_real="0.1 0.05 0.350877 1">
+                    <Widget name="DraftText" skin="TextBox" type="TextBox" position_real="0.03 0.05 0.350877 1">
                         <Property key="Caption" value="Draft Strength:" />
                         <Property key="FontName" value="SM_TextLabel" />
                         <Property key="TextAlign" value="Left VCenter" />

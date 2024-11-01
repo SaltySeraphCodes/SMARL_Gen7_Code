@@ -15,8 +15,8 @@
 dofile "globals.lua" -- Or json.load?
 
 Driver = class( nil )
-Driver.maxChildCount = 15
-Driver.maxParentCount = 1
+Driver.maxChildCount = 64
+Driver.maxParentCount = 64
 Driver.connectionInput = sm.interactable.connectionType.seated + sm.interactable.connectionType.power + sm.interactable.connectionType.logic
 Driver.connectionOutput = sm.interactable.connectionType.power + sm.interactable.connectionType.logic + sm.interactable.connectionType.bearing
 Driver.colorNormal = sm.color.new( 0x76034dff )
@@ -1795,10 +1795,13 @@ function Driver.updateStrategicSteering(self,pathType) -- updates broad steering
         end
         if getSign(self.currentNode.bank) == getSign(SteerAngle2) and self.currentNode.bank ~= 0 then -- if steering left while on left bank
             --print(self.tagText,"bank turn similarity",self.currentNode.bank,SteerAngle2)
+            dampMult = 1.2
             bankAdjust = SteerAngle2 - (SteerAngle2 *(dampMult *math.abs(self.currentNode.bank)))
             SteerAngle2 = bankAdjust --add this in later
         else -- Still dampen turns but not as much
-            dampMult = 1
+            dampMult = 0.8
+            --print(self.tagText,"bank turn opp",self.currentNode.bank,SteerAngle2)
+
             bankAdjust = SteerAngle2 - (SteerAngle2 *(dampMult *math.abs(self.currentNode.bank)))
             SteerAngle2 = bankAdjust --add this in later
         end
@@ -2716,7 +2719,6 @@ function Driver.getAccel(self) -- GEts acceleration flag
     local vMax = calculateMaximumVelocity(self.goalNode,segEnd,segLen)
     vMax = self:refineBrakeSpeed(vMax,segBegin,segEnd)
 
-    --self:debugOutput(1,{"accelMax:",vMax})
     if self.speedControl > 0 then
         vMax = self.speedControl
         --print("SC",self.speed,vMax)
@@ -2757,13 +2759,14 @@ function Driver.getAccel2(self) -- updated version
         end
     end
     
-    
+    --print(self.tagText,toVelocity(self.engine.engineStats.MAX_SPEED),self.speed)
+
     if self.speed < toVelocity(self.engine.engineStats.MAX_SPEED) and self.speed < toVelocity(vMax) then -- Only doing if not at engine limit and if slower than vmax
         return 1
     elseif self.drafting then
+        
         return 1 -- full speed drafte
     else
-        --print('tapered',vMax,self.speed)
        return 1- math.abs(vMax/toEngineSpeed(self.speed))
     end
 end
@@ -5235,24 +5238,8 @@ function Driver.getTrackLimitAdjust(self)
 end
 
 
-function Driver.updateErrorLayer2(self) -- New Method
-    if self.engine == nil then return end
-    if self.engine.engineStats == nil then return end
-    if self.goalNode == nil or self.currentNode == nil then return end
 
-    -- Process tilted
-    self:handleTilted()
-    -- process oversteer and understeer
-    self:handleOverUnderSteer()
-    -- handle over rotation
-    self:handleOverRotation()
-    -- handle wall and track limits
-    local wallSteer = self:getWallAdjust()
-    local trackAdj = self:getTrackLimitAdjust()
-    self.strategicSteering = self.strategicSteering + wallSteer + trackAdj-- Maybe not desparate?
-
-
-    -- check and handle stuck
+function Driver.handleStuck(self) -- how the driver handles being stuck
     if self.stuck and self.raceStatus ~= 0 then
         --print(self.tagText,"stuck")
         local offset = posAngleDif3(self.location,self.shape.at,self.goalNode.location) -- TODO: replace with goaldiroffset
@@ -5396,8 +5383,9 @@ function Driver.updateErrorLayer2(self) -- New Method
 
         end
     end
-    
-    -- Check Offtrack TODO: figure this out, sometimes car thinks it is off track when it is not
+end
+
+function Driver.handleOfftrack(self)
     if self.offTrack ~= 0 and not self.userControl then
         --print(self.tagText,"offtrack",self.offTrack)
         if self.speed < 15 then -- speed rejoin
@@ -5414,7 +5402,10 @@ function Driver.updateErrorLayer2(self) -- New Method
         end
         --print(self.id,"offtrack",self.offTrack,self.strategicSteering)
     end
-    -- Check wildly offCenter I think these conflict with other things
+end
+
+
+function Driver.handleOffCenter(self)
     local adjustmenDampener = 80 -- 
     if not self.rejoining and not self.stuck then
         --print(self.tagText,"not stuck and not rejoin")
@@ -5476,6 +5467,9 @@ function Driver.updateErrorLayer2(self) -- New Method
             end
         end
     end
+end
+
+function Driver.handleRejoin(self)
     if self.rejoining then -- what going on?
         --print(self.tagText, "Actually moving forward rejoining")
         if  self.curGear >= 3 then -- TODO: have a better metric than just gear...
@@ -5486,6 +5480,33 @@ function Driver.updateErrorLayer2(self) -- New Method
             self.trackPosBias = 0
         end
     end
+end
+
+
+function Driver.updateErrorLayer2(self) -- New Method
+    if self.engine == nil then return end
+    if self.engine.engineStats == nil then return end
+    if self.goalNode == nil or self.currentNode == nil then return end
+
+    -- Process tilted
+    self:handleTilted()
+    -- process oversteer and understeer
+    self:handleOverUnderSteer()
+    -- handle over rotation
+    self:handleOverRotation()
+    -- handle wall and track limits
+    local wallSteer = self:getWallAdjust()
+    local trackAdj = self:getTrackLimitAdjust()
+    self.strategicSteering = self.strategicSteering + wallSteer + trackAdj-- Maybe not desparate?
+    -- check and handle stuck
+    self:handleStuck()
+    -- Check Offtrack TODO: figure this out, sometimes car thinks it is off track when it is not
+    self:handleOfftrack()
+    
+    -- Check wildly offCenter I think these conflict with other things
+    self:handleOffCenter()
+
+    
     -- cautijon check
     if self.caution then
         self:checkCautionPos()
@@ -5676,6 +5697,17 @@ function Driver.getVmaxFromRacingLine(self,vmax,node)
     return vmax
 end
 
+function Driver.getVmaxFromBanking(self,vmax,firstNode,lastNode,maxSpeed)
+    local angle = vectorAngleDiff(firstNode.outVector,lastNode.outVector)
+    local maxBank = math.max(firstNode.bank,lastNode.bank)
+    
+    vmax = vmax + maxBank
+    if getSign(angle) == getSign(maxBank) then
+        vmax = vmax + (maxBank*40) + (maxSpeed/50)
+    end
+    --print(maxBank,angle,vmax)
+    return vmax
+end
 
 function Driver.getVmaxFromTrackWidth(self,vmax,node)
     local width = node.width
@@ -5744,7 +5776,7 @@ function Driver.getVmax(self,node) -- Calculates max velocity based on given nod
     vmax = self:getVmaxFromRacingLine(vmax,firstNode)
 
     -- increase vmax based on banking
-    vmax = vmax + 0
+    vmax = self:getVmaxFromBanking(vmax,firstNode,lastNode,maxSpeed)
 
     -- change vmax based on track width
     vmax = self:getVmaxFromTrackWidth(vmax,lastNode)
@@ -5768,7 +5800,7 @@ function Driver.getVmax(self,node) -- Calculates max velocity based on given nod
     --print('vm',vmax )
     -- Do any clamping for engine based params?
     vmax = mathClamp(10,maxSpeed,vmax)
-    --print("final",toVelocity(vmax))
+    --print("final",toVelocity(maxSpeed),toVelocity(vmax),self.speed)
     return vmax 
 end
 
@@ -5915,7 +5947,7 @@ end
 
 
 -- TODO: Do ALL follow priority logic here
-function Driver.calculatePriorities(self) -- calculates steering priorities for nodeFollowiu
+function Driver.calculatePriorities(self) -- calculates steering priorities for 
     if self.goalNode == nil then return 0 end
     if self.currentNode == nil then return 0 end 
     local lookaheadDist = 3 -- How many extra nodes to look ahead to determine priorities
@@ -6142,13 +6174,13 @@ function Driver.calculatePriorities2(self) -- New version for updated node
 
             else -- Not passing
                 if math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0 then -- if a car is alongside,
-                    self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.8,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0.6,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.01) -- unsure what to do with this
                 else -- No cars alongside
-                    self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.01)
+                    self.nodeFollowPriority = rampToGoal(0.8,self.nodeFollowPriority,0.01)
                     self.biasFollowPriority = rampToGoal(0.6,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.005)
                     self.draftFollowPriority = rampToGoal(0.6,self.draftFollowPriority,0.01)
@@ -6172,13 +6204,13 @@ function Driver.calculatePriorities2(self) -- New version for updated node
                 end
             else -- if not passing  while on a turn
                 if math.abs(self.carAlongSide.left) > 0 or math.abs(self.carAlongSide.right) > 0  then -- if a car is alongside, prioritize node follow left
-                    self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.004)
+                    self.nodeFollowPriority = rampToGoal(0.8,self.nodeFollowPriority,0.004)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0.5,self.draftFollowPriority,0.01)
                     self.collFollowPriority = rampToGoal(0,self.collFollowPriority,0.001) -- unsure what to do with this
                 else
-                    self.nodeFollowPriority = rampToGoal(0.7,self.nodeFollowPriority,0.004)
+                    self.nodeFollowPriority = rampToGoal(0.8,self.nodeFollowPriority,0.004)
                     self.biasFollowPriority = rampToGoal(0.1,self.biasFollowPriority,0.001)
                     self.passFollowPriority = rampToGoal(0.1,self.passFollowPriority,0.001)
                     self.draftFollowPriority = rampToGoal(0.5,self.draftFollowPriority,0.01)
@@ -6186,6 +6218,9 @@ function Driver.calculatePriorities2(self) -- New version for updated node
                 end
             end
         end 
+        if math.abs(checkNode.bank) >= 0.1 then -- takes priority
+            self.nodeFollowPriority = rampToGoal(0.4,self.nodeFollowPriority,0.02)
+        end
 
         if self.rotationCorrect then -- TODO: lessen rotationCorrect sensitivity
             --print(self.tagText,"rotation",self.nodeFollowPriority)
