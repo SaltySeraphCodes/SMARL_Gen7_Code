@@ -103,7 +103,7 @@
             "y" : 1,
             "z" : 1
          },
-         "color" : "fefefe",
+         "color" : "fefefeff",
          "name" : "smar_track_generator",
          "physicsMaterial" : "Mechanical",
          "renderable" : {
@@ -152,7 +152,7 @@
             "y" : 1,
             "z" : 1
          },
-         "color" : "3efe3e",
+         "color" : "3efe3eff",
          "name" : "smar_track_loader",
          "physicsMaterial" : "Mechanical",
          "renderable" : {
@@ -201,7 +201,7 @@
             "y" : 1,
             "z" : 1
          },
-         "color" : "aa33ff",
+         "color" : "6677ffff",
          "name" : "smar_downforce",
          "physicsMaterial" : "Mechanical",
          "renderable" : {
@@ -250,7 +250,7 @@
             "y" : 8,
             "z" : 4
          },
-         "color" : "eeeeee",
+         "color" : "eeeeeeff",
          "flammable" : false,
          "name" : "obj_interactive_beacon",
          "physicsMaterial" : "Mechanical",
@@ -308,7 +308,7 @@
             "y" : 1,
             "z" : 1
          },
-         "color" : "22BB55",
+         "color" : "22BB55ff",
          "name" : "smar_check_point",
          "physicsMaterial" : "Mechanical",
          "renderable" : {
@@ -357,7 +357,7 @@
             "y" : 1,
             "z" : 1
          },
-         "color" : "EEEEEE",
+         "color" : "a7a602ff",
          "name" : "smar_camera",
          "physicsMaterial" : "Mechanical",
          "renderable" : {
@@ -406,7 +406,7 @@
             "y" : 1,
             "z" : 1
          },
-         "color" : "EEEEEE",
+         "color" : "ee6f6fff",
          "name" : "smar_BrakeUnits",
          "physicsMaterial" : "Mechanical",
          "renderable" : {

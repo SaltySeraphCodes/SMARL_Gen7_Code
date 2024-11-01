@@ -445,6 +445,9 @@ function SmarlCamera.client_onClientDataUpdate(self,clientData)
 end
 
 function SmarlCamera.client_onUpdate( self, timeStep )
+	if  not sm.exists(self.character) then
+		self.character = self.player:getCharacter()
+		return end
 	--print("Actual",sm.camera.getPosition(),sm.camera.getDirection())
 	self.location = self.character:getWorldPosition() -- Make this only move according to camera mode
 	
@@ -671,6 +674,7 @@ function SmarlCamera.deactivateRaceCam(self)
 end
 
 function SmarlCamera.deactivateFreecam(self)
+	if self.character == nil then print("no char") return end
 	self.freeCamActive = false
 	print("freecam Deacivated")
 	self.character:setLockingInteractable(nil)

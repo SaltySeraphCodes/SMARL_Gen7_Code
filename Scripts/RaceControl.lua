@@ -27,7 +27,33 @@ Control.connectionOutput = sm.interactable.connectionType.logic
 Control.colorNormal = sm.color.new( 0xffc0cbff )
 Control.colorHighlight = sm.color.new( 0xffb6c1ff )
 local clock = os.clock --global clock to benchmark various functional speeds ( for fun)
+--[[ old dropdown wiget code
+<Widget type="Widget" skin="PanelEmpty" position_real="0 0 1 0.1">
+                    <Widget type="TextBox" skin="TextBox" name="DraftText" position_real="0 0 0.350877 1">
+                        <Property key="Caption" value="Drafting Enabled:" />
+                        <Property key="FontName" value="SM_TextLabel" />
+                        <Property key="TextAlign" value="Left VCenter" />
+                        <Property key="NeedMouse" value="false" />
+                    </Widget>
+                    <Widget type="Widget" skin="ActiveButton" name="DraftModeCollapsed" position_real="0.318421 0 0.525 0.85">
+                        <Property key="NeedKey" value="false" />
+                        <Property key="NeedMouse" value="true" />
+                        <Widget type="TextBox" skin="TextBox" name="DraftValue" position_real="0.0138889 0.117647 0.888889 0.764706">
+                            <Property key="Caption" value="- Draft Mode -" />
+                            <Property key="FontName" value="SM_ListItem" />
+                            <Property key="TextAlign" value="Center" />
+                            <Property key="TextColour" value="1 0.831373 0.290196" />
+                            <Property key="NeedMouse" value="true" />
+                        </Widget>
+                        <Widget type="Button" skin="PanelEmpty" name="DraftBtn" position_real="0 0 1 1" />
+                        <Widget type="Button" skin="DropDownExpand" name="DraftBtn" position_real="0.888889 0 0.111111 1">
+                            <Property key="Caption" value="V" />
+                            <Property key="FontName" value="InventoryTitle" />
+                        </Widget>
+                    </Widget>
+                </Widget>
 
+]]
 
 --[[
     Pre Race: (SM)
@@ -103,8 +129,9 @@ end
 function Control.client_init( self ) 
 	-- metadata
     self.targetLaps = 10
-    self.handiCapMultiplier = 1.5
+    self.handiCapMultiplier = 0.5
     self.handiCapEnabled = true
+    self.draftStrength = 5 -- how strong the draft can be
     self.draftingEnabled = true 
 
     self.raceStatus = 0
@@ -134,14 +161,17 @@ function Control.client_init( self )
     -- Race setup Menu
     self.RaceMenu = sm.gui.createGuiFromLayout( MOD_FOLDER.."Gui/Layouts/RaceMenu.layout",false ) -- TODO: Add Race status GUI too
         self.DraftExpanded = false
-        self.RaceMenu:setButtonCallback( "DraftBtn", "client_buttonPress" )
-        self.RaceMenu:setButtonCallback( "DraftYes", "client_buttonPress" )
-        self.RaceMenu:setButtonCallback( "DraftNo", "client_buttonPress" )
+        --self.RaceMenu:setButtonCallback( "DraftBtn", "client_buttonPress" )
+        --self.RaceMenu:setButtonCallback( "DraftYes", "client_buttonPress" )
+        --self.RaceMenu:setButtonCallback( "DraftNo", "client_buttonPress" )
 
         -- Time Limit callbac NOTE: SLIDERS DO NOT WORK
         --self.RaceMenu:setSliderCallback( "TimeSlider", "cl_onSliderChange" )
         --self.RaceMenu:setButtonCallback( "TimeSlider", "client_buttonPress" )
         --self.RaceMenu:setVisible("TimeSlider",false)
+
+        self.RaceMenu:setButtonCallback( "DraftBtnAdd", "client_buttonPress" )
+        self.RaceMenu:setButtonCallback( "DraftBtnSub", "client_buttonPress" )
 
         self.RaceMenu:setButtonCallback( "LapBtnAdd", "client_buttonPress" )
         self.RaceMenu:setButtonCallback( "LapBtnSub", "client_buttonPress" )
@@ -245,8 +275,8 @@ function Control.server_init(self)
     self.oppAvoidDst = 4
     self.oppAvoidStr = 0.1
 
-    self.draftDst = 70
-    self.draftStr = 1
+    self.draftDistance = 70
+    self.draftStrength = 5
 
 
     -- Car Importing behavior
@@ -290,12 +320,13 @@ function Control.server_init(self)
 
     self.timeSplitArray = {} -- each node makes rough split
 
-    self.handiCapThreshold = 5 -- how far away before handicap starts
+    self.handiCapThreshold = 8 -- how far away before handicap starts
 
     self.handiCapOn = false
-    self.draftStrength = 100 -- TODO: implement
+    self.draftStrength = 5 -- TODO: implement
     self.handiCapStrength = 100
     self.handiCapMultiplier = 1.5 -- multiplies handicap by ammount
+    self.maxHandiCap = 100 -- maximum slow down
     RACE_CONTROL = self 
     -- TODO: Make lap count based off of totalNodes too, not just crossing line 
     self.sortedDrivers = {} -- Sorted list by race position of drivers, necessary? for printing?
@@ -734,11 +765,10 @@ function Control.sv_setHandicaps(self)
         if driver.racePosition == 1  then
             firstNode = driver.totalNodes
         end
-        
     end
     for k=1, #allDrivers do local driver=allDrivers[k]
         local nodeDif = firstNode - driver.totalNodes
-        local handicap = nodeDif
+        local handicap = nodeDif 
         if nodeDif < self.handiCapThreshold or self.raceStatus > 1 then -- caution or formation
             handicap = 0
         elseif nodeDif > self.handiCapStrength then
@@ -751,6 +781,37 @@ function Control.sv_setHandicaps(self)
         
     end
 end
+
+function Control.sv_setHandicaps2(self) -- just based on position
+    local allDrivers = getAllDrivers()
+    local firstNode = 0
+    
+    for k=1, #allDrivers do local driver=allDrivers[k] --- find first 
+        if driver.racePosition == 1  then
+            firstNode = driver.totalNodes
+        end
+    end
+    for k=1, #allDrivers do local driver=allDrivers[k]
+        if self.raceStatus > 1 then -- just shortcut this if caution or formation
+            driver.handicap = 0
+        else
+            local nodeDif = firstNode - driver.totalNodes
+            local handicap = 0
+            if nodeDif <= self.handiCapThreshold then -- if nodedif less than 5 (close to leader)
+                handicap = self.maxHandiCap -- equal out to 100
+            else -- if node dif further awway from leader
+                handicap = self.maxHandiCap - nodeDif -- reduces handicap by number of nodes away
+            end
+            if handicap < 0 then -- clamp handicap if too fast... Shouldnt be an issue but here anyways
+                handicap = 0
+            end
+            if handicap == nil then handicap = 1 end
+            driver.handicap = handicap * self.handiCapMultiplier
+            --print(driver.racePosition,nodeDif,driver.handicap)
+        end
+    end
+end
+
 
 
 function Control.sv_toggleRaceMode(self,mode) -- starts 
@@ -857,6 +918,7 @@ function Control.cl_resetRace(self) -- sends commands to all cars and then reset
     self:client_onRefresh()
 end
 
+-- TODO: do not do a full reset, just reset some values
 function Control.sv_resetRace(self) -- sends commands to all cars and then resets self
     print("Resetting race")
     self:sv_sendCommand({car = {-1}, type = "resetRace", value = 0}) -- extra data in value just in ccase?
@@ -890,17 +952,30 @@ end
 function Control.sv_changeHandiCap(self,ammount) -- changes the game time by ammount
     if ammount == nil then return end
     
-    if self.handiCapMultiplier <= 1 and ammount <0 then
+    if self.handiCapMultiplier <= 0.05 and ammount <0 then
         print("disabled handicap")
         self.handiCapMultiplier = 0
-    elseif self.handiCapMultiplier < 1 and ammount > 0 then
-        self.handiCapMultiplier = 1
     else
         self.handiCapMultiplier = self.handiCapMultiplier + ammount
     end
     --print("change handimul",self.handiCapMultiplier)
-    self.network:setClientData(self.handiCapMultiplier) -- send tagetLaps to clients
+    self.network:setClientData(self.handiCapMultiplier)
 end
+
+
+function Control.sv_changeDraft(self,ammount) -- changes the game time by ammount
+    if ammount == nil then return end
+    --print(self.draftStrength)
+    if self.draftStrength <= 0.05 and ammount <0 then
+        print("disabled Draft")
+        self.draftStrength = 0
+    else
+        self.draftStrength = self.draftStrength + ammount
+    end
+    --print("change handimul",self.handiCapMultiplier)
+    self.network:setClientData(self.draftStrength) 
+end
+
 
 function Control.findSplitNode(self,nodeNum) -- finds node id out of timesplit node (Need to have better way to find to prevent for loops, Could use a constantly updating nodeID offset)
     for k, v in pairs(self.timeSplitArray) do
@@ -974,14 +1049,14 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
     end
 
     if self.currentLap <= self.targetLaps  then -- race on going -- or qualifying
-        if self.currentLap >= 2 and self.handiCapEnabled == true then -- second lap, Enable drafting and handicap
+        if self.currentLap >= 1 and self.handiCapEnabled == true then -- second lap, Enable drafting and handicap
             self.handiCapOn = true
             --self.draftingEnabled = true
         end
 
         if self.currentLap  == self.targetLaps - 1 then -- last laps
             driver.passAggression = -0.2 -- more agggressive passes?
-            driver.skillLevel = driver.skillLevel + 2
+            driver.skillLevel = driver.skillLevel + 3
         end
             --TODO: Investigate why car tied with 10th of second between them theoretically
         self.raceFinished = false
@@ -1096,7 +1171,8 @@ function Control.server_onFixedUpdate(self)
         self.powered = power -- update after checks (TODO: only run when discrepancy)
     end
     if self.handiCapOn then
-        self:sv_setHandicaps()
+        --self:sv_setHandicaps()
+        self:sv_setHandicaps2()
     end
     -- Determine if self exists
     local raceControl = getRaceControl()
@@ -1259,45 +1335,21 @@ function Control.client_onUpdate(self,dt)
         self.RaceMenu:setText("StatusText", raceStat )
         self.RaceMenu:setText("LapStat", lapStat )
     end
-    -- In Race status
-
-    --[[ Match CountDown [[ Could be used for race countdowns?
-    if self.matchCountDownFlag and not self.matchStartCountdown:done() then
-        local timeLeft = self.matchStartCountdown:remaining()
-        -- IF self has no team ID  set interaction Text To pick a team
-        sm.gui.displayAlertText( "Match Staring In: "..tostring(timeLeft), 1 )
-    end
-
-    if self.TeamMenu then 
-        local redText = self:generateTeamList(1)--"PlayerName\nPlayerName2\n"
-        local blueText = self:generateTeamList(2)
-        self.TeamMenu:setText("RedDisplay",redText)
-        self.TeamMenu:setText("BlueDisplay",blueText)
-    end
-
-
-    if self.cl_gameStarted then -- Possibly have race stats here?
-        self.RaceMenu:setText("StartGame","Cancel Game")
-        self.RaceMenu:setText("SetupHeader","Game In Progress")
-        self.RaceMenu:setVisible("ContainerHostPanel",false)
-        -- TODO: Possibly have game stats here
-    else
-        self.RaceMenu:setText("StartGame","Start Game")
-        self.RaceMenu:setText("SetupHeader","Creative PVP Game Setup")
-        self.RaceMenu:setVisible("ContainerHostPanel",true)
-    end]]
 
     
     if self.RaceMenu then
         self.RaceMenu:setText("LapValue", tostring(self.targetLaps) )
-    end
-
-    if self.RaceMenu then
+        
         local handiValue = string.format("%.1f",self.handiCapMultiplier)
-        if self.handiCapMultiplier == 0 then
+        if self.handiCapMultiplier <= 0.05 then
             handiValue = "Off"
         end
         self.RaceMenu:setText("HandiValue", tostring(handiValue) )
+        local draftValue = string.format("%.1f",self.draftStrength)
+        if self.draftStrength <= 0.05 then
+            draftValue = "Off"
+        end
+        self.RaceMenu:setText("DraftValue", tostring(draftValue) )
     end
 
     camDir = sm.camera.getDirection() -- ???
@@ -2792,6 +2844,10 @@ function Control.client_buttonPress( self, buttonName )
         self.network:sendToServer("sv_changeHandiCap",0.1)
     elseif buttonName == "HandiBtnSub" then
         self.network:sendToServer("sv_changeHandiCap",-0.1)
+    elseif buttonName == "DraftBtnAdd" then
+        self.network:sendToServer("sv_changeDraft",0.1)
+    elseif buttonName == "DraftBtnSub" then
+        self.network:sendToServer("sv_changeDraft",-0.1)
     elseif buttonName == "ResetRace" then
         --print("Resetting Race")
         if (self.raceStatus == 1 or self.raceStatus == 2 or self.raceStatus == 3 )and not self.raceFinished then -- Mid race

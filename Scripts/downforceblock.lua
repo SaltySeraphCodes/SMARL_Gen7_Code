@@ -11,8 +11,8 @@ DownforceBlock.maxChildCount = -1
 DownforceBlock.maxParentCount = -1
 DownforceBlock.connectionInput = sm.interactable.connectionType.power + sm.interactable.connectionType.logic
 DownforceBlock.connectionOutput =sm.interactable.connectionType.logic
-DownforceBlock.colorNormal = sm.color.new( 0xbbbbffff )
-DownforceBlock.colorHighlight = sm.color.new( 0xbfbfffff )
+DownforceBlock.colorNormal = sm.color.new( 0x9999ffff )
+DownforceBlock.colorHighlight = sm.color.new( 0xaaaaffff )
 DownforceBlock.poseWeightCount = 2
 
 function DownforceBlock.server_onCreate(self)
@@ -40,6 +40,7 @@ end
 function DownforceBlock.server_init( self ) 
     self.downforceChannel = 1 -- apparenlty 1 is transfered over...
 	self.forceStrength = (self.storage:load() or 0 )
+    self.interactable:setPower(self.forceStrength)
     print("loaded downforce:",self.forceStrength)
 end
 
@@ -107,8 +108,9 @@ end
 function DownforceBlock.sv_update_force(self,ammount)
     self.forceStrength = self.forceStrength + ammount
     self.network:sendToClients("cl_notifyChat","Set Force Strength:" .. tostring(self.forceStrength))
+    self.interactable:setPower(self.forceStrength)
     self.storage:save(self.forceStrength)
-    print("saved",self.forceStrength)
+    --print("saved",self.forceStrength)
 end
 
 function DownforceBlock.client_canTinker( self, character )

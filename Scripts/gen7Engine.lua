@@ -280,13 +280,18 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
 
     local draftTS = 0 -- * global.draftStrengthHow much to increase the top speed by ()
     if self.driver.drafting and self.accelInput >= 0.9 and getRaceControl().draftingEnabled == true then -- only work while accelerating, can get in the way of brakes
-        draftTS = 7 -- * draftStrength --TODO: add draft strength UI var in RaceControl
+        draftTS = getRaceControl().draftStrength --TODO: Fine tune properly
         rpmIncrement = rpmIncrement + 0.00015 -- * global.draftStrength
     end
     -- handicap handing
     local handiTS = 0
     --print(self.driver.id,self.driver.handiCap)
-    handiTS = (self.driver.handicap or 1)/23
+    -- handiap2 
+    if self.driver.behaviorSwitch == 0 then
+        handiTS = (self.driver.handicap or 1)/20
+    elseif self.driver.behaviorSwitch == 1 then
+        handiTS = -((self.driver.handicap or 1)*(self.engineStats.MAX_SPEED/75 or 1) )/10
+    end
     --print(self.driver.id,handiTS)
 
     --print(self.curRPM,rpmIncrement)
@@ -334,6 +339,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
         nextRPM =nextRPM -  (rpmIncrement*1.5)
     end
     --print(self.driver.tagText,"rp:",nextRPM,self.engineStats.MAX_SPEED,draftTS,handiTS,(self.engineStats.MAX_SPEED or ENGINE_SPEED_LIMIT) + draftTS + handiTS + 10)
+    --print(self.driver.racePosition,handiTS,self.engineStats.MAX_SPEED,nextRPM)
     return nextRPM
 end
 

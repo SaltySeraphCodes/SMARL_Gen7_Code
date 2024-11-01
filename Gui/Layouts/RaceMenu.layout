@@ -21,28 +21,32 @@
         </Widget>
         <Widget type="Widget" skin="BackgroundLightRoundedLowerLeft" name="OptionsHostPanel" position_real="0 0.12758 1.00085 0.810507">
             <Widget type="Widget" skin="PanelEmpty" name="ContainerHostPanel" position_real="0.056218 0.00694444 0.942078 0.92129688524">
-                <Widget type="Widget" skin="PanelEmpty" position_real="0 0 1 0.1">
-                    <Widget type="TextBox" skin="TextBox" name="DraftText" position_real="0 0 0.350877 1">
-                        <Property key="Caption" value="Drafting Enabled:" />
+                
+                <Widget type="Widget" name = "DraftPicker" skin="PanelEmpty" position_real="0 0.1 1 0.1">
+                    <Widget name="DraftText" skin="TextBox" type="TextBox" position_real="0.1 0.05 0.350877 1">
+                        <Property key="Caption" value="Draft Strength:" />
                         <Property key="FontName" value="SM_TextLabel" />
                         <Property key="TextAlign" value="Left VCenter" />
                         <Property key="NeedMouse" value="false" />
                     </Widget>
-                    <Widget type="Widget" skin="ActiveButton" name="DraftModeCollapsed" position_real="0.318421 0 0.525 0.85">
-                        <Property key="NeedKey" value="false" />
-                        <Property key="NeedMouse" value="true" />
-                        <Widget type="TextBox" skin="TextBox" name="DraftValue" position_real="0.0138889 0.117647 0.888889 0.764706">
-                            <Property key="Caption" value="- Draft Mode -" />
-                            <Property key="FontName" value="SM_ListItem" />
-                            <Property key="TextAlign" value="Center" />
-                            <Property key="TextColour" value="1 0.831373 0.290196" />
-                            <Property key="NeedMouse" value="true" />
-                        </Widget>
-                        <Widget type="Button" skin="PanelEmpty" name="DraftBtn" position_real="0 0 1 1" />
-                        <Widget type="Button" skin="DropDownExpand" name="DraftBtn" position_real="0.888889 0 0.111111 1">
-                            <Property key="Caption" value="V" />
-                            <Property key="FontName" value="InventoryTitle" />
-                        </Widget>
+
+                    <Widget type="Button" skin="SecondaryButton" name="DraftBtnAdd" position_real="0.37 0.35 0.1 0.5">
+                        <Property key="Caption" value=">>" />
+                        <Property key="FontName" value="SM_TextLabel" />
+                        <Property key="TextAlign" value="Center" />
+                    </Widget>
+                     
+                     <Widget name="DraftValue" skin="TextBox" type="TextBox" position_real="0.155 0.1 0.35 1">
+                        <Property key="Caption" value="1" />
+                        <Property key="FontName" value="SM_TextLabel" />
+                        <Property key="TextAlign" value="Center" />
+                        <Property key="NeedMouse" value="false" />
+                     </Widget>
+
+                    <Widget type="Button" skin="SecondaryButton" name="DraftBtnSub" position_real="0.20 0.35 0.1 0.5">
+                        <Property key="Caption" value="<<" />
+                        <Property key="FontName" value="SM_TextLabel" />
+                        <Property key="TextAlign" value="Center" />
                     </Widget>
                 </Widget>
 
@@ -212,3 +216,4 @@
 
     <CodeGeneratorSettings />
 </MyGUI>
+

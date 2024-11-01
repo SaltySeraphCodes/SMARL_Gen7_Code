@@ -2,7 +2,7 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.1" -- QOL Fixes for raceline generator
+SMAR_VERSION = "1.8.5" -- Behavior fixes for cars, downforce and handicap update
 -- planned 1.9.0 -- Updated Car accel/brake functionality
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
@@ -108,7 +108,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 85, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.4,
         MAX_BRAKE = 0.65,
-        GEARING = {0.5,0.45,0.20,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.5,0.45,0.18,0.14}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 85/4 -- LImit for VRPM TODO: adjust properly
     },
     {
@@ -117,7 +117,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 100, -- 80
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.75, -- 1?
-        GEARING = {0.45,0.4,0.40,0.3,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.51,0.40,0.25,0.19,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 100/5 -- LImit for VRPM TODO: adjust properly
     },
     {
@@ -126,7 +126,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 150,
         MAX_ACCEL = 0.7,
         MAX_BRAKE = 0.85,
-        GEARING = {0.46,0.45,0.5,0.3,0.20}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.46,0.35,0.25,0.20,0.16}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 150/5
     },
     {
@@ -135,7 +135,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 250,
         MAX_ACCEL = 1,
         MAX_BRAKE = 0.90,
-        GEARING = {0.48,0.45,0.50,0.5,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.48,0.4,0.30,0.21,0.17}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 250/5
     },
     {
@@ -1616,16 +1616,16 @@ function getVmax(angle,maxSteer,minSteer,maxVel,minVel)
 end
 
 function getVmax2(angle,maxSpeed,minSpeed) -- uses a ratio to determine speed from engines
-    if angle < 0.25 then 
-        return maxSpeed + 5 -- returns full speeds on straights~ give leeway for drafting
+    if angle < 0.2 then 
+        return maxSpeed + 10 -- returns full speeds on straights~ give leeway for drafting
     end
-    local speed =  logarithmic_linear_decrease(angle,120,minSpeed)
+    local speed =  logarithmic_linear_decrease(angle,2.3,90,minSpeed)
     if speed < minSpeed then return minSpeed end 
     return speed
 end
 
-function linear_decrease(input, initial_output, final_output)
-    local input_range = 2.3 -- Assuming input range is 0 to 1
+function linear_decrease(input,max_input, initial_output, final_output) -- final output is minimum
+    local input_range = max_input -- Assuming input range is 0 to 1
     local output_range = initial_output - final_output
     local coefficient = output_range / input_range
   
@@ -1633,8 +1633,8 @@ function linear_decrease(input, initial_output, final_output)
     return output
 end
 
-function logarithmic_linear_decrease(input, initial_output, final_output)
-    local input_range = 2.5 -- Assuming input range is 0 to 3
+function logarithmic_linear_decrease(input,max_input, initial_output, final_output)
+    local input_range = max_input -- Assuming input range is 0 to 3
     local output_range = initial_output - final_output
   
     -- Linear component:
@@ -1651,8 +1651,8 @@ function logarithmic_linear_decrease(input, initial_output, final_output)
   end
 
 
-function linear_increase(input, initial_output, final_output)
-    local input_range = 2.3 -- Assuming input range is 0 to 1
+function linear_increase(input, max_input, initial_output, final_output)
+    local input_range = max_input -- Assuming input range is 0 to 1
     local output_range = final_output - initial_output
     local coefficient = output_range / input_range
 
