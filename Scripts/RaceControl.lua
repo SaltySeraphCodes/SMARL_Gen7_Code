@@ -114,8 +114,7 @@ function Control.client_onDestroy(self)
 		self.RaceMenu:close()
 		self.RaceMenu:destroy()
 	end
-
-    if self.smarCamLoaded then
+    if self.smarCamLoaded or true then
         self:client_exitCamera()
     end
 end
@@ -320,13 +319,13 @@ function Control.server_init(self)
 
     self.timeSplitArray = {} -- each node makes rough split
 
-    self.handiCapThreshold = 8 -- how far away before handicap starts
-
-    self.handiCapOn = false
     self.draftStrength = 5 -- TODO: implement
+    self.handiCapOn = false
+    self.handiCapThreshold = 15 -- how far away before handicap starts
     self.handiCapStrength = 100
-    self.handiCapMultiplier = 1.5 -- multiplies handicap by ammount
+    self.handiCapMultiplier = 0.5 -- multiplies handicap by ammount
     self.maxHandiCap = 100 -- maximum slow down
+    self.curHandiCap = 100
     RACE_CONTROL = self 
     -- TODO: Make lap count based off of totalNodes too, not just crossing line 
     self.sortedDrivers = {} -- Sorted list by race position of drivers, necessary? for printing?
@@ -791,16 +790,22 @@ function Control.sv_setHandicaps2(self) -- just based on position
             firstNode = driver.totalNodes
         end
     end
+    local maxNodeDif = 0
+    local numInFight = 0
     for k=1, #allDrivers do local driver=allDrivers[k]
         if self.raceStatus > 1 then -- just shortcut this if caution or formation
             driver.handicap = 0
         else
             local nodeDif = firstNode - driver.totalNodes
             local handicap = 0
+            maxNodeDif = math.max(nodeDif,maxNodeDif) -- add on to max
             if nodeDif <= self.handiCapThreshold then -- if nodedif less than 5 (close to leader)
-                handicap = self.maxHandiCap -- equal out to 100
+                -- reduce leader handicap the more there is close
+                handicap = self.curHandiCap -- equal out to 100
+                numInFight = numInFight + 1
             else -- if node dif further awway from leader
-                handicap = self.maxHandiCap - nodeDif -- reduces handicap by number of nodes away
+                handicap = self.curHandiCap - nodeDif -- reduces handicap by number of nodes away
+                
             end
             if handicap < 0 then -- clamp handicap if too fast... Shouldnt be an issue but here anyways
                 handicap = 0
@@ -810,6 +815,12 @@ function Control.sv_setHandicaps2(self) -- just based on position
             --print(driver.racePosition,nodeDif,driver.handicap)
         end
     end
+    -- maxHandiCap gets adjusted by the number of cars close
+    local maxHandiCap = self.maxHandiCap
+    local inRangeAdjust = (maxHandiCap*(numInFight/#allDrivers)) -- Adjusts handicap to basically be 0 if all cars are in the fight
+    local nodeDifAdjust = maxNodeDif * 2
+
+    self.curHandiCap = mathClamp(0,self.maxHandiCap,self.maxHandiCap - inRangeAdjust + nodeDifAdjust) -- clamp so we dont have an overpowered handicap
 end
 
 
@@ -2511,7 +2522,10 @@ end
 function Control.getFutureGoal(self,camLocation) -- gets goal based on new location
     local racer = self.focusedRacerData
 	-- If droneactive get droneFocusData
-	
+	if camLocation == nil then
+        print("cam loc lnil")
+        return 
+    end
 	if racer == nil then 
 		if #ALL_DRIVERS > 0 then
 			racer = ALL_DRIVERS[1]

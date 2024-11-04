@@ -1822,6 +1822,9 @@ function Generator.saveRacingLine(self) -- client Saves nodeChain, may freeze ga
     local data = {channel = TRACK_DATA, raceLine = true} -- Eventually have metaData too?
     self.network:sendToServer("sv_saveData",data)
     sm.gui.displayAlertText("Scan Complete: Track Saved")
+    print("distance?",self.totalDistance)
+    sm.gui.chatMessage("Scan Completed, Distance (SM units): " .. string.format("%.2f",tostring(self.totalDistance)))
+
 end
 
 function Generator.sv_saveData(self,data)
@@ -2595,10 +2598,10 @@ function Generator.customSmoothing(self,startID,endID) -- Updated smoothing algo
         local lastOverlap = false
         local nextOverlap = false
 
-        if vhDifLast.vertical < 1 then -- Overlapped, trim
+        if vhDifLast.vertical < 0 then -- Overlapped, trim
             lastOverlap = true
         end
-        if vhDifNext.vertical < 1 then
+        if vhDifNext.vertical < 0 then
             --nextOverlap = true
         end
 
@@ -2629,12 +2632,12 @@ function Generator.customSmoothing(self,startID,endID) -- Updated smoothing algo
         
         local moveThreshold = 0.002 -- Threshold before forcing node to move ("close enough" state)
         -- test leftSide
-        local testLeftPos = getPosOffset(v.pos,perpV*-1,0.05) -- Dampen it based v.weight
+        local testLeftPos = getPosOffset(v.pos,perpV*-1,0.05/v.weight) -- Dampen it based v.weight
         local testLeftinVector = getNormalVectorFromPoints(v.last.pos,testLeftPos)
         local testLeftoutVector = getNormalVectorFromPoints(testLeftPos,v.next.pos)
         local testLeftAngle = math.abs(angleDiff(testLeftinVector,testLeftoutVector))
         -- Test right side
-        local testRightPos = getPosOffset(v.pos,perpV*1,0.05) -- Dampen it based v.weight
+        local testRightPos = getPosOffset(v.pos,perpV*1,0.05/v.weight) -- Dampen it based v.weight
         local testRightinVector = getNormalVectorFromPoints(v.last.pos,testRightPos)
         local testRightoutVector = getNormalVectorFromPoints(testRightPos,v.next.pos)
         local testRightAngle = math.abs(angleDiff(testRightinVector,testRightoutVector))
@@ -3198,10 +3201,12 @@ function Generator.setCustomSmoothNode(self)
         if self.customSelect == 0 then -- Set starting node id
             print("set Smooth Start",self.nodeHovered)
             self.customSmoothStart = self.nodeHovered
+            self.nodeHovered.pinned = false -- unpin things
             sm.gui.displayAlertText("Smoothing Start: " .. tostring(self.customSmoothStart))
         elseif self.customSelect == 1 then 
             print("Set smooth end",self.nodeHovered)
             self.customSmoothEnd = self.nodeHovered
+            self.nodeHovered.pinned = false -- unpin node
             sm.gui.displayAlertText("Smoothing End: " .. tostring(self.customSmoothEnd))
         end
     else
@@ -3394,6 +3399,9 @@ function Generator.tickClock(self)
 end
 
 function Generator.startTrackScan(self)
+    self.customSmoothStart = nil
+    self.customSmoothEnd = nil
+
     self.scanError = false -- reset error
     self.nodeChain = {} -- reset chain
     self.scanClock = 0 -- reset scanclock
@@ -3587,9 +3595,9 @@ function Generator.client_onUpdate(self,timeStep)
             sm.gui.setInteractionText("",self.rightClickText ,"(Hold) Edit Node Position")
         else
             if self.editingNode == false then
-                sm.gui.setInteractionText("",self.rightClickText ,"Edit Node" ..tostring(self.nodeHovered) .. "Position")
+                sm.gui.setInteractionText("",self.rightClickText ,"Edit Node " ..tostring(self.nodeHovered) .. " Position")
             else
-                sm.gui.setInteractionText("" ,"", "Editing Node" ..tostring(self.nodeHovered))
+                sm.gui.setInteractionText("" ,"", "Editing Node " ..tostring(self.nodeHovered))
             end
         end
     else

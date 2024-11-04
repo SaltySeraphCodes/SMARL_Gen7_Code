@@ -290,7 +290,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     if self.driver.behaviorSwitch == 0 then
         handiTS = (self.driver.handicap or 1)/20
     elseif self.driver.behaviorSwitch == 1 then
-        handiTS = -((self.driver.handicap or 1)*(self.engineStats.MAX_SPEED/75 or 1) )/10
+        handiTS = -((self.driver.handicap or 1)*(self.engineStats.MAX_SPEED/55 or 1) )/10
     end
     --print(self.driver.id,handiTS)
 
@@ -473,8 +473,8 @@ function Engine.server_onFixedUpdate( self, timeStep )
         self.curRPM = self:calculateRPM()
         self.VRPM = self:calculateVRPM() -- calculate virtual rpm depending on gearing (mostly for sounds?)
     end
-    if self.curRPM >= ENGINE_SPEED_LIMIT then -- Engine explosion noise efect smoke
-        print("WARNING: OVER SPEED ENGINE",self.curRPM)
+    if self.curRPM >= ENGINE_SPEED_LIMIT or self.curRPM > self.engineStats.MAX_SPEED + 20 then -- Engine explosion noise efect smoke
+        print(self.driver.id,"WARNING: OVER SPEED ENGINE",self.curRPM,self.driver.handicap,self.accelInput)
         self.curRPM = 0 
     end
     self:setRPM(self.curRPM)

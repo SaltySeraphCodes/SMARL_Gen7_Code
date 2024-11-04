@@ -12,7 +12,7 @@
       "title" : "SMAR Engine"
    },
    "5d8f2445-31bb-4079-94ab-dc1df1e6e3ed" : {
-      "description" : "Scans and attempts to generate a racing line for Auto Racers. Place at start/finish line with target/screen facing the desired circut direciton \n Aim and interact to toggle Race Line Enhancement",
+      "description" : "Scans and attempts to generate a racing line for Auto Racers. Place at start/finish line with target/screen facing the desired circut direciton \n Aim and interact to toggle Race Line Enhancement \n You can now edit nodes with your hammer by hovering over them and holding down right click ",
       "title" : "SMAR Track Scanner"
    },
    "645fe8aa-2c33-43c9-8859-f6a03374c62a" : {
@@ -32,7 +32,7 @@
       "title" : "Brake Light Control Unit"
    },
    "e80d963c-3af2-47aa-99d8-365e1569a568" : {
-      "description" : "[NOT FUNCTIONAL, DO NOT USE]",
+      "description" : "BETA: \n Place these down after placeing the track scanner at your start/finish line. A spline will be automatically build between nodes and will auto complete when close to the finish line \n Shoot one with a spud gun to remove all known nodes, Press 'E' on the track scanner to generate a custom node track scan.",
       "title" : "SMAR CheckPoint"
    },
    "fbc31377-6081-426d-b518-f676840c407c" : {

@@ -2,7 +2,7 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.8" --Error Checking recognition and recovery Overhaul along with
+SMAR_VERSION = "1.8.8" --Error Checking recognition and recovery Overhaul along with behavior adjustments and simple UI changes
 -- planned 1.9.0 -- Full Release for Driver overhaul and barebones for Gen8
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
@@ -30,7 +30,7 @@ DEFAULT_FRICTION = 0.0006046115371 -- Friction coeficient -- could be wrong
 
 -- Conversion Rates
 VELOCITY_ROTATION_RATE = 0.37 -- 1 rotation speed ~= 0.37 velocity length -- How fast wheels should rotate (engine  speed) to achieve a certain velocity
-DECELERATION_RATE = -13.3 -- Multiply this number by the braking speed to get the aproximate deceleration rate for brake distance calculaitons (decrease for longer breaking distances)
+DECELERATION_RATE = -11.3 -- (accurate = 13.3) Multiply this number by the braking speed to get the aproximate deceleration rate for brake distance calculaitons (decrease for longer breaking distances)
 -- VMAX calculation defaults
 MAX_VELOCITY = 1000
 DEFAULT_MAX_STEER_VEL = 2
@@ -43,7 +43,7 @@ DEFAULT_VMAX_CONVERSION = 27.47018327 * math.exp(0.01100092674*1) -- * 1 <- stee
 -- Track generation options -- possibly move to track piece?
 FORCE_SENSITIVIY = 4 -- How much angle differences affect total force on node chain
 FORCE_THRESHOLD = 0.01 -- when nodes accept where they are
-WALL_PADDING = 8
+WALL_PADDING = 6
 TRACK_DATA = 1 -- Location to save world storage for the racing line
 
 TEMP_TRACK_STORAGE = { -- Temporary storage for tracks... [unused for now]
@@ -117,7 +117,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 100, -- 80
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.75, -- 1?
-        GEARING = {0.51,0.40,0.25,0.19,0.17}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.55,0.46,0.23,0.18,0.17}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 100/5 -- LImit for VRPM TODO: adjust properly
     },
     {
@@ -126,7 +126,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 150,
         MAX_ACCEL = 0.7,
         MAX_BRAKE = 0.85,
-        GEARING = {0.46,0.35,0.25,0.20,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.60,0.48,0.25,0.20,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 150/5
     },
     {
@@ -1615,16 +1615,21 @@ function getVmax(angle,maxSteer,minSteer,maxVel,minVel)
     return A0 * math.exp(k*angle)
 end
 
-function getVmax2(angle,maxSpeed,minSpeed) -- uses a ratio to determine speed from engines
-    if angle < 0.2 then 
-        return maxSpeed + 10 -- returns full speeds on straights~ give leeway for drafting
+function getVmax2(angle,minSpeed,maxSpeed) -- uses a ratio to determine speed from engines
+    local speed = 0
+    if angle < 0.23 then 
+        speed = maxSpeed + 10 -- returns full speeds on straights~ give leeway for drafting
     end
-    local speed =  logarithmic_linear_decrease(angle,2.3,90,minSpeed)
-    if speed < minSpeed then return minSpeed end 
+    speed =  logarithmic_linear_decrease(angle,2.4,87,minSpeed)
+    local speedBoost = maxSpeed/90
+    speed = speed + speedBoost
+
+    speed = mathClamp(minSpeed,maxSpeed+ 10,speed)
+
     return speed
 end
 
-function linear_decrease(input,max_input, initial_output, final_output) -- final output is minimum
+function linear_decrease(input,max_input, initial_output, final_output) -- final output is minimum, init is max
     local input_range = max_input -- Assuming input range is 0 to 1
     local output_range = initial_output - final_output
     local coefficient = output_range / input_range
