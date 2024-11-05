@@ -120,7 +120,7 @@ function Generator.client_init( self )  -- Only do if server side???
     -- USER CONTROLABLE VARS:
     self.wallThreshold = 0.40
     self.wallPadding = WALL_PADDING -- = 5 US
-    self.debug =false  -- Debug flag -- REMEMBER TO TURN THIS OFF
+    self.debug =true  -- Debug flag -- REMEMBER TO TURN THIS OFF
     self.saveTrack = true -- whether to save the track to world -- remembet to turn on
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
@@ -2602,10 +2602,38 @@ function Generator.customSmoothing(self,startID,endID) -- Updated smoothing algo
             lastOverlap = true
         end
         if vhDifNext.vertical < 0 then
-            --nextOverlap = true
+            nextOverlap = true
         end
 
-        if not v.pinned then -- if self is not important
+
+
+        -- Instead of Instantly removing the node, Move the vector forward or backward depening on whats needed
+        -- if last is smaller than next,  move towards next
+
+        if v.id == 7 then
+            --print(vhDifLast.vertical,vhDifNext.vertical)
+        end
+
+        if not v.pinned then
+            if vhDifLast.vertical < vhDifNext.vertical then
+                local testForwardPos = getPosOffset(v.pos,v.outVector,0.02/v.weight) -- Dampen it based v.weight
+                if validChange(v,testForwardPos,perpV, -1) and validChange(v,testForwardPos,perpV, 1) then
+                    v.pos = testForwardPos
+                    calculateNewForceAngles(v) -- DO this or no?
+                end
+            elseif vhDifLast.vertical > vhDifNext.vertical then
+                local testBackwardPos = getPosOffset(v.pos,v.inVector*-1,0.02/v.weight)
+                if validChange(v,testBackwardPos,perpV, -1) and validChange(v,testBackwardPos,perpV, 1) then
+                    v.pos = testBackwardPos
+                    calculateNewForceAngles(v) -- DO this or no?
+                end
+            else
+                print("somehow same dist away")
+            end
+        end
+
+
+        --[[if not v.pinned then -- if self is not important
             if nextOverlap then -- if close enough to next node
                 if v.next.pinned == false then
                     v.last.next = v.next
@@ -2622,10 +2650,9 @@ function Generator.customSmoothing(self,startID,endID) -- Updated smoothing algo
                      break -- return false
                 end
             end  
-        end
+        end--]]
        
         calculateNewForceAngles(v)
-        local perpV = v.perpVector
         -- Move other lines towards eachother
         -- Get initial angle to next node
         local initialAngle =math.abs(angleDiff(v.inVector,v.outVector))
@@ -3201,12 +3228,12 @@ function Generator.setCustomSmoothNode(self)
         if self.customSelect == 0 then -- Set starting node id
             print("set Smooth Start",self.nodeHovered)
             self.customSmoothStart = self.nodeHovered
-            self.nodeHovered.pinned = false -- unpin things
+            self.nodeChain[self.nodeHovered].pinned = false -- unpin things
             sm.gui.displayAlertText("Smoothing Start: " .. tostring(self.customSmoothStart))
         elseif self.customSelect == 1 then 
             print("Set smooth end",self.nodeHovered)
             self.customSmoothEnd = self.nodeHovered
-            self.nodeHovered.pinned = false -- unpin node
+            self.nodeChain[self.nodeHovered].pinned = false -- unpin node
             sm.gui.displayAlertText("Smoothing End: " .. tostring(self.customSmoothEnd))
         end
     else

@@ -2,7 +2,7 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.8" --Error Checking recognition and recovery Overhaul along with behavior adjustments and simple UI changes
+SMAR_VERSION = "1.8.10" --Error Checking recognition and recovery Overhaul along with behavior adjustments, fixed Raceline generator
 -- planned 1.9.0 -- Full Release for Driver overhaul and barebones for Gen8
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
@@ -108,7 +108,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 85, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.4,
         MAX_BRAKE = 0.65,
-        GEARING = {0.5,0.45,0.18,0.16}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.5,0.45,0.18,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 85/4 -- LImit for VRPM TODO: adjust properly
     },
     {

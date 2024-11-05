@@ -3464,10 +3464,10 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 
     if oppFlags.frontEmergency and not oppFlags.alongSide and not oppFlags.pass then -- If front emergency and opponent is not alongside and not already passing
         if self.caution or self.formation then 
-            colThrottle = rampToGoal(-0.5,colThrottle,0.09)
+            colThrottle = rampToGoal(-0.6,colThrottle,0.09)
         else
             --print('froneBrake')
-            colThrottle = rampToGoal(-1.8,colThrottle,0.001)
+            colThrottle = rampToGoal(-1.9,colThrottle,0.002)
         end
         --print(self.tagText,"Close  Emergency Brake!!!",opponent.tagText,colThrottle,self.strategicThrottle)
     elseif oppFlags.pass and oppFlags.frontEmergency then-- If passing 
@@ -3475,14 +3475,14 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         if self.caution or self.formation then 
             colThrottle = rampToGoal(1,colThrottle,0.01) 
         else
-            colThrottle = rampToGoal(-1.8,colThrottle,0.001) 
+            colThrottle = rampToGoal(-1,colThrottle,0.001) 
         end
         -- OR TODO: Maybe determine aggressive ness to decide what to do?
         --self:cancelPass() -- TODO: Determine how useful this is
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-8,1,-0.14,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-9,1,-0.16,0,leftCol) -- Adjust according to distance
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/2 -- TODO: use a ratio conversion for this too
         end
@@ -3491,7 +3491,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(8,-1,0.14,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(9,-1,0.16,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/2
         end
@@ -3501,11 +3501,11 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftEmergency then -- if opponent is too close
-        colSteerL = colSteerL +ratioConversion(-2,1.5,-0.10,0,leftCol)
+        colSteerL = colSteerL +ratioConversion(-2,1.5,-0.12,0,leftCol)
         --print(self.tagText,"leftE",opponent.tagText,colSteerL,leftCol)
     end
     if oppFlags.rightEmergency then -- if opponent is too close
-        colSteerR = colSteerR +ratioConversion(2,-1.5,0.10,0,rightCol) -- Adjust according to distance
+        colSteerR = colSteerR +ratioConversion(2,-1.5,0.12,0,rightCol) -- Adjust according to distance
         --print(self.tagText,"rightE",opponent.tagText,colSteerR,rightCol)
     end
    
@@ -3790,33 +3790,33 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
 
     -- Side by side flags
     -- TODO: Check if on "wong side of desired pass car, cancel pass"
-    if (frontCol and frontCol <= 1.5) or (rearCol and rearCol >=0.6) then -- if car really close
+    if (frontCol and frontCol <= 1.6) or (rearCol and rearCol >=0.7) then -- if car really close
         --print(self.tagText,leftCol,rightCol,opponent.tagText)
-        if (leftCol and leftCol <= 0.08) or (rightCol and rightCol >= -0.08) then
+        if (leftCol and leftCol <= 0.09) or (rightCol and rightCol >= -0.09) then
             oppFlags.alongSide = true
         else
             oppFlags.alongSide = false
         end
 
-        if (leftCol and leftCol >= -8) then
+        if (leftCol and leftCol >= -9) then
             oppFlags.leftWarning = true
         else
             oppFlags.leftWarning = false
         end
 
-        if (rightCol and rightCol <= 8) then
+        if (rightCol and rightCol <= 9) then
             oppFlags.rightWarning = true
         else
             oppFlags.rightWarning = false
         end
 
-        if (leftCol and leftCol >=-1.5) then
+        if (leftCol and leftCol >=-2) then
             oppFlags.leftEmergency = true
          else
             oppFlags.leftEmergency = false
         end
 
-        if (rightCol and rightCol <= 1.5) then
+        if (rightCol and rightCol <= 2) then
             oppFlags.rightEmergency = true
          else
             oppFlags.rightEmergency = false
@@ -5723,7 +5723,7 @@ function Driver.getVmaxFromRacingLine(self,vmax,firstNode,lastNode)
     if turnType == getSign(distFromLine) then  -- cars on inside brake earlier/slower speed
         reduction2 = reduction2 *1.1
     else
-        reduction2 = -reduction2 * 0.3
+        reduction2 = -reduction2 * 0.6
     end
     --print(distFromLine,turnType,reduction2)
     vmax = vmax - reduction2
