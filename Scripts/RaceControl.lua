@@ -130,7 +130,7 @@ function Control.client_init( self )
     self.targetLaps = 10
     self.handiCapMultiplier = 0.5
     self.handiCapEnabled = true
-    self.draftStrength = 5 -- how strong the draft can be
+    self.draftStrength = 3 -- how strong the draft can be
     self.draftingEnabled = true 
 
     self.raceStatus = 0
@@ -273,9 +273,7 @@ function Control.server_init(self)
 
     self.oppAvoidDst = 4
     self.oppAvoidStr = 0.1
-
     self.draftDistance = 70
-    self.draftStrength = 5
 
 
     -- Car Importing behavior
@@ -319,7 +317,7 @@ function Control.server_init(self)
 
     self.timeSplitArray = {} -- each node makes rough split
 
-    self.draftStrength = 5 -- TODO: implement
+    self.draftStrength = 3 -- TODO: implement
     self.handiCapOn = false
     self.handiCapThreshold = 15 -- how far away before handicap starts
     self.handiCapStrength = 100
@@ -805,10 +803,9 @@ function Control.sv_setHandicaps2(self) -- just based on position
                 numInFight = numInFight + 1
             else -- if node dif further awway from leader
                 handicap = self.curHandiCap - nodeDif -- reduces handicap by number of nodes away
-                
             end
-            if handicap < 0 then -- clamp handicap if too fast... Shouldnt be an issue but here anyways
-                handicap = 0
+            if handicap < -20 then -- clamp handicap if too fast... Shouldnt be an issue but here anyways
+                handicap = -20
             end
             if handicap == nil then handicap = 1 end
             driver.handicap = handicap * self.handiCapMultiplier
@@ -1089,6 +1086,7 @@ function Control.processLapCross(self,car,time) -- processes what to do when car
                 --print("Qualifyind data inserted",finishData)
                 table.insert(self.qualifyingResults,finishData)
                 if self.qualifyingResults ~= {} then
+                    --print("Saving Qualifying Results")
                     sm.json.save(self.qualifyingResults,QUALIFYING_DATA)
                 end
             else -- store in finish results 
@@ -1130,6 +1128,7 @@ function Control.findLogicCon(self) -- returns connection that is logic
 end
 
 function Control.server_onFixedUpdate(self)
+    local startTime = os.clock()
     self:tickClock()
     self:ms_tick() -- 1 tick is 1 tick
     if getSmarCam() ~= nil and getSmarCam() ~= -1 then -- either constanlty check or only check when flag is false
@@ -1202,6 +1201,10 @@ function Control.server_onFixedUpdate(self)
         self.raceResultsShown = true
     end
     self.lastClientUpdateTime = CLOCK()
+
+    local endTime = os.clock()
+    local timeDif = endTime - startTime 
+    --print("rcTD",timeDif)
 end
 
 function Control.client_onFixedUpdate(self) -- key press readings and what not clientside
@@ -1366,7 +1369,7 @@ function Control.client_onUpdate(self,dt)
     camDir = sm.camera.getDirection() -- ???
 
     local dt = string.format("%.4f",dt)
-    --print("rc:",dt)
+    --print("dt:",dt)
 end
 
 -- networking

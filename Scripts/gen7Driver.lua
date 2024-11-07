@@ -1109,6 +1109,9 @@ function Driver.updateControlLayer(self) -- Min angle for F1 cars is 40
         self:setSteering(radians)
         self:outputThrotttle(acceleration)
     end
+    local endTime = os.clock()
+    local timeDif = endTime - self.startClock
+    --self:debugOutput(1,{"Ucon l",timeDif})
 end
 
 -- Car state /situational checking
@@ -3318,6 +3321,7 @@ function Driver.newUpdateCollisionLayer(self)-- -- New updated collision layer
     end
     --self.strategicThrottle = colThrottle
     --self.strategicSteering = self.strategicSteering + colSteer + passSteer
+    
 end
 
 
@@ -3454,7 +3458,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
             else
                 if not self.caution and not self.formation then 
                     --print(self.tagText,"Mid Warning emergency brake",colThrottle)
-                    colThrottle = rampToGoal(-1.5,colThrottle,0.001)
+                    colThrottle = rampToGoal(-2,colThrottle,0.003)
                 end
             end
         end
@@ -3466,8 +3470,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         if self.caution or self.formation then 
             colThrottle = rampToGoal(-0.6,colThrottle,0.09)
         else
-            --print('froneBrake')
-            colThrottle = rampToGoal(-1.9,colThrottle,0.002)
+            colThrottle = rampToGoal(-2,colThrottle,0.01)
         end
         --print(self.tagText,"Close  Emergency Brake!!!",opponent.tagText,colThrottle,self.strategicThrottle)
     elseif oppFlags.pass and oppFlags.frontEmergency then-- If passing 
@@ -3475,14 +3478,14 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         if self.caution or self.formation then 
             colThrottle = rampToGoal(1,colThrottle,0.01) 
         else
-            colThrottle = rampToGoal(-1,colThrottle,0.001) 
+            colThrottle = rampToGoal(-1,colThrottle,0.004) 
         end
         -- OR TODO: Maybe determine aggressive ness to decide what to do?
         --self:cancelPass() -- TODO: Determine how useful this is
     end
 
     if oppFlags.leftWarning and leftCol ~= nil then -- If oponent is  on the left
-        colSteer = colSteer + ratioConversion(-9,1,-0.16,0,leftCol) -- Adjust according to distance
+        colSteer = colSteer + ratioConversion(-9,1,-0.18,0,leftCol) -- Adjust according to distance
         if self.carAlongSide.right ~= 0 then -- reduce adjustment if there is a car on the otherside
             colSteer = colSteer/2 -- TODO: use a ratio conversion for this too
         end
@@ -3491,7 +3494,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
 
     end
     if oppFlags.rightWarning and rightCol ~= nil then -- if opponent is on the right
-        colSteer = colSteer + ratioConversion(9,-1,0.16,0,rightCol) -- adjust according to distance
+        colSteer = colSteer + ratioConversion(9,-1,0.18,0,rightCol) -- adjust according to distance
         if self.carAlongSide.left ~= 0 then
             colSteer = colSteer/2
         end
@@ -3501,11 +3504,11 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
     end
 
     if oppFlags.leftEmergency then -- if opponent is too close
-        colSteerL = colSteerL +ratioConversion(-2,1.5,-0.12,0,leftCol)
+        colSteerL = colSteerL +ratioConversion(-2,1.5,-0.13,0,leftCol)
         --print(self.tagText,"leftE",opponent.tagText,colSteerL,leftCol)
     end
     if oppFlags.rightEmergency then -- if opponent is too close
-        colSteerR = colSteerR +ratioConversion(2,-1.5,0.12,0,rightCol) -- Adjust according to distance
+        colSteerR = colSteerR +ratioConversion(2,-1.5,0.13,0,rightCol) -- Adjust according to distance
         --print(self.tagText,"rightE",opponent.tagText,colSteerR,rightCol)
     end
    
@@ -3734,7 +3737,7 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
     end
     --print(frontCol)
 
-    if frontCol and frontCol <= 20 and frontCol > 4 then -- if close but not overlapping
+    if frontCol and frontCol <= 20 and frontCol > 5 then -- if close but not overlapping
         if self.speed - opponent.speed > 0 then -- if approaching 
             if (rightCol and rightCol <5) or (leftCol and leftCol > -5) then -- If overlapping, Makke separate flag?
                 local catchTime = frontCol/(self.speed - opponent.speed) --TODO: FIgure this out a better way
@@ -3755,7 +3758,7 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
         oppFlags.frontWarning = false
     end
     
-    if frontCol and (frontCol <= 3 and frontCol > -3)  then -- if car is slightly overlapping but not directly alongside
+    if frontCol and (frontCol <= 5 and frontCol > -3)  then -- if car is slightly overlapping but not directly alongside
         if (rightCol and rightCol <0.1) or (leftCol and leftCol > -0.1) then -- If really close but not alongside
             if not oppFlags.frontEmergency then
                 --print(self.tagText,"FrontEmerg",frontCol,leftCol,rightCol)
@@ -4092,6 +4095,10 @@ function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local r
     --self.strategicThrottle = colThrottle
     self.strategicSteering = self.strategicSteering + maxSteerAdj -- old version
     self.opponentFlags = oppDict
+
+    local endTime = os.clock()
+    local timeDif = endTime - self.startClock
+    --print(self.id,"U col layer",timeDif)
 end
 
 -- Passing functionality
@@ -5531,7 +5538,9 @@ function Driver.updateErrorLayer2(self) -- New Method
     if self.formation then
         self:checkFormationPos()
     end
-
+    --local endTime = os.clock()
+    --local timeDif = endTime - self.startClock
+    --self:debugOutput(1,{"UEL2",timeDif})
 end
 
 
@@ -6918,7 +6927,9 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
         self:determineRacePos()
         self:checkLapCross()
     end
-
+    --local endTime = os.clock()
+    --local timeDif = endTime - self.startClock
+    --print("ucd",timeDif)
     --print(self.mass)
     -- update Current states
     --print(self.tagText,"End loop",self.cameraPoints)
@@ -6997,7 +7008,9 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
         self:updateNearestNode() -- TODO: Fix this...
         self.speedControl = 0
     end
-
+    --local endTime = os.clock()
+    --local timeDif = endTime - self.startClock
+    --self:debugOutput(1,{"U s layer",timeDif})
 end
 
 function Driver.parseParents( self ) --  [server]TODO: have a client side toggle as well! or it at least update client side data too
@@ -7065,6 +7078,7 @@ end
 
 function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client too!
     --print(self.id,self.location.z)
+    self.startClock = os.clock()
     -- First check if driver has seat connectd
     --print(string.format("%26.26s",self.tagText),"hey")
     local startTime = CLOCK()
@@ -7142,10 +7156,12 @@ function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client t
             else
                 if self.caution == true then end -- template just in case we need to change things here
                 --- Check racemode?
+               
                 self:updateCollisionLayer()
 
                 --self:newUpdateCollisionLayer() TODO: plan out and finish this, needs better location prediction 
                 if not self.noEngineError and (self.racing or self.userControl) and not self.shape:getBody():isStatic() then
+                   
                     self:checkOversteer()
                     self:checkUndersteer() -- TODO: Combine??
                     self:checkStuck()
@@ -7153,6 +7169,9 @@ function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client t
                     self:updateGearing()
                     self:checkTilt()
                     self:checkWide()
+                    local endTime = os.clock()
+                    local timeDif = endTime - self.startClock
+                    --print("Check layer",timeDif)
                 end
                 --print("2 update race control")
                 self:updateControlLayer()
@@ -7172,8 +7191,12 @@ function Driver.server_onFixedUpdate( self, timeStep ) -- SV ONLY, need client t
     else
         print(self.id,"body id mismatch")
     end
-    local endTime = CLOCK()
-    --print(timeStep)
+    local endTime = os.clock()
+    local timeDif = endTime - self.startClock
+    --print(self.id,"fullLoop",timeDif)
+    --self:debugOutput(1,{""})
+
+
 end
 
 function Driver.client_onUpdate(self,timeStep) -- lag test
@@ -7182,6 +7205,7 @@ function Driver.client_onUpdate(self,timeStep) -- lag test
     else
     end
     local dt = string.format("%.4f",timeStep)
+    --print(timeStep,os.clock())
     --print("dr:",dt)
 end
 
