@@ -612,8 +612,8 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     end
     
     -- Collision avoidance Attributes (is rear padding necessary?)
-    self.vPadding = 0.4
-    self.hPadding = 0.15 -- or more
+    self.vPadding = 0.5
+    self.hPadding = 0.16 -- or more
 
     self.frontColDist = 1
     self.rearColDist =  1
@@ -1046,6 +1046,10 @@ function Driver.outputThrotttle(self,value)
     else
        
     end
+    if value > 1 then
+        print(self.tagText,"op",value,self.strategicThrottle,self.drafting, self.passing)
+    end
+    value = mathClamp(-1,1,value) -- prevent overpower?
     self.interactable:setPower(value)
 end
 
@@ -3458,7 +3462,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
             else
                 if not self.caution and not self.formation then 
                     --print(self.tagText,"Mid Warning emergency brake",colThrottle)
-                    colThrottle = rampToGoal(-2,colThrottle,0.003)
+                    colThrottle = rampToGoal(-2,colThrottle,0.002 - self.skillLevel/1000)
                 end
             end
         end
@@ -3470,7 +3474,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         if self.caution or self.formation then 
             colThrottle = rampToGoal(-0.6,colThrottle,0.09)
         else
-            colThrottle = rampToGoal(-2,colThrottle,0.01)
+            colThrottle = rampToGoal(-2,colThrottle,0.005)
         end
         --print(self.tagText,"Close  Emergency Brake!!!",opponent.tagText,colThrottle,self.strategicThrottle)
     elseif oppFlags.pass and oppFlags.frontEmergency then-- If passing 
@@ -3478,7 +3482,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         if self.caution or self.formation then 
             colThrottle = rampToGoal(1,colThrottle,0.01) 
         else
-            colThrottle = rampToGoal(-1,colThrottle,0.004) 
+            colThrottle = rampToGoal(-1,colThrottle,0.003) 
         end
         -- OR TODO: Maybe determine aggressive ness to decide what to do?
         --self:cancelPass() -- TODO: Determine how useful this is
@@ -5081,9 +5085,9 @@ function Driver.updateErrorLayer(self) -- Updates throttle/steering based on err
 end
 
 
-function Driver.handleTilted(self)
+function Driver.handleTilted(self) -- TODO: update this properly
     if self.tilted== true then 
-        print(self.tagText,"correcting tilt")
+        --print(self.tagText,"correcting tilt")
         local offset = sm.vec3.new(0,0,0)
 		--local angularVelocity = self.shape.body:getAngularVelocity()
 		--local worldRotation = self.shape:getWorldRotation()

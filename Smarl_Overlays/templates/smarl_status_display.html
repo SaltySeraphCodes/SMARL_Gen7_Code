@@ -206,24 +206,19 @@ Smarl Status Display
 		.attr('text-anchor', 'middle')
 		.attr('alignment-baseline', 'central')
 		.text(function(d,i){ 
-			
+			let lapsLeft = String(Number(d['lapsLeft'] + 1))
 			let sText = d['status'];
 			if (d['status'] == 'Green Flag' ){
-				if (d['lapsLeft'] == '1') {
-					sText = d['lapsLeft'] + " Lap Left"
-				}
-				else{
-					sText = d['lapsLeft'] + " Laps Left"
-				}
+				sText = lapsLeft + " To Go"
 			} else if(d['status'] == 'Formation Lap'){
 				sText = "Formation"
 			} else{
 				sText = d['status']
 			}
-			if (d['lapsLeft'] == '0'){
+			if (lapsLeft == '1'){
 				sText =  'Final Lap'
 			}
-			if (d['lapsLeft'] == '-1'){
+			if (lapsLeft == '0'){
 				sText =  'Finished'
 			}
 			return sText})
@@ -231,7 +226,8 @@ Smarl Status Display
 		.attr('font-size','22px')
 		.attr('fill',function(d,i){
 			var color = '#FFFFFF'
-			if (d['lapsLeft'] == '0' || d['lapsLeft'] == '-1'){
+			let lapsLeft = String(Number(d['lapsLeft'] + 1))
+			if (lapsLeft == '1' || lapsLeft == '0'){
 				color =  '#000000'
 			}
 			return color})
@@ -248,29 +244,26 @@ Smarl Status Display
 		.attr('y',5) 
 		.attr("opacity",1)
 		.text(function(d,i){ 
-			var sText = d['status'];
+			let lapsLeft = String(Number(d['lapsLeft'] + 1))
+			let sText = d['status'];
 			if (d['status'] == 'Green Flag' ){
-				if (d['lapsLeft'] == '1') {
-					sText = d['lapsLeft'] + " Lap Left"
-				}
-				else{
-					sText = d['lapsLeft'] + " Laps Left"
-				}
+				sText = lapsLeft + " To Go"
 			} else if(d['status'] == 'Formation Lap'){
 				sText = "Formation"
 			} else{
 				sText = d['status']
 			}
-			if (d['lapsLeft'] == '0'){
+			if (lapsLeft == '1'){
 				sText =  'Final Lap'
 			}
-			if (d['lapsLeft'] == '-1'){
+			if (lapsLeft == '0'){
 				sText =  'Finished'
 			}
 			return sText})
 			.attr('fill',function(d,i){
 			var color = '#FFFFFF'
-			if (d['lapsLeft'] == '-1' || d['lapsLeft'] == '0'){
+			let lapsLeft = String(Number(d['lapsLeft'] + 1))
+			if (lapsLeft == '1' || lapsLeft == '0' ||lapsLeft == '-1'){
 				color =  '#000000'
 			}
 			return color})

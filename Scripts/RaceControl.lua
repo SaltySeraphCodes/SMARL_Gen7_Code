@@ -289,7 +289,7 @@ function Control.server_init(self)
     -- Exportables
     self.finishResults = {}
     self.qualifyingResults = {}
-    self.raceMetaData = {["status"]=0, ["lapsLeft"]=10, ['qualifying'] = string.format("%s",self.qualifying)}
+    self.raceMetaData = {["status"]=0, ["lapsLeft"]=self.targetLaps, ['qualifying'] = string.format("%s",self.qualifying)}
     self.leaderID = nil -- race leader id
     self.leaderTime = 0 -- takes splits from leader
     self.leaderNode = 0 -- ? keeps track of which node leader is on
@@ -353,6 +353,8 @@ function Control.server_onRefresh( self )
 	self:server_onDestroy()
 	self:server_init()
 end
+
+
 
 function sleep(n)  -- n: seconds freezes game?
   local t0 = clock()
@@ -794,12 +796,12 @@ function Control.sv_setHandicaps2(self) -- just based on position
         if self.raceStatus > 1 then -- just shortcut this if caution or formation
             driver.handicap = 0
         else
-            local nodeDif = firstNode - driver.totalNodes
+            local nodeDif = (firstNode - driver.totalNodes) * 1.2
             local handicap = 0
             maxNodeDif = math.max(nodeDif,maxNodeDif) -- add on to max
             if nodeDif <= self.handiCapThreshold then -- if nodedif less than 5 (close to leader)
                 -- reduce leader handicap the more there is close
-                handicap = self.curHandiCap -- equal out to 100
+                handicap = self.curHandiCap -- First gets highest possible handicap
                 numInFight = numInFight + 1
             else -- if node dif further awway from leader
                 handicap = self.curHandiCap - nodeDif -- reduces handicap by number of nodes away
@@ -814,8 +816,8 @@ function Control.sv_setHandicaps2(self) -- just based on position
     end
     -- maxHandiCap gets adjusted by the number of cars close
     local maxHandiCap = self.maxHandiCap
-    local inRangeAdjust = (maxHandiCap*(numInFight/#allDrivers)) -- Adjusts handicap to basically be 0 if all cars are in the fight
-    local nodeDifAdjust = maxNodeDif * 2
+    local inRangeAdjust = (maxHandiCap*(numInFight/#allDrivers))*0.99 -- Adjusts handicap to basically be 0 if all cars are in the fight
+    local nodeDifAdjust = maxNodeDif * 1.8
 
     self.curHandiCap = mathClamp(0,self.maxHandiCap,self.maxHandiCap - inRangeAdjust + nodeDifAdjust) -- clamp so we dont have an overpowered handicap
 end
@@ -922,8 +924,15 @@ end
     --print("Set caution Positions")
 
 function Control.cl_resetRace(self) -- sends commands to all cars and then resets self
+    self.aPressed = false
+    self.dPressed = false
+    self.sPressed = false
+    self.wPressed = false
+    self.zoomIn = false
+    self.zoomOut = false
+
     self.network:sendToServer("sv_resetRace")
-    self:client_onRefresh()
+    --self:client_onRefresh()
 end
 
 -- TODO: do not do a full reset, just reset some values
@@ -931,7 +940,21 @@ function Control.sv_resetRace(self) -- sends commands to all cars and then reset
     print("Resetting race")
     self:sv_sendCommand({car = {-1}, type = "resetRace", value = 0}) -- extra data in value just in ccase?
     self:sv_sendAlert("Race Reset")
-    self:server_onRefresh()
+    --self:server_onRefresh()
+    self.finishResults = {}
+    self.qualifyingResults = {}
+    self.raceMetaData = {["status"]=0, ["lapsLeft"]=self.targetLaps, ['qualifying'] = string.format("%s",self.qualifying)}
+    self.leaderID = nil -- race leader id
+    self.leaderTime = 0 -- takes splits from leader
+    self.leaderNode = 0 -- ? keeps track of which node leader is on
+
+    self.autoCameraFocus = false
+    self.autoCameraSwitch = false -- toggle automated camera things
+
+    self.timeSplitArray = {} 
+    self:updateRacers()
+    self.qualifyingResults = (self:sv_ReadQualJson() or {})
+    
     
 end
 
@@ -1242,13 +1265,13 @@ function Control.client_onFixedUpdate(self) -- key press readings and what not c
                             self.noLos = self.noLos + 1 -- increment los timeout
                         end 
                         --print("checking",dis,los)
-                        if dis > 190 then
+                        if dis > 185 then
                             --print('car no sseeee?',dis,los)
                             --print('a3',self.autoCameraSwitch)
-                            print("emergency distance cam switch")
+                            --print("emergency distance cam switch")
                             self.network:sendToServer("sv_performAutoSwitch")
-                        elseif los == false and self.noLos >= 10 then -- TODO: Add lOS fail timeout so it must fail x times before auto switch
-                            print("emergency LOS cam switch")
+                        elseif los == false and self.noLos >= 8 then -- TODO: Add lOS fail timeout so it must fail x times before auto switch
+                            --print("emergency LOS cam switch")
                             self.network:sendToServer("sv_performAutoSwitch")
                         end
                             
@@ -1555,15 +1578,15 @@ function Control.sv_performAutoSwitch(self) -- auto camera switching to closest 
             local mode = math.random(0, 3) -- random for now but can add heuristic to switch
             --print("random switch",mode,distFromCamera,distError)
             if mode <= 2 then mode = 1 end
-            print("sending random toggle mode",mode)
+            --print("sending random toggle mode",mode)
             self:sv_toggleCameraMode(mode)
              -- originally wasnt here and broke every time
         else
 
             if self.currentCamera and self.currentCamera.cameraID == chosenCamera.cameraID then
-                print("same camera")
+                --print("same camera")
             else
-                print('switching cam')
+                --print('switching cam')
                 self.network:sendToClients("cl_switchCamera",chosenCamera.cameraID)
                 --print("restarting cam",self.autoSwitchDelay)
                 self.autoFocusTimer:start(13) -- restart focus timer but not as long
@@ -2259,7 +2282,7 @@ function Control.toggleDroneCam(self) -- Sets Camera and posistion for drone cam
     local camDir = sm.camera.getDirection() -- TODO: Just remove these and let the main loop handle it
     dirMovement1 = sm.vec3.lerp(camDir,goalOffset,1) -- COuld probably just hard code as 1
     self.lastCamSwitch = self.frameCountTime
-    print("Switching to Drone",self.frameCountTime)
+    --print("Switching to Drone",self.frameCountTime)
     --self:cl_sendCameraCommand({command="setPos",value=self.droneLocation}) -- lerp drone location>?
 	--self:cl_sendCameraCommand({command="setDir",value=dirMovement1}) -- TODO: get this to get focus on car and send directions to cam
     --print("set dronelocation",self.droneLocation)
@@ -2301,7 +2324,7 @@ function Control.toggleOnBoardCam(self) -- Toggles on board for whichever racer 
     --locMovement = sm.vec3.lerp(camLoc,newCamPos,dt)
     --dirMovement = sm.vec3.lerp(camDir,carDir,1)
     --print(dirMovement)
-    print("Setting Onboard Cam")
+    --print("Setting Onboard Cam")
     self.lastCamSwitch = self.frameCountTime
     --self:cl_sendCameraCommand({command="setPos",value=newCamPos})
     --self:cl_sendCameraCommand({command="setDir",value=carDir})
