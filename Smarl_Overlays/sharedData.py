@@ -5,7 +5,7 @@ import datetime
 # RACE SPECIFIC DATA
 RaceTitle = "Race 4"
 RaceLocation = "Road Scrapton"
-RaceFormat = " Qualifying" # TODO: Pull booliean from ['meta_data']['qualifying'] as ' Qualifying' or ''
+RaceFormat = " " # TODO: Pull booliean from ['meta_data']['qualifying'] as ' Qualifying' or ''
 SeasonID = "2" # which season it is to pull sheet data from Make Dynamic?
 RaceID = "7" # Make Dynamic?
 LeagueTitles = ["A League", "B League"] #TODO: maeke array that displays title based on it
@@ -26,7 +26,7 @@ _RacerData = []
 SMARL_API_URL = "http://seraphhosts.ddns.net:8080/api" # No longer works due to host migration :(
 SMARL_LOCAL_URL = "http://192.168.1.250:8080/api"
 IS_LOCAL = True # Remember to change this when you should, Maybe automate this??
-DRY_RUN = True
+DRY_RUN = False
 
 def get_smarl_url(): # returns smarl url based on is_local
     if IS_LOCAL: return SMARL_LOCAL_URL
@@ -151,7 +151,7 @@ def uploadQualResults(race_id,resultBody):
     resultJson = {"race_id":race_id, "data":resultBody}
     print("uploading results",race_id,resultBody,resultJson)
     #pass #TODO: REMOVE THIS when ready for official race?
-    if DRY_RUN:
+    if DRY_RUN == True:
         print('Not uploading because DRY RUN SET')
         return True
     try:
@@ -176,7 +176,7 @@ def uploadResults(race_id,resultBody):
     resultJson = {"race_id":race_id, "data":resultBody}
     print("uploading results",race_id,resultBody,resultJson)
     #pass #TODO: REMOVE THIS when ready for official race?
-    if DRY_RUN:
+    if DRY_RUN == True:
         print('Not uploading because DRY RUN SET')
         return True
     try:

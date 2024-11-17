@@ -244,6 +244,7 @@ def readFile(fileName):
         
         # check for fin  
         #print('parsed',parsedData['meta_data']['lapsLeft'] ==-1,TOTALCARS,len(parsedData['realtime_data']),len(parsedData['qualifying_data']),len(parsedData['finish_data']))     
+        #result = uploadRaceResults(parsedData['finish_data'])
         if parsedData:
             if parsedData['realtime_data']: # use to set number of total car
                 TOTALCARS = len(parsedData['realtime_data'])

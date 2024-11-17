@@ -5790,7 +5790,7 @@ end
 function Driver.getVmaxFromPassing(self,vmax)
     -- DO more complex calculations like distance from passing opp & position and future turn
     if self.passing.isPassing then 
-        vmax = vmax +2 -- TODO: Increase along with enginespeed?
+        vmax = vmax +0.8 -- TODO: Increase along with enginespeed?
     end
     return vmax
 end
