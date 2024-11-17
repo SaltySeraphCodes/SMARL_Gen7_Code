@@ -1343,16 +1343,16 @@ function Driver.updateCurrentNode(self) -- Finds nearest node to car and sets it
     --print(#self.nodeChain)
 
     if self.currentNode == nil then -- EItehr first load or node lost
-        print(self.tagText,"CurrentNode is nil")
+        --print(self.tagText,"CurrentNode is nil")
         local nearestNode = nil
         if self.nodeFindTimeout < 9 and self.speed <= 2 and not self.onLift and not self.nudging then -- if at least mmoving
-            print(self.tagText,'gnn1')
+            --print(self.tagText,'gnn1')
             --nearestNode = getNearestNode(self.nodeMap,self.shape.worldPosition)
             --print(self.tagText,'fcn-1')
             nearestNode = findClosestNode(self.nodeChain,self.location) -- This doesnt seam to be the most accurrate, Not finding the closest, possibly use the lastKnown Current as a
             -- Look into saving this?
         elseif self.speed > 2 and self.stuckTimeout < 7  and not self.onLift and not self.nudging and not self.userControl then -- dont search while nudging
-            print(self.tagText,'gnn2')
+            --print(self.tagText,'gnn2')
             --nearestNode = getNearestNode(self.nodeMap,self.shape.worldPosition)
             --print(self.tagText,'fcn0')
             nearestNode = findClosestNode(self.nodeChain,self.location)
@@ -1386,7 +1386,7 @@ function Driver.updateCurrentNode(self) -- Finds nearest node to car and sets it
                 self:setCurrentNode(nearestNode)
                 self.resetNode = nearestNode
             elseif nearestNode ~= nil then
-                print(self.tagText,"Setting new current nodeode",nearestNode.id)
+                --print(self.tagText,"Setting new current nodeode",nearestNode.id)
                 self.nodeFindTimeout = 0
                 self:setCurrentNode(nearestNode)
                 self.resetNode = nearestNode
@@ -1414,7 +1414,7 @@ function Driver.updateCurrentNode(self) -- Finds nearest node to car and sets it
     if curNodeDist > distanceThreshold and lastNodeDist > distanceThreshold and nextNodeDist > distanceThreshold then
         --print(self.tagText," car jumped nodes, searching",self.currentNode.id)
         local closestNode = self.currentNode
-        if self.nodeFindTimeout < 6 and self.speed <= 1 and not self.onLift and not self.nudging  then -- if at least mmoving
+        if self.nodeFindTimeout < 6 and self.speed <= 1 and not self.onLift and not self.nudging  then -- if not really moving
             if closestNode == nil then
                 print(self.tagText,'fcn3')
                 closestNode = findClosestNode(self.nodeChain,self.location)
@@ -1475,9 +1475,13 @@ function Driver.updateCurrentNode(self) -- Finds nearest node to car and sets it
         local closestNodeDist = getDistance(closestNode.location,self.location)
         --print("CheckDist",closestNode.id,nextNode.id)
         if closestNode.id ~= nextNode.id then -- something strange
-            if math.abs(closestNode.id - nextNode.id) > 20 then -- way too far of a jump
-                --print(self.tagText,"car jump",closestNode.id,nextNode.id)
-                self:setCurrentNode(closestNode)
+            if math.abs(closestNode.id - nextNode.id) > 10 then -- way too far of a jump
+                print(self.tagText,"car track jump prevention",closestNode.id,nextNode.id,self.speed)
+                hit, data = sm.physics.raycast(self.location, closestNode.location)
+                if hit then
+                    print("wall??")
+                end
+                self:setCurrentNode(nextNode)
             else
                 --print(self.tagText,"car increment",closestNode.id,nextNode.id)
                 self:setCurrentNode(closestNode) -- used to be next node
@@ -5228,22 +5232,23 @@ end
 
 function Driver.handleRejoinInitiation(self) -- handles reversing the car initially
     if math.abs(self.shape.at.z) > 0.1 then
-        print(self.tagText,"Car potentially tilted")
+        --print(self.tagText,"Car potentially tilted")
+        self.stuckTimeout = self.stuckTimeout + 0.1
     end
     if self.engine.curRPM > 1 and self.curGear >=0 then
-        print(self.tagText,"slowing to strt reverse",self.engine.curRPM,self.curGear)
+        --print(self.tagText,"slowing to strt reverse",self.engine.curRPM,self.curGear)
         self.engine.curRPM = 0 -- Immediately stop
         --self.engine:setRPM(0) -- set to 0?
         self.strategicThrottle = -1
         self.curGear = 0 -- has to be a better way to do 
         self:shiftGear(self.curGear)
     else -- Check for clear entry point then reverse
-        print(self.tagText,"Waiting for clear track")
+        --print(self.tagText,"Waiting for clear track")
         local distanceThreshold = -40 -- make dynamic?
         local clearFlag = self:checkForClearTrack(distanceThreshold)
         if clearFlag then
             local curentSide = self:getCurrentSide()
-            print(self.tagText,"reverse clear Rejoining",self.trackPosition,curentSide)
+            --print(self.tagText,"reverse clear Rejoining",self.trackPosition,curentSide)
             self.trackPosBias = curentSide
             self.rejoining = true
             self.curGear = -1 -- sets it in reverse gear
@@ -5251,7 +5256,7 @@ function Driver.handleRejoinInitiation(self) -- handles reversing the car initia
             self.strategicThrottle = 0.9
             self.strategicSteering = self.strategicSteering * -1.1 -- Inverts steering but does it sty that way
         else -- stay stopped
-            print(self.tagText,"staying Stopped")
+            --print(self.tagText,"staying Stopped")
             self.strategicThrottle = -1
         end
     end
@@ -5259,7 +5264,7 @@ function Driver.handleRejoinInitiation(self) -- handles reversing the car initia
 end
 
 function Driver.handleRejoinReverse(self)
-    print(self.tagText,"CurReverse attemptReverse",toVelocity(self.engine.curRPM))
+    --print(self.tagText,"CurReverse attemptReverse",toVelocity(self.engine.curRPM))
     if toVelocity(self.engine.curRPM) < -5  then -- If reversing hard enough to see some progress, check if stuck again
         if self.speed <= 1 then
             print(self.tagText,"reverse stuck")
@@ -5281,16 +5286,16 @@ function Driver.handleRejoinReverse(self)
     self.strategicSteering = self.strategicSteering * -1 -- Inverse steering while continuing to move backwards
     local offset = self.goalDirectionOffset
     local frontColDist = self:getFrontDist() -- returns distance raycast to front or 100 as furthest
-    print(self.tagText,"ReverseDIst",offset,frontColDist)
+    --print(self.tagText,"ReverseDIst",offset,frontColDist)
     if math.abs(self.shape.at.z) > 0.1 then
-        print(self.tagText,"reverse tilted??")
+        --print(self.tagText,"reverse tilted??")
     end
-    if (math.abs(offset) < 13  and  frontColDist >= 20) or frontColDist >=40 then -- If facing right way and not too close to wall in front
+    if (math.abs(offset) < 0.8  and  frontColDist >= 7) or frontColDist >=20 then -- If facing right way and not too close to wall in front
         if self.speed > 1 then -- TEMPORARY FIX for leaning against wall, check tilt and rotation as well 
             self.curGear = 1
             self:shiftGear(1)
             self.strategicThrottle = 0.95
-            print(self.tagText,"aligned/Finish reverse",offset,frontColDist) -- starts moving forward
+            --print(self.tagText,"aligned/Finish reverse",offset,frontColDist) -- starts moving forward
             return
         end
     end
@@ -5312,7 +5317,8 @@ function Driver.handleRejoinForward(self)
     if toVelocity(self.engine.curRPM) > 5  then --and  self.speed <= math.abs(toVelocity(self.engine.curRPM)) -1 then -- Going forward but not quite there
         if self.speed <= 2 then -- if stuck for sure
             if math.abs(self.shape.at.z) > 0.1 then
-                print(self.tagText,"forward stuck tilted??")
+                --print(self.tagText,"forward stuck tilted??")
+                self.stuckTimeout = self.stuckTimeout + 0.2
             end
             print(self.tagText,"rejoin forward stuck",toVelocity(self.engine.curRPM),self.speed)
             local distanceThreshold = -40 -- make dynamic?
@@ -5335,8 +5341,8 @@ function Driver.handleRejoinForward(self)
     -- if able to move forward, continue to do so
     self.strategicThrottle = 0.8 
     
-    print(self.tagText," forward rejoin cmax?",self.speed,maxSpeed)
-    if (toVelocity(self.engine.curRPM) >= maxSpeed - 10 and self.offTrack == 0) or (self.curGear >=3 and self.offTrack == 0) then
+    --print(self.tagText," forward rejoin cmax?",self.speed,toVelocity(maxSpeed))
+    if self.speed > 3 and  ( self.speed >= toVelocity(self.engine.curRPM)  and self.speed >= toVelocity(maxSpeed) - 5 and self.offTrack == 0) or (self.curGear >=3 and self.offTrack == 0) then
         self.rejoining = false
         self.stuck = false
         self.pathGoal = "location"
@@ -5351,22 +5357,27 @@ function Driver.handleRejoinForward(self)
 end
 
 function Driver.handleNudge(self)
-    print(self.tagText,"Nudge",getDistance(self.location,self.currentNode.mid))
+    --print(self.tagText,"Nudge",getDistance(self.location,self.currentNode.mid),math.abs(self.shape:getWorldPosition().z - self.currentNode.mid.z))
     self.strategicThrottle = 0
     local nudgeDir = sm.vec3.new(0,0,0)
     if not self.nudging then
-        if math.abs(self.shape:getWorldPosition().z - self.currentNode.mid.z) <= 4 then -- bring up then send over
-            nudgeDir.z = self.mass/1.75
-            print("pickup",getDistance(self.location,self.currentNode.mid))
+        if math.abs(self.shape:getWorldPosition().z - self.currentNode.mid.z) <= 5 then -- bring up then send over
+            nudgeDir.z = self.mass/1.5
+            print(self.tagText,"pickup",getDistance(self.location,self.currentNode.mid))
+            if self.carResetsEnabled then -- TODO: Add this to the GUI  
+                sm.physics.applyImpulse( self.shape.body, nudgeDir,true)
+            end
+            return
         else
             self.nudging = true
         end
     end
     
-    if self.nudging and getDistance(self.location,self.currentNode.mid) > 10  then --- Mid Nudge
+    if self.nudging and getDistance(self.location,self.currentNode.mid) > 15  then --- Mid Nudge
         print("moving",getDistance(self.location,self.currentNode.mid))
         nudgeDir = sm.vec3.normalize((self.currentNode.mid-self.location)) * 1250
-        if math.abs(self.shape:getWorldPosition().z - self.currentNode.mid.z) >= 6 then -- if too high
+        nudgeDir.z = self.mass/2.5
+        if math.abs(self.shape:getWorldPosition().z - self.currentNode.mid.z) >= 7 then -- if too high
             nudgeDir.z = -self.mass/2.3
         elseif math.abs(self.shape:getWorldPosition().z - self.currentNode.mid.z) <= 5 then -- too low
             nudgeDir.z = self.mass/2
@@ -5394,14 +5405,15 @@ function Driver.handleStuck(self) -- how the driver handles being stuck
     if self.stuck and self.raceStatus ~= 0 then
         --print(self.tagText,"stuck")
         if math.abs(self.shape.at.z) > 0.1 then
-            print(self.tagText,"handle stuck stuck tilted??",self.shape.at.z)
+            --print(self.tagText,"handle stuck stuck tilted??",self.shape.at.z)
+            self.stuckTimeout = self.stuckTimeout + 0.01
         end
         if self.rejoining then -- Car is cleared to rejoin
             if self.curGear == -1 then -- If reversing
                self:handleRejoinReverse()
 
             elseif self.curGear > 0 then -- If moving forward during rejoin
-               self:handlreRejoinForward()
+               self:handleRejoinForward()
             else -- something wong
                print(self.tagText,"SOmething wrong",self.curGear)
                self:shiftGear(1)
@@ -5417,7 +5429,7 @@ function Driver.handleStuck(self) -- how the driver handles being stuck
             self:handleRejoinInitiation()
         end
     
-        print(self.tagText,'stuck',self.stuckTimeout)
+        --print(self.tagText,'stuck',self.stuckTimeout)
         if self.stuckTimeout >= 8 and not self.onLift and self.speed < 3 and not self.userControl then
             print(self.tagText,"Is Now Lost",self.stuckTimeout)
             self.lost = true
@@ -6991,15 +7003,17 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
     end
 
 
-    if self.raceFinished then -- or caution flag?
+    if self.raceFinished and self.racing then -- or caution flag?
+        --print(self.speedControl)
         if self.speedControl == 0 then 
             self.speedControl = 25
         end
         if self.speedControl > 0.1 then
-            self.speedControl = self.speedControl - 0.001
+            self.speedControl = self.speedControl - 0.01
         else
             print(self.tagText,"Stopping racing")
             self.racing = false
+            -- Remove self??
         end
         self.trackPosBias = self.currentNode.width/2.5 
     elseif self.racing and (self.caution or self.formation) then
