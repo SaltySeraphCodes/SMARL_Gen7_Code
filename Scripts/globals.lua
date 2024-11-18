@@ -108,8 +108,8 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 90, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.65,
-        GEARING = {0.5,0.45,0.18,0.17}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 90/4 -- LImit for VRPM TODO: adjust properly
+        GEARING = {0.45,0.35,0.21,0.17,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 90/5 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "sports", -- medium -- dark gray
@@ -149,6 +149,42 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
     }
 
 }
+-- Engine stats class to differentiate
+EngineStats = class(nil)
+function EngineStats.init(self,stats)
+	print("EngineStats init",stats)
+    self.TYPE = stats['TYPE']
+    self.COLOR =stats['COLOR']
+    self.MAX_SPEED = stats['MAX_SPEED'] -- 73.5 lvl 5 engine
+    self.MAX_ACCEL = stats['MAX_ACCEL']
+    self.MAX_BRAKE = stats['MAX_BRAKE']
+    self.GEARING = shallowcopy(stats['GEARING']) -- Gear acceleration Defaults (soon to be paramaterized)
+    self.REV_LIMIT = stats['REV_LIMIT'] -- LImit for VRPM TODO: adjust properly
+	return self
+end 
+
+function EngineStats.setMaxSpeed(self,speed)
+    self.MAX_SPEED = speed
+end
+
+function EngineStats.getMaxSpeed(self,speed)
+    return self.MAX_SPEED
+end
+-----------------------------------------
+--[[
+print('entyppe',ENGINE_TYPES[1])
+local en1 = EngineStats()
+en1:init(ENGINE_TYPES[1])
+local en2 = EngineStats()
+en2:init(ENGINE_TYPES[1])
+en1:setMaxSpeed(49)
+print('set speed',en1:getMaxSpeed(),ENGINE_TYPES[1],en2:getMaxSpeed())
+en2:setMaxSpeed(39)
+en1.GEARING[1] = 2
+print('set speed2',en1:getMaxSpeed(),ENGINE_TYPES[1],en2:getMaxSpeed())
+]]
+
+
 
 TIRE_TYPES = {
     {
@@ -219,6 +255,22 @@ end
 function table.clone(org)
     return {table.unpack(org)} -- doesnt work
 end
+
+
+function cloneTable(t) -- clones table without refferences
+	local o = {}
+	
+	for k, v in pairs(t) do
+		if type(v) == "table" then
+			o[k] = cloneTable(v)
+		else
+			o[k] = v
+		end
+	end
+	
+	return o
+end
+
 
 function shallowcopy(orig)
     local orig_type = type(orig)
@@ -1254,6 +1306,32 @@ function findKeyValue(table,key,value) -- finds if key = value within a table
     return false
 end
 
+
+
+function findValue(table,value) -- finds if value is in a table
+    for i=1 ,#table do local v = table[i]
+        --print(i,v)
+        --print('check',v)
+        if v == value then
+            return true
+        end
+    end
+    return false
+end
+
+
+function getKeyValue(table,key,value) -- returns if key = value within a table
+    --print('cm',#table,table)
+    for i=1 ,#table do local v = table[i][key]
+        --print(i,v)
+        --print('check',v)
+        if v == value then
+            return table[i]
+        end
+    end
+    return false
+end
+
 function getPosOffset(location,vector,step)
     --print("old location",location,vector,vector*step)
     local newLocation = location  + (vector*step) -- -location?
@@ -1332,6 +1410,19 @@ function getEngineType(color)
     end
     -- else return slowest
     return ENGINE_TYPES[1]
+end
+
+
+function getDefaultEngineType(color)
+    for k=1, #DEFAULT_ENGINE_TYPES do local v=DEFAULT_ENGINE_TYPES[k]
+        --print("searching",color,v.COLOR)
+        if color == v.COLOR then
+            --print("found",v,color)
+            return v
+        end
+    end
+    -- else return slowest
+    return DEFAULT_ENGINE_TYPES[1]
 end
 
 function getDistance(vector1,vector2) -- GEts the distance of vector by power
@@ -1544,7 +1635,7 @@ function vectorAngleDiff(vector1,vector2) -- gets the angle difference between v
     if dotProduct == lengthProduct or string.format("%.4f",dotProduct) == string.format("%.4f",lengthProduct) then
         return 0 -- Preemptive straight vec
     end
-    local rads = math.acos(dotProduct / lengthProduct) * getSignReal(directionalCross.z)
+    local rads = math.acos(dotProduct / lengthProduct) * getSign(directionalCross.z)
     if math.abs(tostring(rads)) == tostring(0/0) then
         rads = 0
     end
@@ -1599,22 +1690,22 @@ end
     -- Math
 function getSign(x) -- helper function until they get addes separtgely Bug, Zero returns zero TODO: search where this is used
     if x<0 then
-      return -1
-    elseif x>0 then
-      return 1
+        return -1
+    elseif x>=0 then
+        return 1
     else
-      return 0
+        return 0
     end
  end
 
- function getSignReal(x) -- helper function until they get addes separtgely Bug, Zero returns zero TODO: search where this is used
- if x<0 then
-   return -1
- elseif x>=0 then
-   return 1
- else
-   return 0
- end
+ function getSignRealDep(x) -- Depreciated
+    if x<0 then
+    return -1
+    elseif x>=0 then
+    return 1
+    else
+    return 0
+    end
 end
 
  function round( value )

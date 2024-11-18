@@ -167,6 +167,42 @@ def handle_incoming_racerData(jsonData, methods=['GET', 'POST']):
     _Racer_Data = jsonLine
     socketio.emit('seasonData', _Racer_Data)
 
+
+# _________________________SMARL API CODE _______________________________
+
+
+@app.route('/api/spawn_racer/<racer_id>')
+def api_spawn_racer(racer_id, methods=['GET']):
+    print("Received request to spawn racer",racer_id)
+    command ={
+        'cmd': 'impCAR',
+        'val': str(racer_id)
+    } 
+    results = sharedData.addToQueue([command])
+    return "Done"
+
+
+@app.route('/api/remove_racer/<racer_id>')
+def api_remove_racer(racer_id, methods=['GET']):
+    print("Received request to Remove racer",racer_id)
+    command ={
+        'cmd': 'delMID',
+        'val': str(racer_id)
+    } 
+    results = sharedData.addToQueue([command])
+    return "Done"
+
+
+@app.route('/api/update_tuning_data')
+def api_update_tuning(methods=['GET']):
+    print("Received request to Update Tuning Data")
+    #results = sharedData.addToQueue([command]) if we want to do live tune changes
+    sharedData.update_tuning_data()
+    return "Done"
+
+# Make sure on public facing site they can only remove racers that match their owned racers
+
+
 #_______________________________ SMARL Overlay CODE _________________________________________
 
 @app.route('/smarl_split_display', methods=['GET','POST']) # Displays Racers and the split from leader

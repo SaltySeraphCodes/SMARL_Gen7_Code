@@ -1,3 +1,7 @@
+import os, sys, json
+#from winreg import *
+import shutil
+#from ast import parse
 from urllib import response
 import requests
 from requests.exceptions import HTTPError
@@ -25,6 +29,9 @@ _Properties = { # various global properties
 _RacerData = []
 SMARL_API_URL = "http://seraphhosts.ddns.net:8080/api" # No longer works due to host migration :(
 SMARL_LOCAL_URL = "http://192.168.1.250:8080/api"
+SMARL_API_INSTRUCTIONS = "../JsonData/apiInstructs.json"
+SMARL_TUNING_DATA = "../JsonData/tuningData.json"
+
 IS_LOCAL = True # Remember to change this when you should, Maybe automate this??
 DRY_RUN = False
 
@@ -54,6 +61,39 @@ def setRacerData(data):
     _RacerData = data # or append?
     print("Shared Data. setting racer Data",_RacerData)
 
+
+def pull_all_racers(): # Grabs all racers and tuning data, even owner?
+    all_racers = None
+    jsonResponse = None
+    try:
+        response = requests.get(get_smarl_url() + "/get_all_racers") 
+        response.raise_for_status()
+        jsonResponse = response.json()
+    except HTTPError as http_err:
+        print(f'HTTP error occurred: {http_err}')
+        return all_racers
+    except Exception as err:
+        print(f'GRacerdata Other error occurred: {err}')  
+        return all_racers
+    filtered_racers =  [d for d in jsonResponse] # here because no reason really
+    return filtered_racers
+
+
+def pull_racer_tuning(): # Grabs all racers and tuning data, even owner?
+    all_racers = None
+    jsonResponse = None
+    try:
+        response = requests.get(get_smarl_url() + "/get_racer_tuning") 
+        response.raise_for_status()
+        jsonResponse = response.json()
+    except HTTPError as http_err:
+        print(f'HTTP error occurred: {http_err}')
+        return all_racers
+    except Exception as err:
+        print(f'pullTuningData Other error occurred: {err}')  
+        return all_racers
+    filtered_racers =  [d for d in jsonResponse] # here because no reason really
+    return filtered_racers
 
 def getRacerData(): # Only grabs racers in league
     print("Getting racer data")
@@ -210,3 +250,61 @@ def init():
     print('sharedData finished init')
 
 #init()
+
+
+##_______________________ API Functions __________
+
+def outputCommandQueue(commandQue):
+    #print("OUT=>", commandQue)
+    with open(SMARL_API_INSTRUCTIONS, 'w') as outfile:
+        #print("opened file")
+        jsonMessage = json.dumps(commandQue)
+        #log("Writing commands: "+" - " +jsonMessage) # remove this?
+        outfile.write(jsonMessage)
+    return True
+
+def addToQueue(commands):
+    #print("called add to queue",commands)
+    # adds to the already existing command que
+
+    # log(commands)
+    # Check if exists first
+    # log("addQWue",commands)
+
+    if not os.path.exists(SMARL_API_INSTRUCTIONS):
+        f = open(SMARL_API_INSTRUCTIONS, "a")
+        # make blank
+        f.write('[]') # do brackets??
+        f.close()
+
+    with open(SMARL_API_INSTRUCTIONS, 'r') as inFile:
+
+        currentQue = json.load(inFile)
+        currentQue = json.loads(currentQue)
+        #print("Current Queue:",currentQue,type(currentQue),"\n adding:",commands)
+
+        # if empty? or check len too
+        if currentQue == None: 
+            # Create empty list
+            currentQue = []
+            currentQue.extend(commands)
+        else:
+            currentQue.extend(commands)
+
+        #print("Sending Queue=>", currentQue)
+        outputCommandQueue(currentQue)
+        return "Sent"
+
+
+
+def update_tuning_data(): # Exports updated car and tuning data to file
+    racer_data = pull_racer_tuning()
+    # Filter only important info (not needed anyumore but keeping as template)
+    #racer_data =  [{'racer_id': d['racer_id'],
+    #                'name': d['name'],
+    #                'in_season': d['racer_in_season']
+    #                } for d in racer_data] # here because no reason really
+    print("Updating tuning data",len(racer_data))
+    with open(SMARL_TUNING_DATA, 'w') as outfile:
+        jsonMessage = json.dumps(racer_data)
+        outfile.write(jsonMessage)

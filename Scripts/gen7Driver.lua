@@ -23,7 +23,7 @@ Driver.colorNormal = sm.color.new( 0x76034dff )
 Driver.colorHighlight = sm.color.new( 0x8f2268ff )
 
 RACER_DATA = MOD_FOLDER .. "/JsonData/RacerData/"
-
+TUNING_DATA = MOD_FOLDER .. "/JsonData/tuningData.json"
 
 -- (Event) Called from Game
 function Driver.server_loadWorldContent( self, data )
@@ -311,7 +311,7 @@ function Driver.server_init( self )
     -- Tolerances and Thresholds
     self.overSteerTolerance = -1.9 -- The smaller (more negeative, the number, the bigger the tollerance) (custom? set by situation) (DEFAUL -1.5)
     self.underSteerTolerance = -0.4 -- Smaller (more negative [fractional]) the more tolerance to understeer-- USED TO BE:THe bigger (positive) more tolerance to understeer (will not slow down as early, DEFAULT -0.3)
-    self.passAggression = -2 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
+    self.passAggression = -1 -- DEFAULT = -0.1 smaller (more negative[fractional]) the less aggresive car will try to fit in small spaces, Limit [-2, 0?]
     self.skillLevel = 5 -- Skill level = ammount breaking for turns (1 = slow, 10 = no braking pretty much)
     
     -- testing states
@@ -330,11 +330,11 @@ function Driver.server_init( self )
     self.debug = false
 
     -- TUNING States
-    self.Tire_Health = 0
-    self.Final_Drive = 0
-    self.Tire_Pressure = 0
-    self.Fuel_Level = 0
-    self.Tire_Type = 0
+    self.Tire_Type = 2 -- Medium (1 = soft, 2 = medium, 3 = hard)
+    self.Tire_Health = 100
+    self.Gear_Length = 5 -- = huge accel low ts, 10 = low accel, high ts
+    self.Fuel_Level = 100 -- only gets set for initial state
+    self.Spoiler_Angle = 5 -- 0 = no angle, 10 = full angle
     
     -- Pit states
     self.isPitting = false
@@ -360,13 +360,19 @@ function Driver.server_init( self )
     --print(self.shape.at)
     self.creationId = self.body:getCreationId()
     self.player = nil -- host player
+    self.meta_id = 0 -- default 0
 	print("Loading Driver",self.id,self.tagText,self.carData['metaData'])
+    if self.carData['metaData'] then
+        if self.carData['metaData'].ID then
+            self.meta_id = self.carData['metaData'].ID
+        end
+    end
      -- Insert into global allDrivers so everyone has access Possibly have a public/private section?
     
     -- PHYSICS EXPERIMENTs::
     self.experiment = false
 
-     
+     self:sv_load_tuning_data()
 end
 
 function Driver.client_init(self)
@@ -469,6 +475,12 @@ function Driver.client_init(self)
         self.tagText = self.id
     end
 	self.idTag:setText( "Text", "#ff0000"..self.tagText)
+
+    if self.carData['metaData'] then
+        if self.carData['metaData'].ID then
+            self.meta_id = self.carData['metaData'].ID
+        end
+    end
 
     self.userSeated = false
     if self.debug then
@@ -737,6 +749,13 @@ function Driver.sv_hard_reset(self) -- resets everything including lap but not c
     self.resultsDisplayed = false -- Check if message already displayed
 	print("SMAR Driver Hard Reset",self.id)
 
+    if self.carData['metaData'] then
+        if self.carData['metaData'].ID then
+            self.meta_id = self.carData['metaData'].ID
+        end
+    end
+
+    self:sv_load_tuning_data()
 end
 
 function Driver.cl_hard_reset(self) -- resets client side objects
@@ -886,6 +905,7 @@ function Driver.sv_loadData(self,channel)
         end
     end
     self:on_trackLoaded(data) -- callback to confirm load
+
 end
 
 function Driver.on_trackLoaded(self,data) -- Callback for when track data is actually loaded
@@ -910,6 +930,69 @@ function Driver.on_trackLoaded(self,data) -- Callback for when track data is act
         --print("total segments",self.totalSegments)
     end
 end
+
+
+function Driver.sv_load_tuning_data(self)
+    if self.carData == nil or self.carData['metaData'] == nil or self.carData['metaData'].ID == nil then
+        return
+    end
+    local status, data =  pcall(sm.json.open,TUNING_DATA) -- Could pcall whole function
+    if status == false then -- Error doing json open
+        print("Got error Opening Tuning data",data)
+        return nil
+    else
+        local carID = self.carData['metaData'].ID 
+        local car_data = getKeyValue(data,'racer_id',carID)
+        self.Tire_Type = car_data.tire_type
+        self.Fuel_Level = car_data.fuel_level
+        self.Gear_Length = car_data.gear_length
+        self.Spoiler_Angle = car_data.aero_angle
+
+        if self.engine then
+            --local defaultEngineStats = getEngineType(self.engine.engineColor)
+
+            self.engine.engineStats = self.engine:generateNewEngine(getEngineType(self.engine.engineColor)) -- Kinda hacky but works
+            -- Resets the engine to default type before re tuning to adjustments
+            --print('setting engine Tune',self.engine.engineStats,ENGINE_TYPES[1])
+            -- Spoiler angle Adjustments
+            if self.Spoiler_Angle < 5 then -- increase top speed
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED + (self.Spoiler_Angle * 2)
+            elseif self.Spoiler_Angle > 5 then -- decrease top speed
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED - (self.Spoiler_Angle * 2)
+            else
+                --self.engine.engineStats.MAX_SPEED = defaultEngineStats.MAX_SPEED
+            end
+
+            -- Tire Type Adjustments
+            if self.Tire_Type == 1 then -- Increase accel and slightly increase TS
+            elseif self.Tire_Type == 2 then -- set default
+            elseif self.Tire_Type == 3 then -- decrease accel and decrease TS
+            end
+
+            -- Gear Length Adjustments
+            if self.Gear_Length < 5 then -- Increase Accel and decrease TS -- Further decrease the more k increases?
+                for k=1, #self.engine.engineStats.GEARING do
+                    self.engine.engineStats.GEARING[k] = self.engine.engineStats.GEARING[k] + ((5/self.Gear_Length)/(20*k))
+                end
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED - ((5 - self.Gear_Length) * 3)
+            elseif self.Gear_Length > 5 then -- decrease Accel, Increase TS
+                for k=1, #self.engine.engineStats.GEARING do
+                    self.engine.engineStats.GEARING[k] = self.engine.engineStats.GEARING[k] - ((5/self.Gear_Length)/(22*k))
+                end
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED + ((self.Gear_Length - 5) * 3.5)
+            else
+                --self.engine.engineStats.MAX_SPEED = defaultEngineStats.MAX_SPEED
+                --self.engine.engineStats.GEARING = defaultEngineStats.GEARING
+            end
+            self.engine.engineStats.REV_LIMIT = self.engine.engineStats.MAX_SPEED/#self.engine.engineStats.GEARING
+            print('Set engine Tune',self.engine.engineStats)
+        end
+       
+
+    end
+
+end
+
 
 function Driver.on_engineLoaded(self,data) -- callback when engine is connected to driver
     if data == nil then print("ENgine Loaded nil",data) return end
@@ -5795,6 +5878,27 @@ function Driver.getVmaxFromDownForce(self,vmax,node)
     --TODO: make behavior custom for how much Downforce affects speed?
 end
 
+function Driver.getVmaxFromAero(self,vmax,angle)
+    --print("1",angle,toVelocity(vmax),self.speed)
+    if math.abs(angle) >= 0.2 then -- Corners
+        if self.Spoiler_Angle < 5 then -- Decrease vmax on turns
+            vmax = vmax - ((5 - self.Spoiler_Angle)*1.5)
+        elseif self.Spoiler_Angle > 5 then -- Increase vmax on turns
+            vmax = vmax + ((self.Spoiler_Angle - 5)*2)
+        end
+
+    end
+    if angle <= 0.05 then -- Straights
+        if self.Spoiler_Angle < 5 then -- increase vmax
+            vmax = vmax + ((5 - self.Spoiler_Angle)*3)
+        elseif self.Spoiler_Angle > 5 then -- decrease vmax
+            vmax = vmax - ((self.Spoiler_Angle - 5 )*1.5)
+        end
+    end
+    
+    return vmax
+end
+
 
 function Driver.getVmaxFromRacingLine(self,vmax,firstNode,lastNode)
     -- The futher away from racing line, the slower it goes (by slightly)
@@ -5879,25 +5983,20 @@ function Driver.getVmax(self,node) -- Calculates max velocity based on given nod
     local angle = math.abs(vectorAngleDiff(firstNode.outVector,lastNode.outVector))
     local myAngle = math.abs(vectorAngleDiff(self.shape.at,lastNode.outVector))
     local maxSpeed = (self.engine.engineStats.MAX_SPEED or 80)-- Not necessarily good because bigger engines create bigger ones, needs to be a fixed Point
-    local minSpeed = 19 -- arbitrary for now but based off of downforce/tires?
+    local minSpeed = 18 -- arbitrary for now but based off of downforce/tires?
     local curRPM = self.engine.curRPM
     vmax = getVmax2(myAngle,minSpeed,maxSpeed) --gets initial vmax based off of capped speeds
 
     -- add (or reduce?) vmax based on downforce (artificial real downforce only)
     --vmax = self:getVmaxFromDownForce(vmax,lastNode)-- vmax + 0-- insert downforce ration conversion here
 
-    -- get Vmax based on tire wear
-
-    -- get vmax based on tire type
-
-    -- get vmax based on spoiler angle -- Fake downforce that reduces on straights
+   
+   
 
     -- add (or reduce) vmax based on self.mass
     vmax = vmax + 0 -- use self.massRatio, decreases (very slightly) based on higher mass, has cap
 
-    -- add (or reduce) vmax based on fuel load
-    vmax = vmax + 0 -- use self.Fuel_Level, vmax increases on  lower fuel
-
+   
     -- reduce vmax the more inside a car is on racing line
     vmax = self:getVmaxFromRacingLine(vmax,firstNode,lastNode)
 
@@ -5923,6 +6022,22 @@ function Driver.getVmax(self,node) -- Calculates max velocity based on given nod
     
     -- change vmax based on passing
     vmax = self:getVmaxFromPassing(vmax)
+
+
+    -- Tuning based adjustemnts get priority
+    -- add (or reduce) vmax based on fuel load
+    vmax = vmax + 0 -- use self.Fuel_Level, vmax increases on  lower fuel
+
+    -- get vmax based on spoiler angle -- Fake downforce that reduces on straights
+    vmax = vmax + self:getVmaxFromAero(vmax,angle)
+
+    -- get Vmax based on tire wear
+    vmax = vmax + 0 -- fromTireWear
+
+    -- get vmax based on tire type
+    vmax = vmax + 0 -- from tire type
+
+
     --print('vm',vmax )
     -- Do any clamping for engine based params?
     vmax = mathClamp(minSpeed,maxSpeed,vmax)

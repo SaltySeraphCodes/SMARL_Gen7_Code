@@ -575,7 +575,21 @@ function Control.sv_racer_import_loop(self) -- Keeps tracks and imports racers w
 
 end
 
-function Control.add_racer_to_import_queue(self,racer_id) -- does what it says
+function Control.sv_add_racer_to_import_queue(self,racer_id) -- does what it says
+    print("Adding Racer to Queue",racer_id)
+    -- Check if racer is already in queue or racer already on track
+    local isInQueue = findValue(self.racerImportQue,racer_id)
+    if isInQueue then 
+        print("Racer already in queue",racer_id)
+        return
+    end
+
+    local isInRace = findKeyValue(getAllDrivers(),'meta_id',racer_id)
+    if isInRace then
+        print("Racer already in race",racer_id)
+        return
+    end
+
     table.insert(self.racerImportQue,racer_id)
 end
 
@@ -2032,23 +2046,23 @@ function Control.sv_execute_instruction(self,instruction)
     print("Executing instruction",cmd,value)
 
 
-    if instruction == "delMID" then -- delete racer by meta ID
+    if cmd == "delMID" then -- delete racer by meta ID
         self:sv_delete_racer(tonumber(value))
-    elseif instruction == "delBID" then -- delete racer by body ID
+    elseif cmd == "delBID" then -- delete racer by body ID
         self:sv_delete_racer_id(tonumber(value))
-    elseif instruction == "delALL" then -- deletes all raceers (both meta and non)
+    elseif cmd == "delALL" then -- deletes all raceers (both meta and non)
         self:sv_delete_all_racers()
-    elseif instruction == "impLEG" then -- imports league
+    elseif cmd == "impLEG" then -- imports league
         self:sv_import_league(tonumber(value))
-    elseif instruction == "impCAR" then -- import racer (by metaID)
-        self:sv_import_racer(tonumber(value))
-    elseif instruction == "edtSES" then -- Eddit session to (Session type)
+    elseif cmd == "impCAR" then -- import racer (by metaID)
+        self:sv_add_racer_to_import_queue(tonumber(value))
+    elseif cmd == "edtSES" then -- Eddit session to (Session type)
         self:sv_edit_session(tonumber(value))
-    elseif instruction == "setSES" then -- Sets session to (open,closed)
+    elseif cmd == "setSES" then -- Sets session to (open,closed)
         self:sv_set_session(tonumber(value))
-    elseif instruction == "setRAC" then -- Set Race to (Race setting)
+    elseif cmd == "setRAC" then -- Set Race to (Race setting)
         self:sv_set_race(tonumber(value))
-    elseif instruction == "resCAR" then -- RESETS driver (Driver ID)
+    elseif cmd == "resCAR" then -- RESETS driver (Driver ID)
         self:sv_reset_driver(tonumber(value))
     end
 end
@@ -2056,7 +2070,8 @@ end
 function Control.sv_readAPI(self) -- Reads API instructions
     local status, instructions =  pcall(sm.json.open,API_INSTRUCTIONS) -- Could pcall whole function
     if status == false then -- Error doing json open
-        print("Got error reading instructions JSON")
+        print("Got error reading instructions JSON",status,instructions)
+        sm.json.save("[]", API_INSTRUCTIONS)
         return nil
     else
         --print("got instruct",instructions)
@@ -2876,7 +2891,7 @@ function Control.client_onTinker( self, character, state ) -- For manual exporti
             local a_league = {1,2,3,5,6,7,8,9,10,11,12,13,15,16,17,18}
             local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33}
             --self.network:sendToServer("sv_import_racers",a_league)
-            self:add_racer_to_import_queue(1)
+            self.network:sendToServer("sv_add_racer_to_import_queue",1)
         end
 	end
 end

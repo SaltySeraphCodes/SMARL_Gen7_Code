@@ -401,14 +401,18 @@ function Engine.updateEffect(self) -- TODO: Un comment this when ready
 	end
 end
 
-
+function Engine.generateNewEngine(self,enginClass) -- generates new enginestats object based on type
+    local newEngine = EngineStats()
+    newEngine:init(enginClass)
+    return newEngine
+end
 
 function Engine.updateType(self) -- Ran to constantly check if engine is updated -- can be changed to onPainted
     --print(self.noStatsError,self.noDriverError)
     if tostring(self.shape.color) ~= self.engineColor then
         self.engineColor = tostring(self.shape.color)
-        --print("loading",self.engineColor)
-        self.engineStats = getEngineType(self.engineColor)
+        --print("loading New Engine",self.engineColor)
+        self.engineStats = self:generateNewEngine(getEngineType(self.engineColor))
         if self.engineStats == nil then
             sm.log.error("Engine Not proper color "..self.engineColor) -- gui alert?
             if self.engineColor == "673b00ff" and self.noStatsError == false then
