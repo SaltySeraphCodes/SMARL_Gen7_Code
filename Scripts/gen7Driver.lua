@@ -327,9 +327,10 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = false
+    self.debug = true
 
     -- TUNING States
+    self.allowTuning = true -- remember to turn off in production
     self.Tire_Type = 2 -- Medium (1 = soft, 2 = medium, 3 = hard)
     self.Tire_Health = 100
     self.Gear_Length = 5 -- = huge accel low ts, 10 = low accel, high ts
@@ -936,6 +937,11 @@ function Driver.sv_load_tuning_data(self)
     if self.carData == nil or self.carData['metaData'] == nil or self.carData['metaData'].ID == nil then
         return
     end
+
+    if self.allowTuning == false then -- DisableTuning
+        return 
+    end
+
     local status, data =  pcall(sm.json.open,TUNING_DATA) -- Could pcall whole function
     if status == false then -- Error doing json open
         print("Got error Opening Tuning data",data)
@@ -956,9 +962,9 @@ function Driver.sv_load_tuning_data(self)
             --print('setting engine Tune',self.engine.engineStats,ENGINE_TYPES[1])
             -- Spoiler angle Adjustments
             if self.Spoiler_Angle < 5 then -- increase top speed
-                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED + (self.Spoiler_Angle * 2)
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED + ((5 - self.Spoiler_Angle) * 1.1)
             elseif self.Spoiler_Angle > 5 then -- decrease top speed
-                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED - (self.Spoiler_Angle * 2)
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED - ((self.Spoiler_Angle - 5) * 1.6)
             else
                 --self.engine.engineStats.MAX_SPEED = defaultEngineStats.MAX_SPEED
             end
@@ -972,14 +978,14 @@ function Driver.sv_load_tuning_data(self)
             -- Gear Length Adjustments
             if self.Gear_Length < 5 then -- Increase Accel and decrease TS -- Further decrease the more k increases?
                 for k=1, #self.engine.engineStats.GEARING do
-                    self.engine.engineStats.GEARING[k] = self.engine.engineStats.GEARING[k] + ((5/self.Gear_Length)/(20*k))
+                    self.engine.engineStats.GEARING[k] = mathClamp(0.05,2,self.engine.engineStats.GEARING[k] + ((5/self.Gear_Length)/(15*k)))
                 end
-                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED - ((5 - self.Gear_Length) * 3)
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED - ((5 - self.Gear_Length) * 0.6)
             elseif self.Gear_Length > 5 then -- decrease Accel, Increase TS
                 for k=1, #self.engine.engineStats.GEARING do
-                    self.engine.engineStats.GEARING[k] = self.engine.engineStats.GEARING[k] - ((5/self.Gear_Length)/(22*k))
+                    self.engine.engineStats.GEARING[k] = mathClamp(0.05,2,self.engine.engineStats.GEARING[k] /(self.Gear_Length*0.25))
                 end
-                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED + ((self.Gear_Length - 5) * 3.5)
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED + ((self.Gear_Length - 5) * 1.4)
             else
                 --self.engine.engineStats.MAX_SPEED = defaultEngineStats.MAX_SPEED
                 --self.engine.engineStats.GEARING = defaultEngineStats.GEARING
@@ -998,6 +1004,7 @@ function Driver.on_engineLoaded(self,data) -- callback when engine is connected 
     if data == nil then print("ENgine Loaded nil",data) return end
     self.engine = data
     self.noEngineError = false
+    self:sv_load_tuning_data()
 end
 
 function Driver.on_engineDestroyed(self,data)
@@ -5882,9 +5889,9 @@ function Driver.getVmaxFromAero(self,vmax,angle)
     --print("1",angle,toVelocity(vmax),self.speed)
     if math.abs(angle) >= 0.2 then -- Corners
         if self.Spoiler_Angle < 5 then -- Decrease vmax on turns
-            vmax = vmax - ((5 - self.Spoiler_Angle)*1.5)
+            vmax = vmax - ((5 - self.Spoiler_Angle)*11)
         elseif self.Spoiler_Angle > 5 then -- Increase vmax on turns
-            vmax = vmax + ((self.Spoiler_Angle - 5)*2)
+            vmax = vmax + ((self.Spoiler_Angle - 5)*4)
         end
 
     end
@@ -5892,7 +5899,7 @@ function Driver.getVmaxFromAero(self,vmax,angle)
         if self.Spoiler_Angle < 5 then -- increase vmax
             vmax = vmax + ((5 - self.Spoiler_Angle)*3)
         elseif self.Spoiler_Angle > 5 then -- decrease vmax
-            vmax = vmax - ((self.Spoiler_Angle - 5 )*1.5)
+            vmax = vmax - ((self.Spoiler_Angle - 5 )*1.2)
         end
     end
     
@@ -5938,18 +5945,22 @@ end
 
 function Driver.getVmaxFromTrackWidth(self,vmax,node)
     local width = node.width
-    local normWidth = width/20 -- 20 is typical track width, Maybe dont increase?
+    local normalizer = 25
+    if width > 25 then 
+        width = 25
+    end
+    local normWidth = width/20  -- 20 is typical track width
     
     local newVmax = vmax * normWidth
-    vmax = mathClamp(13,vmax+5,newVmax) -- clamp it so it doesnt increase speed on wide tracks?
+    vmax = mathClamp(10 + self.Spoiler_Angle,vmax + self.Spoiler_Angle,newVmax) -- clamp it so it doesnt increase speed on wide tracks?
     return vmax
 end
 
 function Driver.getVmaxFromCurDif(self,vmax,angle)-- Go fast when at end of turn
     -- if the angle is pretty close then boosst
 
-    if angle < 0.12 + (self.skillLevel/13) then 
-        vmax = vmax + self.skillLevel/1.5
+    if angle < 0.11 + (self.skillLevel/13) then 
+        vmax = vmax + (self.skillLevel/2) + (self.Spoiler_Angle/10)
         --print("boost",angle,self.skillLevel/1.5)
         return vmax
     end
@@ -5982,8 +5993,8 @@ function Driver.getVmax(self,node) -- Calculates max velocity based on given nod
     local lastNode = getNextItem(self.nodeChain,node.id,curveDampen)
     local angle = math.abs(vectorAngleDiff(firstNode.outVector,lastNode.outVector))
     local myAngle = math.abs(vectorAngleDiff(self.shape.at,lastNode.outVector))
-    local maxSpeed = (self.engine.engineStats.MAX_SPEED or 80)-- Not necessarily good because bigger engines create bigger ones, needs to be a fixed Point
-    local minSpeed = 18 -- arbitrary for now but based off of downforce/tires?
+    local maxSpeed = 125 --(self.engine.engineStats.MAX_SPEED or 80)-- Not necessarily good because bigger engines create bigger ones, needs to be a fixed Point
+    local minSpeed = 15 -- arbitrary for now but based off of downforce/tires?
     local curRPM = self.engine.curRPM
     vmax = getVmax2(myAngle,minSpeed,maxSpeed) --gets initial vmax based off of capped speeds
 
@@ -7632,7 +7643,6 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
         self.rightEffect.pos = center + self.shape.right*self.carDimensions['right']:length()
         self.rearEffect.pos = center -  self.shape.at*self.carDimensions['rear']:length()
     end
-
     local splitFormat = string.format("%.3f",self.raceSplit)
     local rpmFormat = string.format("%.2f",self.engine.curRPM)
     local speedFormat = string.format("%.2f",self.speed)
@@ -7643,9 +7653,9 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
     local draftStatus = tostring(self.drafting) -- cl
     local mass = string.format("%d",self.mass) -- cl
     -- This is debug DEBUG text
-    --self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..fpos)
+    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..self.curGear)
     -- THis is production text
-    self.idTag:setText( "Text"," #faaf00"..rpos)
+    --self.idTag:setText( "Text"," #faaf00"..rpos)
 
     --print(self.shape.worldPosition.z-self.location.z)
     --print(self.shape.right,)

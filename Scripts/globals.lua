@@ -2,7 +2,7 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.11" --Error Checking recognition and recovery Overhaul along with behavior adjustments
+SMAR_VERSION = "1.8.2" --Error Checking recognition and recovery Overhaul  Placeholder for Car tuning and API calls
 -- planned 1.9.0 -- Full Release for Driver overhaul and barebones for Gen8
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
@@ -152,7 +152,6 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
 -- Engine stats class to differentiate
 EngineStats = class(nil)
 function EngineStats.init(self,stats)
-	print("EngineStats init",stats)
     self.TYPE = stats['TYPE']
     self.COLOR =stats['COLOR']
     self.MAX_SPEED = stats['MAX_SPEED'] -- 73.5 lvl 5 engine
@@ -1758,7 +1757,7 @@ function getVmax2(angle,minSpeed,maxSpeed) -- uses a ratio to determine speed fr
         speed = maxSpeed + 10 -- returns full speeds on straights~ give leeway for drafting
     end
     speed =  logarithmic_linear_decrease(angle,2.4,87,minSpeed)
-    local speedBoost = maxSpeed/90
+    local speedBoost = maxSpeed/100
     speed = speed + speedBoost
 
     speed = mathClamp(minSpeed,maxSpeed+ 10,speed)
