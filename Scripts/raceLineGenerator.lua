@@ -120,7 +120,7 @@ function Generator.client_init( self )  -- Only do if server side???
     -- USER CONTROLABLE VARS:
     self.wallThreshold = 0.40
     self.wallPadding = WALL_PADDING -- = 5 US
-    self.debug =true  -- Debug flag -- REMEMBER TO TURN THIS OFF
+    self.debug =false  -- Debug flag -- REMEMBER TO TURN THIS OFF
     self.saveTrack = true -- whether to save the track to world -- remembet to turn on
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop

@@ -480,7 +480,29 @@ function Control.on_trackLoaded(self,data) -- Callback for when track data is ac
     end
 end
 
-
+function Control.checkForClearTrack(self,nodeID) -- Checks for any cars within 50? nodes on node chain
+    local clearFlag = true
+    local clearThreshold = distance -- make dynamic?
+    --local minNode = getNextItem(self.nodeChain,nodeID,-50)
+    local maxNode = getNextItem(self.nodeChain,nodeID,5)
+    --print("MinNode",minNode.id)
+    for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
+        if v.id ~= self.id then 
+            --print("scanning",v.id,v.stuck,v.rejoining,v.currentNode.id)
+            if not (v.stuck or v.rejoining) then -- If its not stuck
+                if v.currentNode ~= nil and v.speed > 0 then 
+                    local node = v.currentNode.id
+                    local nodeDist = getNodeDistBackward(#self.nodeChain,maxNode.id,node)
+                    if nodeDist < 35 then
+                        --print("not clear")
+                        clearFlag = false
+                    end
+                end
+            end
+        end
+    end
+    return clearFlag
+end
 
 function Control.sv_setDraft(self,mode) -- enables or disables drafte
     self.draftingEnabled = mode
@@ -553,21 +575,27 @@ function Control.sv_racer_import_loop(self) -- Keeps tracks and imports racers w
 
 end
 
+function Control.add_racer_to_import_queue(self,racer_id) -- does what it says
+    table.insert(self.racerImportQue,racer_id)
+end
+
+
 function Control.sv_import_racer(self,racer_id) -- uses reacer META ID
     local dataFile = RACER_DATA .. racer_id .. ".json"
     -- Set location to first point after finish line
     local spawnLocation = sm.vec3.new(0,0,10)
     local spawnRotation = nil
-
-   
-
-
+    local spawnNodeID = 8
     if self.nodeChain then
-        local targetNode = self.nodeChain[10]
+        local targetNode = self.nodeChain[spawnNodeID]
         if targetNode then
             spawnLocation = targetNode.mid + sm.vec3.new(0,0,.5)
              -- Make Sure spawn wih clear tracks behind and a padding ahead for slow cars
-
+            isClear = self:checkForClearTrack(spawnNodeID,self.nodeChain)
+            if isClear == false then
+                --print("waiting for clear track before spawn")
+                return false
+            end
             spawnRotation = sm.vec3.getRotation(sm.vec3.new(-1,0,0),sm.vec3.new(targetNode.outVector.x,targetNode.outVector.y,0))
             --sm.quat.fromEuler(targetNode.outVector:rotateX(90))
         end
@@ -624,7 +652,7 @@ function Control.sv_import_league(self,league_id)
     local a_league = {1,2,3,5,6,7,8,9,10,11,12,13,15,16,17,18}
     local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33}
     local leagues = {a_league,b_league}
-    print("importing league")
+    print("importing League",league_id)
     self:sv_import_racers(leagues[league_id])
 end
  
@@ -793,6 +821,7 @@ function Control.sv_setHandicaps2(self) -- just based on position
     local maxNodeDif = 0
     local numInFight = 0
     for k=1, #allDrivers do local driver=allDrivers[k]
+        if driver == nil then return end
         if self.raceStatus > 1 then -- just shortcut this if caution or formation
             driver.handicap = 0
         else
@@ -1000,7 +1029,12 @@ function Control.sv_changeDraft(self,ammount) -- changes the game time by ammoun
     if self.draftStrength <= 0.05 and ammount <0 then
         print("disabled Draft")
         self.draftStrength = 0
+        self.draftingEnabled = false
     else
+        if self.draftingEnabled == false then
+            print("enbled draft")
+            self.draftingEnabled = true
+        end
         self.draftStrength = self.draftStrength + ammount
     end
     --print("change handimul",self.handiCapMultiplier)
@@ -1495,6 +1529,9 @@ function Control.tickClock(self) -- Just ticks by secconds
             self:sv_performAutoSwitch()
             -- randomly add or decrease switch time
         end
+
+        --TODO check  if session is open
+        self:sv_racer_import_loop()
         
     else
         self.gotTick = false
@@ -1882,6 +1919,7 @@ function Control.sv_output_allRaceData(self) -- Outputs race data into a  big li
     local qualifyingData = self:sv_exportQualifyingData() -- minimized quali data
     local finishData = self:sv_exportFinishData() -- minimized race finish data
     local metaData = self:sv_exportRaceMetaData() -- minimized race metaData
+    -- Add race que and session data??
     local outputData = {
         ["rt"]=realtimeData,
         ["qd"]=qualifyingData,
@@ -1991,6 +2029,9 @@ function Control.sv_execute_instruction(self,instruction)
     local cmd = instruction['cmd'] -- even more shorter form? c,v
     local value = instruction['val']
 
+    print("Executing instruction",cmd,value)
+
+
     if instruction == "delMID" then -- delete racer by meta ID
         self:sv_delete_racer(tonumber(value))
     elseif instruction == "delBID" then -- delete racer by body ID
@@ -2001,11 +2042,18 @@ function Control.sv_execute_instruction(self,instruction)
         self:sv_import_league(tonumber(value))
     elseif instruction == "impCAR" then -- import racer (by metaID)
         self:sv_import_racer(tonumber(value))
+    elseif instruction == "edtSES" then -- Eddit session to (Session type)
+        self:sv_edit_session(tonumber(value))
+    elseif instruction == "setSES" then -- Sets session to (open,closed)
+        self:sv_set_session(tonumber(value))
+    elseif instruction == "setRAC" then -- Set Race to (Race setting)
+        self:sv_set_race(tonumber(value))
+    elseif instruction == "resCAR" then -- RESETS driver (Driver ID)
+        self:sv_reset_driver(tonumber(value))
     end
 end
 
 function Control.sv_readAPI(self) -- Reads API instructions
-    --print("RC sv readjson before")
     local status, instructions =  pcall(sm.json.open,API_INSTRUCTIONS) -- Could pcall whole function
     if status == false then -- Error doing json open
         print("Got error reading instructions JSON")
@@ -2827,7 +2875,8 @@ function Control.client_onTinker( self, character, state ) -- For manual exporti
             local tester = {1}
             local a_league = {1,2,3,5,6,7,8,9,10,11,12,13,15,16,17,18}
             local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33}
-            self.network:sendToServer("sv_import_racers",a_league)
+            --self.network:sendToServer("sv_import_racers",a_league)
+            self:add_racer_to_import_queue(1)
         end
 	end
 end

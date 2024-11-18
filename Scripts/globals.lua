@@ -108,17 +108,17 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 90, -- 73.5 lvl 5 engine
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.65,
-        GEARING = {0.5,0.45,0.18,0.15}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.5,0.45,0.18,0.17}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 90/4 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "sports", -- medium -- dark gray
         COLOR = "4a4a4aff",
-        MAX_SPEED = 100, -- 80
+        MAX_SPEED = 110, -- 80
         MAX_ACCEL = 0.5,
         MAX_BRAKE = 0.75, -- 1?
-        GEARING = {0.55,0.46,0.23,0.18,0.17}, -- Gear acceleration Defaults (soon to be paramaterized)
-        REV_LIMIT = 100/5 -- LImit for VRPM TODO: adjust properly
+        GEARING = {0.55,0.46,0.23,0.18,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
+        REV_LIMIT = 110/5 -- LImit for VRPM TODO: adjust properly
     },
     {
         TYPE = "formula", -- Fast
@@ -126,7 +126,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 150,
         MAX_ACCEL = 0.7,
         MAX_BRAKE = 0.85,
-        GEARING = {0.60,0.48,0.25,0.20,0.18}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.60,0.48,0.25,0.20,0.19}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 150/5
     },
     {
@@ -135,7 +135,7 @@ ENGINE_TYPES = { -- Sorted by color but could also maybe gui Dynamic? mostly def
         MAX_SPEED = 250,
         MAX_ACCEL = 1,
         MAX_BRAKE = 0.90,
-        GEARING = {0.48,0.4,0.30,0.21,0.19}, -- Gear acceleration Defaults (soon to be paramaterized)
+        GEARING = {0.48,0.4,0.30,0.21,0.20}, -- Gear acceleration Defaults (soon to be paramaterized)
         REV_LIMIT = 250/5
     },
     {
@@ -307,9 +307,33 @@ function displayCarRadar(radar) -- prints fun radar
     )
 end
 
-
-
-
+function gl_checkForClearTrack(nodeID,nodeChain) -- Checks for any cars within 50? nodes on node chain
+    local clearFlag = true
+    local clearThreshold = distance -- make dynamic?
+    local minNode = getNextItem(nodeChain,nodeID,-50)
+    local maxNode = getNextItem(nodeChain,nodeID,10)
+    --print("MinNode",minNode.id)
+    for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
+        if v.id ~= self.id then 
+            --print("scanning",v.id,v.stuck,v.rejoining,v.currentNode.id)
+            if not (v.stuck or v.rejoining) then -- If its not stuck
+                if v.currentNode ~= nil and v.speed > 10 then 
+                    local node = v.currentNode.id
+                    ---print("checking clear ",minNode.id,node,self.currentNode.id)
+                    local nodeDist = getNodeDistBackward(#nodeChain,maxNode.id,node)
+                    if nodeDist < 50 then
+                        print("not clear")
+                        clearFlag = false
+                    end
+                    --if (node > minNode.id and node < self.currentNode.id)  then
+                    --    clearFlag = false
+                    --end
+                end
+            end
+        end
+    end
+    return clearFlag
+end
     -- Track related helper
 
 function generateNodeMap(nodeChain) -- Creates a mapped 2d array of nodes based on [y],[x] location -- try for pathType??
@@ -998,6 +1022,28 @@ function getCollisionPotential(selfBox,opBox) -- Determines if bounding box1 col
 end
 
 -- More node stuff
+function getNodeDistForward(nodeChainLen,startID,endID) -- gets node distance searching forward
+    local dist = 0
+    for k=1, nodeChainLen do  -- shouuld loop around the whole thing
+        nextID = getNextIndex(nodeChainLen,startID,k)
+        if nextID == endID then
+            return k
+        end
+    end
+end
+
+function getNodeDistBackward(nodeChainLen,startID,endID) -- gets node distance searching Backward
+    local dist = 0
+    for k=1, nodeChainLen do  -- shouuld loop around the whole thing
+        nextID = getNextIndex(nodeChainLen,startID,-k)
+        if nextID == endID then
+            return k
+        end
+    end
+end
+
+
+
 function getSegment(nodeChain,first,last) -- Shoves first node and last node into a list Possibly Rename to CollectSegment
     if first.id > last.id then -- causes issues, but needs to be possible due to finish line crossover
         print("getSeg possible flipflop",first.id,last.id)

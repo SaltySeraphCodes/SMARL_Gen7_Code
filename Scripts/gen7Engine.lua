@@ -473,9 +473,9 @@ function Engine.server_onFixedUpdate( self, timeStep )
         self.curRPM = self:calculateRPM()
         self.VRPM = self:calculateVRPM() -- calculate virtual rpm depending on gearing (mostly for sounds?)
     end
-    if self.curRPM >= ENGINE_SPEED_LIMIT or self.curRPM > self.engineStats.MAX_SPEED + 20 then -- Engine explosion noise efect smoke
+    if self.curRPM >= ENGINE_SPEED_LIMIT or self.curRPM > self.engineStats.MAX_SPEED + 15 then -- Engine explosion noise efect smoke
         print(self.driver.tagText,"WARNING: OVER SPEED ENGINE",self.curRPM,self.driver.handicap,self.accelInput)
-        self.curRPM = self.engineStats.MAX_SPEED * 0.9
+        self.curRPM = self.engineStats.MAX_SPEED * 0.8
     end
     self:setRPM(self.curRPM)
 end
