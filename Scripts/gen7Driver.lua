@@ -1136,7 +1136,7 @@ end
 -- Getters and setters
 function Driver.set_trackPosBias(self,value)
     self.trackPosBias = value
-    print("setting trackPosBias",self.trackPosBias)
+    --print("setting trackPosBias",self.trackPosBias)
 end
 
 
@@ -4860,7 +4860,7 @@ function Driver.updateErrorLayer_Depreciating(self) -- Updates throttle/steering
             self.rotationCorrect = false
             self.speedControl = 0
             --self.strategicThrottle = self.strategicThrottle - 0.01
-            --print(self.tagText, "rotation fixed?") TODO: Figure this one out on when its truly fixed
+            print(self.tagText, "rotation fixed?") --TODO: Figure this one out on when its truly fixed
         end
         if self.speed >20 then
            --print("over speed rotatin correct")
@@ -6075,7 +6075,7 @@ function Driver.getVmaxFromPassing(self,vmax)
 end
 
 function Driver.getVmaxFromTireHealth(self,vmax)
-    local totalDif = 15
+    local totalDif = 20 -- maximum speed to reduce 
     local vmaxAdj = totalDif - (totalDif *(self.Tire_Health/100))
     vmax = vmax - vmaxAdj
     return vmax
@@ -7041,9 +7041,9 @@ function Driver.handleFuelUsage(self) -- decreases fuel ammount based on RPM and
     if getRaceControl() and getRaceControl().fuelUsageOn == false then return end
     local usageRate = getRaceControl().fuelUsageMultiplier
     -- Steeper spoiler angle = increased drag = more fuel used
-    local decreaseRate = (self.engine.curRPM/100) + (self.speed * (ratioConversion(10,1,0.01,0.05,self.Spoiler_Angle)))
-    self.Fuel_Level = self.Fuel_Level - decreaseRate
-    print(self.tagText,self.engine.curRPM/100,self.speed/100,self.Fuel_Level)
+    local decreaseRate = (self.engine.curRPM/100000) + (self.speed * (ratioConversion(10,1,0.00002,0.000025,self.Spoiler_Angle))) * usageRate
+    self.Fuel_Level = self.Fuel_Level - (decreaseRate * usageRate)
+    --print(self.tagText,self.engine.curRPM/100,self.speed/100,self.Fuel_Level)
 
     if self.Fuel_Level < 0.5 then -- Go into limp mode
         if self.fuelLimp == false then
@@ -7052,7 +7052,7 @@ function Driver.handleFuelUsage(self) -- decreases fuel ammount based on RPM and
         end
         self.Fuel_Level = 0.1
         self.speedControl = 12
-        self.set_trackPosBias(-self.setCurrentNode.width/2)
+        self:set_trackPosBias(-self.currentNode.width/2)
     else
         if self.fuelLimp == true then
             self.fuelLimp = false
@@ -7069,11 +7069,11 @@ function Driver.handleTireDegradation(self) -- decreases tire health based on an
         return 
     end
     local tireDecay = TIRE_TYPES[self.Tire_Type].DECAY * getRaceControl().tireDegradeMultiplier
-    local aggressionMultiplier = ratioConversion(10,1,0.1,0.25,self.Spoiler_Angle)
+    local aggressionMultiplier = ratioConversion(10,1,0.1,0.21,self.Spoiler_Angle)
     --print(self.tagText,aggressionMultiplier)
     --aggressionMultiplier = mathClamp(0.1,0.1,aggressionMultiplier)
     --print(self.tagText,aggressionMultiplier)
-    local decreaseRate = (self.speed * 1+aggressionMultiplier) * (self.angularVelocity:length() * 0.8+aggressionMultiplier) / (10000-tireDecay)
+    local decreaseRate = (self.speed * 0.9+aggressionMultiplier) * (self.angularVelocity:length() * 1.1+aggressionMultiplier) / (10000-tireDecay)
     self.Tire_Health = self.Tire_Health - decreaseRate
     if self.Tire_Health < 1 then
         if self.tireLimp == false then
@@ -7095,8 +7095,8 @@ end
 
 function Driver.handleArtificialDownforce(self) -- does the handling for fake downforce (not aero angle)
     if self.speed > 2 and not self.noEngineError and not self.carData['Downforce'] then -- Standard downforce (Also specify for Stock cars only?)
-        local maxForce = (-1100 - (500/(10/self.Spoiler_Angle) - (4*(100/self.Fuel_Level)))) 
-        local minForce = (-900 - (3*(100/self.Fuel_Level)))
+        local maxForce = (-1100 - (500/(10/self.Spoiler_Angle) + (3*(100-self.Fuel_Level)))) 
+        local minForce = (-900 - (2*(100-self.Fuel_Level)))
         
         local offset = 0.05 -- offset towards/from front to push down
         local bankAdjust = 0
@@ -7109,7 +7109,7 @@ function Driver.handleArtificialDownforce(self) -- does the handling for fake do
         --local force = sm.vec3.new(0,0,1) * -(self.speed^1.7)  -- -- invert so slower has higher? TODO: Check for wedges/aero parts, tire warmth factor too
         local force = sm.vec3.new(0,0,1) * -speedAdj  -- -- invert so slower has higher? TODO: Check for wedges/aero parts, tire warmth factor too
         force.z = mathClamp(maxForce,minForce,force.z) - bankAdjust
-        print(self.tagText,self.Spoiler_Angle,self.Fuel_Level,minForce,maxForce,force.z)
+        --print(self.tagText,self.Fuel_Level,(3*(100-self.Fuel_Level)),(500/(10/self.Spoiler_Angle)),maxForce)
         --print(self.speed,speedAdj,force.z)
        -- print("df:",force.z)
 
@@ -7338,12 +7338,16 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
             self.racing = false
             -- Remove self??
         end
-        self.trackPosBias = self.currentNode.width
+        self:set_trackPosBias(self.currentNode.width)
     elseif self.racing and (self.caution or self.formation) then
         --self.speedControl = 0
         -- Passing off speedcontrol to strategic steering FCY and formation module
     else
-        self.speedControl = 0
+        if self.tireLimp or self.fuelLimp then 
+            self.speedControl = 15
+        else
+            self.speedControl = 0
+        end
     end
 
     if not self.lost then
