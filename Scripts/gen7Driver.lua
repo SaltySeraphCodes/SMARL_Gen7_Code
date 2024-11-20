@@ -983,7 +983,7 @@ function Driver.sv_load_tuning_data(self)
             if self.Spoiler_Angle < 5 then -- increase top speed
                 self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED + ((5 - self.Spoiler_Angle) * 1.4)
             elseif self.Spoiler_Angle > 5 then -- decrease top speed
-                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED - ((self.Spoiler_Angle - 5) * 1.8)
+                self.engine.engineStats.MAX_SPEED = self.engine.engineStats.MAX_SPEED - ((self.Spoiler_Angle - 5) * 1.7)
             else
                 --self.engine.engineStats.MAX_SPEED = defaultEngineStats.MAX_SPEED
             end
@@ -1353,15 +1353,15 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
         else -- location node exista
             local dist = getDistance(self.stuckCooldown[2],self.location)
             if dist < 0.3 and self.speed < 0.5 then -- if car is still within small dist
-                print(self.tagText,"stuck?",dist,self.engine.curRPM)
+                --print(self.tagText,"stuck?",dist,self.engine.curRPM)
                 if self.engine.curRPM > 10 and self.speed < 1 then
-                    print("wall Stuck, reset")
+                    --print("wall Stuck, reset")
                     self.stuckCooldown[1] = false
                 end
                 return 
             else
                 self.stuckCooldown[1] = false
-                print(self.tagText,"stuckfalse")
+                --print(self.tagText,"stuckfalse")
                 return
             end
         end
@@ -1384,7 +1384,7 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
         
     end
     if  toVelocity(self.engine.curRPM) - self.speed > 2.5 then -- if attempted speed and current speed > 2
-        print(self.tagText,self.speed)
+        --print(self.tagText,self.speed)
         if self.speed <= 4  and not self.userControl then
             --print(self.tagText,"slow stuck",self.speed,self.engine.curRPM,toVelocity(self.engine.curRPM))
             self.stuck = true
@@ -3789,13 +3789,14 @@ function Driver.processPassingDetection(self,opponent,oppDict)
             end
         end
     else-- If car is somewhat further away Keep eye on car, check speed dif c
-        if speedDif > 2 and collisionDist > 0 then --If approaching car rather quickly
+        local goalVmax = self:getVmax(opponent.currentNode)
+        if toVelocity(goalVmax) > opponent.speed + 2 and collisionDist > -1 then --If approaching car rather quickly
             local passDirection = self:calculateClosestPassPoint(opponent)
             if self.racing then
                 if passDirection ~= 0 then -- This is an emergency pass, execute if possible
                     self.passCommit = passDirection
                     self.passGoalOffsetStrength = self:calculatePassOffset(oppData,passDirection)
-                    print(self.tagText,"Emergency pass",opponent.tagText, self.passCommit,self.speed,opponent.speed,vhDist)
+                    --print(self.tagText,"Emergency pass",opponent.tagText, self.passCommit,self.speed,opponent.speed,vhDist)
                     self.passing.isPassing = true
                     self.passing.carID = opponent.id
                     oppFlags.pass = true
@@ -5604,11 +5605,11 @@ function Driver.handleStuck(self) -- how the driver handles being stuck
         end
         if self.rejoining then -- Car is cleared to rejoin
             if self.curGear == -1 then -- If reversing
-                print(self.tagText,"handlerevre")
+                --print(self.tagText,"handlerevre")
                self:handleRejoinReverse()
 
             elseif self.curGear > 0 then -- If moving forward during rejoin
-                print(self.tagText,"rejoin forward")
+                --print(self.tagText,"rejoin forward")
                 self:handleRejoinForward()
             else -- something wong
                print(self.tagText,"SOmething wrong",self.curGear)
@@ -5622,7 +5623,7 @@ function Driver.handleStuck(self) -- how the driver handles being stuck
             end
            
         else -- start rejoin process by backing up
-            print(self.tagText,"rejoin init")
+            --print(self.tagText,"rejoin init")
             self:handleRejoinInitiation()
         end
     
@@ -5963,9 +5964,9 @@ function Driver.getVmaxFromAero(self,vmax,angle)
     --print("1",angle,toVelocity(vmax),self.speed)
     if math.abs(angle) >= 0.2 then -- Corners
         if self.Spoiler_Angle < 5 then -- Decrease vmax on turns
-            vmax = vmax - ((5 - self.Spoiler_Angle)*1.1)
+            vmax = vmax - ((5 - self.Spoiler_Angle)*1.2)
         elseif self.Spoiler_Angle > 5 then -- Increase vmax on turns
-            vmax = vmax + ((self.Spoiler_Angle - 5)*1.5)
+            vmax = vmax + ((self.Spoiler_Angle - 5)*1.6)
         end
 
     end
@@ -7032,7 +7033,11 @@ function Driver.handleTireDegradation(self) -- decreases tire health based on
         return 
     end
     local tireDecay = TIRE_TYPES[self.Tire_Type].DECAY * getRaceControl().tireDegradeMultiplier
-    local decreaseRate = (self.speed*2.5) * (self.angularVelocity:length() * 0.50) / (10000-tireDecay)
+    local aggressionMultiplier = ratioConversion(10,1,0.1,0.25,self.Spoiler_Angle)
+    --print(self.tagText,aggressionMultiplier)
+    --aggressionMultiplier = mathClamp(0.1,0.1,aggressionMultiplier)
+    --print(self.tagText,aggressionMultiplier)
+    local decreaseRate = (self.speed * 1+aggressionMultiplier) * (self.angularVelocity:length() * 0.8+aggressionMultiplier) / (10000-tireDecay)
     self.Tire_Health = self.Tire_Health - decreaseRate
     if self.Tire_Health <= 1 then
         self.Tire_Health =  1 -- possibly have an oberload/blowout situation where they go limp mode
