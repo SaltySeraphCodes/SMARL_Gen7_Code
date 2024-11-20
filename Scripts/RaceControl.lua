@@ -325,8 +325,11 @@ function Control.server_init(self)
     self.maxHandiCap = 100 -- maximum slow down
     self.curHandiCap = 100
 
+    -- Realism settings
     self.tireDegradeOn = true -- whether to degrade tires
     self.tireDegradeMultiplier = 1 
+    self.fuelUsageOn = true
+    self.fuelUsageMultiplier = 1
 
     RACE_CONTROL = self 
     -- TODO: Make lap count based off of totalNodes too, not just crossing line 
