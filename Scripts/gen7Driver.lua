@@ -356,8 +356,13 @@ function Driver.server_init( self )
     self.fuelToAdd = 0
 
 
-    -- Tire degredation stats
+    --  degredation stat helpers
     self.lastTireHealth = 100
+    self.lastFuelLevel = 100
+
+    -- Realism Failure states:
+    self.tireLimp = false
+    self.fuelLimp = false
 
     -- errorTimeouts
     self.RCE_timeout = 0
@@ -6885,11 +6890,15 @@ function Driver.checkLapCross(self) -- also sets racePOS
             self.lastLap = lapTime
             local healthDif = self.lastTireHealth - self.Tire_Health
             self.lastTireHealth = self.Tire_Health
+
+            local fuelDif = self.lastFuelLevel - self.Fuel_Level
+            self.lastFuelLevel = self.Fuel_Level
+
             self:sv_sendCommand({car = self.id, type = "lap_cross", value = now}) -- maybe calculate dif between laps? keep running avg?
             if self.racePosition == 1 then print() end -- separator
             local output = string.format("%26.26s",self.tagText) .. ": " .. "Pos: " .. string.format("%2.2s",self.racePosition).. " Lap: " .. self.currentLap .. " Split: " .. string.format("%6.3f",split) ..
                           " Last: " .. string.format("%.3f",lapTime) .. " Best: " .. string.format("%.3f",self.bestLap ) .. " Average: " .. string.format("%.3f",self.lapAverage) .. 
-                          " | Tires: " .. string.format("%.2f",self.Tire_Health) .. " Tdif: " .. string.format("%.2f",healthDif)
+                          " | Tires: " .. string.format("%.2f",self.Tire_Health) .. " Fuel: " .. string.format("%.2f",self.Fuel_Level) .. " FDIF: " .. string.format("%.2f",fuelDif)
             --print(self.id,self.racePosition,self.handicap,lapTime,split)
             sm.log.info(output)
         end
@@ -7035,6 +7044,21 @@ function Driver.handleFuelUsage(self) -- decreases fuel ammount based on RPM and
     local decreaseRate = (self.engine.curRPM/100) + (self.speed * (ratioConversion(10,1,0.01,0.05,self.Spoiler_Angle)))
     self.Fuel_Level = self.Fuel_Level - decreaseRate
     print(self.tagText,self.engine.curRPM/100,self.speed/100,self.Fuel_Level)
+
+    if self.Fuel_Level < 0.5 then -- Go into limp mode
+        if self.fuelLimp == false then
+            print(self.tagText,"OUT OF FUEL")
+            self.fuelLimp = true
+        end
+        self.Fuel_Level = 0.1
+        self.speedControl = 12
+        self.set_trackPosBias(-self.setCurrentNode.width/2)
+    else
+        if self.fuelLimp == true then
+            self.fuelLimp = false
+        end
+    end
+        
 end
 
 
@@ -7051,8 +7075,18 @@ function Driver.handleTireDegradation(self) -- decreases tire health based on an
     --print(self.tagText,aggressionMultiplier)
     local decreaseRate = (self.speed * 1+aggressionMultiplier) * (self.angularVelocity:length() * 0.8+aggressionMultiplier) / (10000-tireDecay)
     self.Tire_Health = self.Tire_Health - decreaseRate
-    if self.Tire_Health <= 1 then
-        self.Tire_Health =  1 -- possibly have an oberload/blowout situation where they go limp mode
+    if self.Tire_Health < 1 then
+        if self.tireLimp == false then
+            print(self.tagText,"Tires DEAD")
+            self.tireLimp = true
+        end
+
+        self.Tire_Health =  0.5 -- possibly have an oberload/blowout situation where they go limp mode
+        self.speedControl = 15
+    else
+        if self.tireLimp == true then
+            self.tireLimp = false
+        end
     end
     -- also reduce top speed?
     --self:debugOutput(24,{self.tagText,decreaseRate,self.Tire_Health})
@@ -7769,6 +7803,7 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
     local rpmFormat = string.format("%.2f",self.engine.curRPM)
     local speedFormat = string.format("%.2f",self.speed)
     local thFormat = string.format("%.2f",self.Tire_Health)
+    local fuelFormat = string.format("%.2f",self.Fuel_Level)
     local rpos = string.format("%d",self.racePosition)
     local fpos = string.format("%d",self.formationPos)
     local cpos = string.format("%d",self.cautionPos)
@@ -7776,7 +7811,7 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
     local draftStatus = tostring(self.drafting) -- cl
     local mass = string.format("%d",self.mass) -- cl
     -- This is debug DEBUG text
-    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..rpos .. " #22e100"..thFormat)
+    self.idTag:setText( "Text", "#ff0000"..self.tagText .. " #00ff00"..speedFormat .. " #ffff00"..splitFormat .. " #faaf00"..fuelFormat .. " #22e100"..thFormat)
     -- THis is production text
     --self.idTag:setText( "Text"," #faaf00"..rpos)
 
