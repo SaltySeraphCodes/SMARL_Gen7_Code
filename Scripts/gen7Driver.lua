@@ -6084,8 +6084,11 @@ function Driver.getVmaxFromTireType(self,vmax)
     return vmax
 end
 
-function Driver.getVmaxFromFuelLevel(self,vmax)
-
+function Driver.getVmaxFromFuelLevel(self,vmax) 
+    -- Decreases vmax based on fuel level
+    local vmaxAdj = self.Fuel_Level/25 -- FUll fuel = decrease by 4
+    vmax = vmax - vmaxAdj
+    return vmax
 end
 
 function Driver.getVmaxFromTireTemp(self,vmax) -- Not used yet
@@ -6143,7 +6146,7 @@ function Driver.getVmax(self,node) -- Calculates max velocity based on given nod
 
     -- Tuning based adjustemnts get priority
     -- add (or reduce) vmax based on fuel load
-    vmax = vmax + 0 -- use self.Fuel_Level, vmax increases on  lower fuel
+    vmax = self:getVmaxFromFuelLevel(vmax)
 
     -- get vmax based on spoiler angle -- Fake downforce that reduces on straights
     vmax = self:getVmaxFromAero(vmax,angle)
@@ -7025,8 +7028,17 @@ function Driver.checkFormationPos(self)
 end
 
 
+function Driver.handleFuelUsage(self) -- decreases fuel ammount based on RPM and spoiler angle? some ratio since increased angle creates more drag, requires more usage with lower gears
+    if getRaceControl() and getRaceControl().fuelUsageOn == false then return end
+    local usageRate = getRaceControl().fuelUsageMultiplier
+    -- Steeper spoiler angle = increased drag = more fuel used
+    local decreaseRate = (self.engine.curRPM/100) + (self.speed * (ratioConversion(10,1,0.01,0.05,self.Spoiler_Angle)))
+    self.Fuel_Level = self.Fuel_Level - decreaseRate
+    print(self.tagText,self.engine.curRPM/100,self.speed/100,self.Fuel_Level)
+end
 
-function Driver.handleTireDegradation(self) -- decreases tire health based on
+
+function Driver.handleTireDegradation(self) -- decreases tire health based on angular velocity and spoiler angle
     if getRaceControl() and getRaceControl().tireDegradeOn == false then return end
     if self.Tire_Type then
     else
@@ -7049,8 +7061,9 @@ end
 
 function Driver.handleArtificialDownforce(self) -- does the handling for fake downforce (not aero angle)
     if self.speed > 2 and not self.noEngineError and not self.carData['Downforce'] then -- Standard downforce (Also specify for Stock cars only?)
-        local maxForce = (-1200 - (500/(10/self.Spoiler_Angle))) 
-        local minForce = -900
+        local maxForce = (-1100 - (500/(10/self.Spoiler_Angle) - (4*(100/self.Fuel_Level)))) 
+        local minForce = (-900 - (3*(100/self.Fuel_Level)))
+        
         local offset = 0.05 -- offset towards/from front to push down
         local bankAdjust = 0
         if self.goalNode and self.goalNode.bank ~= nil and math.abs(self.goalNode.bank) > 0 then
@@ -7062,6 +7075,7 @@ function Driver.handleArtificialDownforce(self) -- does the handling for fake do
         --local force = sm.vec3.new(0,0,1) * -(self.speed^1.7)  -- -- invert so slower has higher? TODO: Check for wedges/aero parts, tire warmth factor too
         local force = sm.vec3.new(0,0,1) * -speedAdj  -- -- invert so slower has higher? TODO: Check for wedges/aero parts, tire warmth factor too
         force.z = mathClamp(maxForce,minForce,force.z) - bankAdjust
+        print(self.tagText,self.Spoiler_Angle,self.Fuel_Level,minForce,maxForce,force.z)
         --print(self.speed,speedAdj,force.z)
        -- print("df:",force.z)
 
@@ -7204,6 +7218,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     end
 
     self:handleTireDegradation()
+    self:handleFuelUsage()
     self.speed = self.velocity:length()
     -- Camera Points for top speed??
 
