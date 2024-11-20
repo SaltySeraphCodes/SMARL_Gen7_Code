@@ -9,11 +9,11 @@ import datetime
 # RACE SPECIFIC DATA
 RaceTitle = "Race 4"
 RaceLocation = "Road Scrapton"
-RaceFormat = " " # TODO: Pull booliean from ['meta_data']['qualifying'] as ' Qualifying' or ''
+RaceFormat = " Qualifying" # TODO: Pull booliean from ['meta_data']['qualifying'] as ' Qualifying' or ''
 SeasonID = "2" # which season it is to pull sheet data from Make Dynamic?
-RaceID = "7" # Make Dynamic?
+RaceID = "8" # Make Dynamic?
 LeagueTitles = ["A League", "B League"] #TODO: maeke array that displays title based on it
-league_id = 1 # [1,2] TODO: remember this affects cars found --NOTICE if cars not showing up or being found
+league_id = 2 # [1,2] TODO: remember this affects cars found --NOTICE if cars not showing up or being found
 # Sheet name/title (when connected to gsheet)
 # Grab Racer Data from Racer Data SHeet
 _SpecificRaceData = {"title": RaceTitle, "location": RaceLocation, "format": RaceFormat, "season":SeasonID,"race":RaceID, "league_id":league_id,"leagueTitle":LeagueTitles[league_id-1]}

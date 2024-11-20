@@ -282,7 +282,7 @@ function Control.server_init(self)
 
 
     -------------------- QUALIFYING SETUP -----------------
-    self.qualifying = false -- whether we are qualifying or not -- dynamic
+    self.qualifying = true -- whether we are qualifying or not -- dynamic
     self.qualifyingFlight = 1 -- which flight to store data as
     self.totalFlights = 1 -- choose how many flights there are (can automate but eh)
     -----------------------------------------------------
@@ -324,6 +324,10 @@ function Control.server_init(self)
     self.handiCapMultiplier = 0.5 -- multiplies handicap by ammount
     self.maxHandiCap = 100 -- maximum slow down
     self.curHandiCap = 100
+
+    self.tireDegradeOn = false -- whether to degrade tires
+    self.tireDegradeMultiplier = 1 
+
     RACE_CONTROL = self 
     -- TODO: Make lap count based off of totalNodes too, not just crossing line 
     self.sortedDrivers = {} -- Sorted list by race position of drivers, necessary? for printing?
@@ -2898,11 +2902,14 @@ function Control.client_onTinker( self, character, state ) -- For manual exporti
             --self.network:sendToServer("sv_export_nodeChain")
             --self.BehaviorMenu:open()
             --self.network:sendToServer("sv_import_racer",racerID) -- TODO; go back to behavior menu when ready
-            local tester = {1}
+            local test_racers = {1,3}
             local a_league = {1 ,2 ,3 ,5 ,6 ,7 ,8 ,9 ,10,11,12,13,15,16,17,18}
             local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33,34} -- Room for 1 more
-            self.network:sendToServer("sv_import_racers",b_league)
-            --self.network:sendToServer("sv_add_racer_to_import_queue",3)
+            --self.network:sendToServer("sv_import_racers",b_league)
+            for i=0, #test_racers do 
+                local racerID = test_racers[i]
+                self.network:sendToServer("sv_add_racer_to_import_queue",racerID)
+            end
         end
 	end
 end

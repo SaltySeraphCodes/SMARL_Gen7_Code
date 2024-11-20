@@ -2,7 +2,7 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.2" --Error Checking recognition and recovery Overhaul  Placeholder for Car tuning and API calls
+SMAR_VERSION = "1.8.3" -- Added Tire degradation functionality and improved tuning
 -- planned 1.9.0 -- Full Release for Driver overhaul and barebones for Gen8
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)
@@ -189,17 +189,20 @@ TIRE_TYPES = {
     {
         TYPE = "soft",
         LIFE = 100,
-        GRIP = 50,
+        DECAY = 2000,
+        GRIP = 10
     },
     {
         TYPE = "medium",
         LIFE = 200,
-        GRIP = 35,
+        DECAY = 0,
+        GRIP = 5
     },
     {
         TYPE = "hard",
         LIFE = 300,
-        GRIP = 20,
+        DECAY = -2000,
+        GRIP = 1
     }
 }
 
@@ -1756,8 +1759,8 @@ function getVmax2(angle,minSpeed,maxSpeed) -- uses a ratio to determine speed fr
     if angle < 0.23 then 
         speed = maxSpeed + 10 -- returns full speeds on straights~ give leeway for drafting
     end
-    speed =  logarithmic_linear_decrease(angle,2.4,87,minSpeed)
-    local speedBoost = maxSpeed/100
+    speed =  logarithmic_linear_decrease(angle,2.4,100,minSpeed)
+    local speedBoost = maxSpeed/75
     speed = speed + speedBoost
 
     speed = mathClamp(minSpeed,maxSpeed+ 10,speed)
