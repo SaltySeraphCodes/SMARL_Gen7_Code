@@ -292,7 +292,7 @@ function Engine.calculateRPM(self) -- TODO: Introduce power reduction as vrpm re
     elseif self.driver.behaviorSwitch == 1 then
         handiTS = -((self.driver.handicap or 1)*(self.engineStats.MAX_SPEED/50 or 1) )/10
     end
-    --print(self.driver.id,handiTS)
+    --print(self.driver.tagText,handiTS)
 
     --print(self.curRPM,rpmIncrement)
     local nextRPM = self.curRPM + rpmIncrement

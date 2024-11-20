@@ -635,7 +635,7 @@ function Control.sv_import_racers(self,racer_list) -- imports racers based of me
     local carPadding = 3 -- How many nodes of padding to buffer cars out
     local frontNodeID = (#racer_list * carPadding) + carPadding
     local world = sm.world.getCurrentWorld()
-    print("spawning",frontNodeID,racer_list)
+    print("spawning",racer_list)
     for k=1, #racer_list  do local r = racer_list[k]
         if self.nodeChain then
             local targetNodeID = frontNodeID - (k*carPadding)
@@ -828,6 +828,9 @@ function Control.sv_setHandicaps2(self) -- just based on position
     local firstNode = 0
     
     for k=1, #allDrivers do local driver=allDrivers[k] --- find first 
+        if driver == nil then
+            return 
+        end
         if driver.racePosition == 1  then
             firstNode = driver.totalNodes
         end
@@ -836,7 +839,7 @@ function Control.sv_setHandicaps2(self) -- just based on position
     local numInFight = 0
     for k=1, #allDrivers do local driver=allDrivers[k]
         if driver == nil then return end
-        if self.raceStatus > 1 then -- just shortcut this if caution or formation
+        if self.raceStatus > 1 or driver.raceFinished then -- just shortcut this if caution or formation
             driver.handicap = 0
         else
             local nodeDif = (firstNode - driver.totalNodes) * 1.2
@@ -854,7 +857,6 @@ function Control.sv_setHandicaps2(self) -- just based on position
             end
             if handicap == nil then handicap = 1 end
             driver.handicap = handicap * self.handiCapMultiplier
-            --print(driver.racePosition,nodeDif,driver.handicap)
         end
     end
     -- maxHandiCap gets adjusted by the number of cars close
@@ -1029,8 +1031,13 @@ function Control.sv_changeHandiCap(self,ammount) -- changes the game time by amm
     if self.handiCapMultiplier <= 0.05 and ammount <0 then
         print("disabled handicap")
         self.handiCapMultiplier = 0
+        self.handiCapEnabled = false
     else
         self.handiCapMultiplier = self.handiCapMultiplier + ammount
+        if self.handiCapEnabled == false then
+            print("handicap enabled")
+            self.handiCapEnabled = true
+        end
     end
     --print("change handimul",self.handiCapMultiplier)
     self.network:setClientData(self.handiCapMultiplier)
@@ -1894,8 +1901,11 @@ function Control.sv_exportRealTime(self) -- Returns all data necessary for realt
 		if v ~= nil then
             local noCardata = false
             local noMeta = false
-            if v.carData == nil then noCardata = true end
-            if v.carData['metaData'] == nil then noMeta = true end
+            if v.carData == nil then 
+                noCardata = true
+            else
+                if v.carData['metaData'] == nil then noMeta = true end
+            end
             v:determineRacePosBySplit()
             local time_split = string.format("%.3f",v.raceSplit)
             local isFocused = string.format("%s",v.isFocused)
@@ -2697,8 +2707,9 @@ function Control.updateCameraPos(self,goal,dt)
         if firstCar then
             local totalNodes = #firstCar.nodeChain
             --print(totalNodes - firstCar.currentNode.id)
-            if totalNodes - firstCar.currentNode.id < 20 and totalNodes - firstCar.currentNode.id >= 1 then
+            if totalNodes - firstCar.currentNode.id < 15 and totalNodes - firstCar.currentNode.id >= 1 then
                 self.finishCameraActive = true
+                -- switch to finish cam
             end
         end
     end
@@ -2888,10 +2899,10 @@ function Control.client_onTinker( self, character, state ) -- For manual exporti
             --self.BehaviorMenu:open()
             --self.network:sendToServer("sv_import_racer",racerID) -- TODO; go back to behavior menu when ready
             local tester = {1}
-            local a_league = {1,2,3,5,6,7,8,9,10,11,12,13,15,16,17,18}
-            local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33}
-            --self.network:sendToServer("sv_import_racers",a_league)
-            self.network:sendToServer("sv_add_racer_to_import_queue",1)
+            local a_league = {1 ,2 ,3 ,5 ,6 ,7 ,8 ,9 ,10,11,12,13,15,16,17,18}
+            local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33,34} -- Room for 1 more
+            self.network:sendToServer("sv_import_racers",b_league)
+            --self.network:sendToServer("sv_add_racer_to_import_queue",3)
         end
 	end
 end
