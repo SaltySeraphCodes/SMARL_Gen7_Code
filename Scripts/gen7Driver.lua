@@ -349,11 +349,15 @@ function Driver.server_init( self )
     self.Spoiler_Angle = 5 -- 0 = no angle, 10 = full angle
     
     -- Pit states
+    self.inPitLane = false
     self.isPitting = false
     self.plannedPitLap = 5
     self.nextTire = 0
     self.fuelToAdd = 0
 
+
+    -- Tire degredation stats
+    self.lastTireHealth = 100
 
     -- errorTimeouts
     self.RCE_timeout = 0
@@ -1331,8 +1335,10 @@ function Driver.checkUndersteer(self) -- check if car is sliding based off of ro
 end
 
 function Driver.checkStuck(self) -- checks if car velocity is not matching car rpm
+
     if self.goalNode == nil then return end-- print?
     if self.engine == nil then return end
+    if self.racing == false then return end
     if self.stuckCooldown[1] == true then -- cooldown actvie
         if self.stuckCooldown[2] == nil then -- check if location  is set
             if self.location == nil then -- both are nil
@@ -1341,17 +1347,21 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
                 return
             else -- location exists
                 self.stuckCooldown[1] = false
-                --print(self.tagText,"stuck[12] false")
+                --print(self.tagText,"stuck[1] false")
                 return
             end
         else -- location node exista
             local dist = getDistance(self.stuckCooldown[2],self.location)
             if dist < 0.3 and self.speed < 0.5 then -- if car is still within small dist
-                --print(self.tagText,"stuck?",dist)
+                print(self.tagText,"stuck?",dist,self.engine.curRPM)
+                if self.engine.curRPM > 10 and self.speed < 1 then
+                    print("wall Stuck, reset")
+                    self.stuckCooldown[1] = false
+                end
                 return 
             else
                 self.stuckCooldown[1] = false
-                --print(self.tagText,"stuckfalse")
+                print(self.tagText,"stuckfalse")
                 return
             end
         end
@@ -1365,7 +1375,7 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
     --print(self.speed,toVelocity(self.engine.curRPM),self.curGear, offset) -- Get distance away from node? track Dif?
     --print("stuck?",offset,self.goalDirectionOffset)
     if math.abs(offset) >= 30 or math.abs(self.goalDirectionOffset) > math.pi then -- if positional angle
-        --print("Stuck?",offset,self.goalDirectionOffset,self.speed)
+       -- print("Stuck?",offset,self.goalDirectionOffset,self.speed)
         if self.speed <= 4 and not self.userControl then
             --print(self.tagText,"offset stuck",offset,self.speed,self.goalDirectionOffset)
             self.stuck = true
@@ -1374,7 +1384,7 @@ function Driver.checkStuck(self) -- checks if car velocity is not matching car r
         
     end
     if  toVelocity(self.engine.curRPM) - self.speed > 2.5 then -- if attempted speed and current speed > 2
-        --print(self.tagText,self.speed)
+        print(self.tagText,self.speed)
         if self.speed <= 4  and not self.userControl then
             --print(self.tagText,"slow stuck",self.speed,self.engine.curRPM,toVelocity(self.engine.curRPM))
             self.stuck = true
@@ -3781,7 +3791,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
     else-- If car is somewhat further away Keep eye on car, check speed dif c
         if speedDif > 2 and collisionDist > 0 then --If approaching car rather quickly
             local passDirection = self:calculateClosestPassPoint(opponent)
-            if self.raceStatus == 1 then
+            if self.racing then
                 if passDirection ~= 0 then -- This is an emergency pass, execute if possible
                     self.passCommit = passDirection
                     self.passGoalOffsetStrength = self:calculatePassOffset(oppData,passDirection)
@@ -3879,7 +3889,7 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
     if rearCol then
         if (rightCol and rightCol <0.5) or (leftCol and leftCol > -0.5) then
             if rearCol > -0.5 then
-                if self.strategicThrottle < 1 and not self.raceFinished and self.raceStatus == 1 then
+                if self.strategicThrottle < 1 and not self.raceFinished and self.racing then
                     --print(self.tagText,"car behind Ram prevention",rearCol)
                     self.strategicThrottle = 1
                 end
@@ -4943,7 +4953,7 @@ function Driver.updateErrorLayer_Depreciating(self) -- Updates throttle/steering
 
 
     -- check stuck
-    if self.stuck and self.raceStatus ~= 0 then
+    if self.stuck and self.racing then
         --print(self.tagText,"stuck")
         local offset = posAngleDif3(self.location,self.shape.at,self.goalNode.location) -- TODO: replace with goaldiroffset
         local frontDir = self.shape.at
@@ -5586,7 +5596,7 @@ function Driver.handleNudge(self)
 end
 
 function Driver.handleStuck(self) -- how the driver handles being stuck
-    if self.stuck and self.raceStatus ~= 0 then
+    if self.stuck and self.racing then
         --print(self.tagText,"stuck")
         if math.abs(self.shape.at.z) > 0.3 then
             --print(self.tagText,"handle stuck stuck tilted??",self.shape.at.z)
@@ -5594,11 +5604,11 @@ function Driver.handleStuck(self) -- how the driver handles being stuck
         end
         if self.rejoining then -- Car is cleared to rejoin
             if self.curGear == -1 then -- If reversing
-                --print(self.tagText,"handlerevre")
+                print(self.tagText,"handlerevre")
                self:handleRejoinReverse()
 
             elseif self.curGear > 0 then -- If moving forward during rejoin
-                --print(self.tagText,"rejoin forward")
+                print(self.tagText,"rejoin forward")
                 self:handleRejoinForward()
             else -- something wong
                print(self.tagText,"SOmething wrong",self.curGear)
@@ -5612,7 +5622,7 @@ function Driver.handleStuck(self) -- how the driver handles being stuck
             end
            
         else -- start rejoin process by backing up
-            --print(self.tagText,"rejoin init")
+            print(self.tagText,"rejoin init")
             self:handleRejoinInitiation()
         end
     
@@ -5985,17 +5995,17 @@ function Driver.getVmaxFromRacingLine(self,vmax,firstNode,lastNode)
     if turnType == getSign(distFromLine) then  -- cars away from line brake more
         if math.abs(distFromLine) > slowThreshold then
             --print(self.tagText,"on inside",distFromLine)
-            reduction2 = reduction2 * 1.2
+            reduction2 = reduction2 * 1.3
         end
     else
         if math.abs(distFromLine) > slowThreshold then -- Can move this checker outside? of if?
             --print(self.tagText,"on outside",distFromLine)
-            reduction2 = reduction2 * 1.2
+            reduction2 = reduction2 * 1.3
         end
     end
 
     if self.offline then -- car offline
-        vmax = vmax - 1
+        vmax = vmax - 2
     end
     --print(distFromLine,turnType,reduction2)
     vmax = vmax - reduction2
@@ -6023,7 +6033,7 @@ function Driver.getVmaxFromTrackWidth(self,vmax,node)
     if width > normalizer then 
         width = normalizer
     end
-    local normWidth = width/23  -- 25 is typical track width
+    local normWidth = width/24  -- 25 is typical track width
     
     local newVmax = vmax * normWidth
     vmax = mathClamp(10 + self.Spoiler_Angle,vmax + self.Spoiler_Angle,newVmax) -- clamp it so it doesnt increase speed on wide tracks?
@@ -6059,8 +6069,8 @@ function Driver.getVmaxFromPassing(self,vmax)
 end
 
 function Driver.getVmaxFromTireHealth(self,vmax)
-    local totalDif = 6
-    local vmaxAdj = totalDif - (totalDif/self.Tire_Health)
+    local totalDif = 15
+    local vmaxAdj = totalDif - (totalDif *(self.Tire_Health/100))
     vmax = vmax - vmaxAdj
     return vmax
 end
@@ -6869,11 +6879,13 @@ function Driver.checkLapCross(self) -- also sets racePOS
             end
             
             self.lastLap = lapTime
-
+            local healthDif = self.lastTireHealth - self.Tire_Health
+            self.lastTireHealth = self.Tire_Health
             self:sv_sendCommand({car = self.id, type = "lap_cross", value = now}) -- maybe calculate dif between laps? keep running avg?
             if self.racePosition == 1 then print() end -- separator
             local output = string.format("%26.26s",self.tagText) .. ": " .. "Pos: " .. string.format("%2.2s",self.racePosition).. " Lap: " .. self.currentLap .. " Split: " .. string.format("%6.3f",split) ..
-                          " Last: " .. string.format("%.3f",lapTime) .. " Best: " .. string.format("%.3f",self.bestLap ) .. " Average: " .. string.format("%.3f",self.lapAverage)
+                          " Last: " .. string.format("%.3f",lapTime) .. " Best: " .. string.format("%.3f",self.bestLap ) .. " Average: " .. string.format("%.3f",self.lapAverage) .. 
+                          " | Tires: " .. string.format("%.2f",self.Tire_Health) .. " Tdif: " .. string.format("%.2f",healthDif)
             --print(self.id,self.racePosition,self.handicap,lapTime,split)
             sm.log.info(output)
         end
@@ -7020,7 +7032,7 @@ function Driver.handleTireDegradation(self) -- decreases tire health based on
         return 
     end
     local tireDecay = TIRE_TYPES[self.Tire_Type].DECAY * getRaceControl().tireDegradeMultiplier
-    local decreaseRate = self.speed*self.angularVelocity:length()/(10000-tireDecay)
+    local decreaseRate = (self.speed*2.5) * (self.angularVelocity:length() * 0.50) / (10000-tireDecay)
     self.Tire_Health = self.Tire_Health - decreaseRate
     if self.Tire_Health <= 1 then
         self.Tire_Health =  1 -- possibly have an oberload/blowout situation where they go limp mode
@@ -7733,7 +7745,7 @@ function Driver.updateVisuals(self) -- TODO: Un comment this when ready
         self.rearEffect.pos = center -  self.shape.at*self.carDimensions['rear']:length()
     end
     local splitFormat = string.format("%.3f",self.raceSplit)
-    local handicapFormat = string.format("%.3f",self.handicap)
+    local handicapFormat = string.format("%.3f",(self.handicap or 0))
     local rpmFormat = string.format("%.2f",self.engine.curRPM)
     local speedFormat = string.format("%.2f",self.speed)
     local thFormat = string.format("%.2f",self.Tire_Health)

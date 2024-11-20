@@ -325,7 +325,7 @@ function Control.server_init(self)
     self.maxHandiCap = 100 -- maximum slow down
     self.curHandiCap = 100
 
-    self.tireDegradeOn = false -- whether to degrade tires
+    self.tireDegradeOn = true -- whether to degrade tires
     self.tireDegradeMultiplier = 1 
 
     RACE_CONTROL = self 
@@ -491,14 +491,21 @@ function Control.checkForClearTrack(self,nodeID) -- Checks for any cars within 5
     local maxNode = getNextItem(self.nodeChain,nodeID,5)
     --print("MinNode",minNode.id)
     for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
-        if v.id ~= self.id then 
-            --print("scanning",v.id,v.stuck,v.rejoining,v.currentNode.id)
-            if not (v.stuck or v.rejoining) then -- If its not stuck
-                if v.currentNode ~= nil and v.speed > 0 then 
+        if not (v.stuck or v.rejoining) then -- If its not stuck
+            --print('checking',v.speed,v.currentNode ~= nil)
+            if v.currentNode ~= nil and v.speed > 0 then 
+                local node = v.currentNode.id
+                local nodeDist = getNodeDistBackward(#self.nodeChain,maxNode.id,node)
+                if nodeDist < 35 then
+                    --print("not clear")
+                    clearFlag = false
+                end
+            else -- if ~= nil
+                if v.currentNode ~= nil and self.raceStatus == 0 then -- if all cars are stopped, dont spawn on top
                     local node = v.currentNode.id
                     local nodeDist = getNodeDistBackward(#self.nodeChain,maxNode.id,node)
-                    if nodeDist < 35 then
-                        --print("not clear")
+                    --print('checking2',nodeDist,self.raceStatus)
+                    if nodeDist < 8 then
                         clearFlag = false
                     end
                 end
@@ -603,7 +610,7 @@ function Control.sv_import_racer(self,racer_id) -- uses reacer META ID
     -- Set location to first point after finish line
     local spawnLocation = sm.vec3.new(0,0,10)
     local spawnRotation = nil
-    local spawnNodeID = 8
+    local spawnNodeID = 5
     if self.nodeChain then
         local targetNode = self.nodeChain[spawnNodeID]
         if targetNode then
@@ -613,7 +620,10 @@ function Control.sv_import_racer(self,racer_id) -- uses reacer META ID
             if isClear == false then
                 --print("waiting for clear track before spawn")
                 return false
+            else
+                --print('Cledared for spawm',isClear)
             end
+
             spawnRotation = sm.vec3.getRotation(sm.vec3.new(-1,0,0),sm.vec3.new(targetNode.outVector.x,targetNode.outVector.y,0))
             --sm.quat.fromEuler(targetNode.outVector:rotateX(90))
         end
