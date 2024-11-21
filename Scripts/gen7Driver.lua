@@ -83,9 +83,9 @@ end
 function Driver.sv_add_metaData(self,metaData) -- Adds car specific metadata to self
     if metaData == nil then
         metaData = {   
-            ['ID'] = 34,
-            ['Car_Name'] = "skedaddle",
-            ['Car_Type'] = "Stock",
+            ['ID'] = 35,
+            ['Car_Name'] = "PX Conclude",
+            ['Car_Type'] = "Custom",
             ['Body_Style'] = "Zora",
             }
     end
@@ -7039,11 +7039,17 @@ end
 
 function Driver.handleFuelUsage(self) -- decreases fuel ammount based on RPM and spoiler angle? some ratio since increased angle creates more drag, requires more usage with lower gears
     if getRaceControl() and getRaceControl().fuelUsageOn == false then return end
+    if self.engine == nil then return end
     local usageRate = getRaceControl().fuelUsageMultiplier
     -- Steeper spoiler angle = increased drag = more fuel used
-    local decreaseRate = (self.engine.curRPM/100000) + (self.speed * (ratioConversion(10,1,0.00002,0.000025,self.Spoiler_Angle))) * usageRate
+    local dragCoeficient = 30 -- speed at which drag starts
+    local dragMultiplier = 1
+    if self.speed > dragCoeficient then 
+        dragMultiplier = 1 + (self.speed - dragCoeficient)/1000
+    end
+    local decreaseRate = (self.engine.curRPM/90000) + (self.speed * (ratioConversion(10,1,0.000001,0.0000014,self.Spoiler_Angle)* dragMultiplier)) * usageRate
     self.Fuel_Level = self.Fuel_Level - (decreaseRate * usageRate)
-    --print(self.tagText,self.engine.curRPM/100,self.speed/100,self.Fuel_Level)
+    --print(self.tagText,self.engine.curRPM,self.speed,dragMultiplier,decreaseRate)
 
     if self.Fuel_Level < 0.5 then -- Go into limp mode
         if self.fuelLimp == false then
@@ -7069,11 +7075,11 @@ function Driver.handleTireDegradation(self) -- decreases tire health based on an
         return 
     end
     local tireDecay = TIRE_TYPES[self.Tire_Type].DECAY * getRaceControl().tireDegradeMultiplier
-    local aggressionMultiplier = ratioConversion(10,1,0.1,0.21,self.Spoiler_Angle)
+    local aggressionMultiplier = ratioConversion(10,1,0.1,0.13,self.Spoiler_Angle)
     --print(self.tagText,aggressionMultiplier)
     --aggressionMultiplier = mathClamp(0.1,0.1,aggressionMultiplier)
     --print(self.tagText,aggressionMultiplier)
-    local decreaseRate = (self.speed * 0.9+aggressionMultiplier) * (self.angularVelocity:length() * 1.1+aggressionMultiplier) / (10000-tireDecay)
+    local decreaseRate = (self.speed * 1) * (self.angularVelocity:length() * 1+aggressionMultiplier) / (10000-tireDecay)
     self.Tire_Health = self.Tire_Health - decreaseRate
     if self.Tire_Health < 1 then
         if self.tireLimp == false then
@@ -7082,7 +7088,6 @@ function Driver.handleTireDegradation(self) -- decreases tire health based on an
         end
 
         self.Tire_Health =  0.5 -- possibly have an oberload/blowout situation where they go limp mode
-        self.speedControl = 15
     else
         if self.tireLimp == true then
             self.tireLimp = false
@@ -7343,7 +7348,7 @@ function Driver.updateStrategicLayer(self) -- Runs the strategic layer  overhead
         --self.speedControl = 0
         -- Passing off speedcontrol to strategic steering FCY and formation module
     else
-        if self.tireLimp or self.fuelLimp then 
+        if (self.tireLimp or self.fuelLimp) and not self.raceFinished then 
             self.speedControl = 15
         else
             self.speedControl = 0

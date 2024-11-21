@@ -2,7 +2,7 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.3" -- Added Tire degradation functionality and improved tuning
+SMAR_VERSION = "1.8.35" -- Added Fuel Usage and fixed bugs
 -- planned 1.9.0 -- Full Release for Driver overhaul and barebones for Gen8
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)

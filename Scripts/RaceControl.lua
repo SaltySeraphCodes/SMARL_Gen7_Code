@@ -2917,7 +2917,7 @@ function Control.client_onTinker( self, character, state ) -- For manual exporti
             --self.network:sendToServer("sv_import_racer",racerID) -- TODO; go back to behavior menu when ready
             local test_racers = {1,3}
             local a_league = {1 ,2 ,3 ,5 ,6 ,7 ,8 ,9 ,10,11,12,13,15,16,17,18}
-            local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33,34} -- Room for 1 more
+            local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33,34,35}
             --self.network:sendToServer("sv_import_racers",b_league)
             for i=0, #test_racers do 
                 local racerID = test_racers[i]
