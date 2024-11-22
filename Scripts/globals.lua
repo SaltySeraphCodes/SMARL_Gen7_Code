@@ -2,7 +2,7 @@ dofile "util.lua"
 
 -- List of globals to be listed and changed here, along with helper functions
 CLOCK = os.clock
-SMAR_VERSION = "1.8.35" -- Added Fuel Usage and fixed bugs
+SMAR_VERSION = "1.8.36" -- Tuned Fuel and tire wear
 -- planned 1.9.0 -- Full Release for Driver overhaul and barebones for Gen8
 
 MAX_SPEED = 10000 -- Maximum engine output any car can have ( to prevent craziness that occurs when too fast)

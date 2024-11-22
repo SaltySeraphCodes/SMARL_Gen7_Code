@@ -6888,7 +6888,7 @@ function Driver.checkLapCross(self) -- also sets racePOS
             end
             
             self.lastLap = lapTime
-            local healthDif = self.lastTireHealth - self.Tire_Health
+            local tireDif = self.lastTireHealth - self.Tire_Health
             self.lastTireHealth = self.Tire_Health
 
             local fuelDif = self.lastFuelLevel - self.Fuel_Level
@@ -6898,7 +6898,7 @@ function Driver.checkLapCross(self) -- also sets racePOS
             if self.racePosition == 1 then print() end -- separator
             local output = string.format("%26.26s",self.tagText) .. ": " .. "Pos: " .. string.format("%2.2s",self.racePosition).. " Lap: " .. self.currentLap .. " Split: " .. string.format("%6.3f",split) ..
                           " Last: " .. string.format("%.3f",lapTime) .. " Best: " .. string.format("%.3f",self.bestLap ) .. " Average: " .. string.format("%.3f",self.lapAverage) .. 
-                          " | Tires: " .. string.format("%.2f",self.Tire_Health) .. " Fuel: " .. string.format("%.2f",self.Fuel_Level) .. " FDIF: " .. string.format("%.2f",fuelDif)
+                          " | Tires: " .. string.format("%.2f",self.Tire_Health) .. " TDIF: " .. string.format("%.2f",tireDif) .. " Fuel: " .. string.format("%.2f",self.Fuel_Level) .. " FDIF: " .. string.format("%.2f",fuelDif)
             --print(self.id,self.racePosition,self.handicap,lapTime,split)
             sm.log.info(output)
         end
@@ -7042,12 +7042,12 @@ function Driver.handleFuelUsage(self) -- decreases fuel ammount based on RPM and
     if self.engine == nil then return end
     local usageRate = getRaceControl().fuelUsageMultiplier
     -- Steeper spoiler angle = increased drag = more fuel used
-    local dragCoeficient = 30 -- speed at which drag starts
+    local dragCoeficient = 31 -- speed at which drag starts
     local dragMultiplier = 1
     if self.speed > dragCoeficient then 
         dragMultiplier = 1 + (self.speed - dragCoeficient)/1000
     end
-    local decreaseRate = (self.engine.curRPM/90000) + (self.speed * (ratioConversion(10,1,0.000001,0.0000014,self.Spoiler_Angle)* dragMultiplier)) * usageRate
+    local decreaseRate = (self.engine.curRPM/90000) + (self.speed * (ratioConversion(10,1,0.000001,0.0000013,self.Spoiler_Angle)* dragMultiplier)) * usageRate
     self.Fuel_Level = self.Fuel_Level - (decreaseRate * usageRate)
     --print(self.tagText,self.engine.curRPM,self.speed,dragMultiplier,decreaseRate)
 
