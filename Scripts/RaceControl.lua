@@ -130,7 +130,7 @@ function Control.client_init( self )
     self.targetLaps = 10
     self.handiCapMultiplier = 0.5
     self.handiCapEnabled = true
-    self.draftStrength = 3 -- how strong the draft can be
+    self.draftStrength = 2 -- how strong the draft can be
     self.draftingEnabled = true 
 
     self.raceStatus = 0
@@ -279,6 +279,11 @@ function Control.server_init(self)
     -- Car Importing behavior
     self.racerImportQue = {}
 
+    ------------------ SESSION SETUP ---------------------
+    self.sessionType = 3 -- Defaults to race mode
+    self.sessionStatus = 1 -- Defaults to open
+    self.sessionTotalLaps = 1000 -- how many laps to set the "race" to
+    self.sessionMaxLaps = 10 -- How many laps racers can run before getting booted (on full session queue)
 
 
     -------------------- QUALIFYING SETUP -----------------
@@ -317,7 +322,7 @@ function Control.server_init(self)
 
     self.timeSplitArray = {} -- each node makes rough split
 
-    self.draftStrength = 3 -- TODO: implement
+    self.draftStrength = 2
     self.handiCapOn = false
     self.handiCapThreshold = 15 -- how far away before handicap starts
     self.handiCapStrength = 100
@@ -326,9 +331,10 @@ function Control.server_init(self)
     self.curHandiCap = 100
 
     -- Realism settings
-    self.tireDegradeOn = true -- whether to degrade tires
-    self.tireDegradeMultiplier = 1 
-    self.fuelUsageOn = true
+    self.useTune = true -- whether to use tuning data or not?
+    self.tireWearEnabled = true -- whether to degrade tires
+    self.tireWearMultiplier = 1 
+    self.fuelUsageEnabled = true -- whether to use fuel
     self.fuelUsageMultiplier = 1
 
     RACE_CONTROL = self 
@@ -804,6 +810,88 @@ function  Control.sv_recieveCommand( self,command ) -- recieves command/data fro
 
 end
 
+-- API And other editing functions and wrappers (these are a bit redundent)
+
+-- Edit session type to either practice, qualifying, or race modes (each have set presets)
+function Control.sv_edit_session(self,sessionType)
+    if sessionType == 1 then -- Practice mode
+        self.sessionType = sessionType
+        self.handiCapEnabled = false
+        self.draftingEnabled = false
+        self.sessionMaxLaps = 10
+        self.targetLaps = self.sessionTotalLaps
+        -- continue to use fuel and tire wear? set separately
+    elseif sessionType == 2 then -- Qualifying mode
+        self.sessionType = sessionType
+        self.handiCapEnabled = false
+        self.draftingEnabled = false
+        self.sessionMaxLaps = 3
+        self.targetLaps = self.sessionTotalLaps
+    elseif sessionType == 3 then -- Race mode
+        self.sessionType = sessionType
+        self.handiCapEnabled = true
+        self.draftingEnabled = true
+        self.sessionMaxLaps = 10
+        self.targetLaps = 10
+    end
+end
+
+function Control.sv_set_session(self,sessionStatus) -- Open or close session
+    self.sessionStatus = sessionStatus
+end
+
+function Control.sv_set_race(self,status) -- set race status (stoped starte caution etc.)
+    self:sv_toggleRaceMode(status)
+end
+
+function Control.sv_reset_driver(self) -- reset driver car on lift
+
+end
+
+function Control.sv_set_session_laps(self,lapCount) -- Sets number of max laps in session
+    self.sessionMaxLaps = lapCount
+end
+
+function Control.sv_set_race_laps(self,lapCount) -- Sets total laps (target laps) in race
+    self.tagetLaps = lapCount
+end
+
+function Control.sv_edit_race_draft(self,draftStrength)
+    self:sv_editDraft(draftStrength)
+end
+
+function Control.sv_edit_race_handicap(self,handiCapMultiplier)
+    self:sv_editHandicap(handiCapMultiplier)
+end
+
+function Control.sv_set_tire_wear(self,enabled)
+    if enabled == 1 then
+        self.tireDegradeEnabled = true
+    else
+        self.tireDegradeEnabled = false
+    end
+end
+
+function Control.sv_set_fuel_usage(self,enabled)
+    if enabled == 1 then
+        self.fuelUsageEnabled = true
+    else
+        self.fuelUsageEnabled = false
+    end
+end
+
+function Control.sv_edit_tire_wear(self,tireWearMultiplier)
+    self:sv_editTireWear(tireWearMultiplier)
+end
+
+function Control.sv_edit_fuel_usage(self,fuelUsageMultiplier)
+    self:sv_editFuelUse(fuelUsageMultiplier)
+end
+
+function Control.sv_reset_race(self)
+    self:sv_resetRace()
+end
+
 function Control.sv_checkReset(self) -- checks if the car can reset
     --print("can reset car?",self.resetCarTimer:done(),self.resetCarTimer:remaining())
     return self.resetCarTimer:done()
@@ -943,7 +1031,6 @@ function Control.sv_startFormation(self) -- race status 3
     self.raceStatus = 3
     self:sv_sendCommand({car = {-1},type = "raceStatus", value = 3 })
     --self:sv_sendCameraCommand({command ="setRaceMode", value = 3 }) TODO: uncomment when white box added
-
 end
 
 
@@ -958,7 +1045,6 @@ function Control.setCautionPositions(self) -- sv sets all driver caution positio
     for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
         local curPos = self.cautionPos
         v.cautionPos = v.racePosition
-        
     end
 end
 
@@ -1033,6 +1119,12 @@ function Control.cl_ChangeDraft(self,mode) -- adjusts metaData to switch game mo
     end
 end
 
+
+function Control.sv_editLapCount(self,ammount) -- directly sets ammount (using math lol)
+    local changeAmmount = ammount - self.targetLaps
+    self:sv_changeLapCount(changeAmmount)
+end
+
 function Control.sv_changeLapCount(self,ammount) -- changes the game time by ammount
     if ammount == nil then return end
     self.targetLaps = self.targetLaps + ammount
@@ -1040,6 +1132,12 @@ function Control.sv_changeLapCount(self,ammount) -- changes the game time by amm
         self.targetLaps = 1
     end
     self.network:setClientData(self.targetLaps) -- send tagetLaps to clients
+end
+
+
+function Control.sv_editHandiCap(self,ammount) -- directly sets ammount (using math lol)
+    local changeAmmount = ammount - self.handiCapMultiplier
+    self:sv_changeHandiCap(changeAmmount)
 end
 
 function Control.sv_changeHandiCap(self,ammount) -- changes the game time by ammount
@@ -1060,6 +1158,58 @@ function Control.sv_changeHandiCap(self,ammount) -- changes the game time by amm
     self.network:setClientData(self.handiCapMultiplier)
 end
 
+
+function Control.sv_editTireWear(self,ammount) -- directly sets ammount (using math lol)
+    local changeAmmount = ammount - self.tireWearMultiplier
+    self:sv_changeTireWear(changeAmmount)
+end
+
+function Control.sv_changeTireWear(self,ammount) 
+    if ammount == nil then return end
+    
+    if self.tireWearMultiplier <= 0.05 and ammount <0 then
+        print("disabled Tire Wear")
+        self.tireWearMultiplier = 0
+        self.tireWearEnabled = false
+    else
+        self.tireWearMultiplier = self.tireWearMultiplier + ammount
+        if self.tireWearEnabled == false then
+            print("Tire Wear enabled")
+            self.tireWearEnabled = true
+        end
+    end
+    self.network:setClientData(self.tireWearMultiplier)
+end
+
+
+function Control.sv_editFuelUsage(self,ammount) -- directly sets ammount
+    local changeAmmount = ammount - self.fuelUsageMultiplier
+    self:sv_changeFuelUsage(changeAmmount)
+end
+
+function Control.sv_changeFuelUsage(self,ammount) 
+    if ammount == nil then return end
+    
+    if self.fuelUsageMultiplier <= 0.05 and ammount <0 then
+        print("disabled handicap")
+        self.fuelUsageMultiplier = 0
+        self.fuelUsageMultiplier = false
+    else
+        self.fuelUsageMultiplier = self.fuelUsageMultiplier + ammount
+        if self.fuelUsageMultiplier == false then
+            print("handicap enabled")
+            self.fuelUsageEnabled = true
+        end
+    end
+    --print("change handimul",self.handiCapMultiplier)
+    self.network:setClientData(self.fuelUsageMultiplier)
+end
+
+
+function Control.sv_editDraft(self,ammount) -- directly sets ammount (using math lol)
+    local changeAmmount = ammount - self.draftStrength
+    self:sv_changeDraft(changeAmmount)
+end
 
 function Control.sv_changeDraft(self,ammount) -- changes the game time by ammount
     if ammount == nil then return end
@@ -2052,7 +2202,6 @@ function Control.sv_ReadDeck(self) -- Reads commands (keyboard input) from strea
                     print('a2',self.autoCameraSwitch)
                     self:sv_performAutoSwitch()
                 end
-
             elseif instruction == "delRM" then -- delete racer by meta ID
                 self:sv_delete_racer(tonumber(instructions['value']))
             elseif instruction == "delID" then -- delete racer by body ID
@@ -2060,7 +2209,6 @@ function Control.sv_ReadDeck(self) -- Reads commands (keyboard input) from strea
             elseif instruction == "delALL" then -- deletes all raceers (both meta and non)
                 self:sv_delete_all_racers()
             end
-
             return
         else
             print("camera Instructions are nil??")
@@ -2089,15 +2237,34 @@ function Control.sv_execute_instruction(self,instruction)
         self:sv_import_league(tonumber(value))
     elseif cmd == "impCAR" then -- import racer (by metaID)
         self:sv_add_racer_to_import_queue(tonumber(value))
-    elseif cmd == "edtSES" then -- Eddit session to (Session type)
+    elseif cmd == "edtSES" then -- Edit session type (practice, Qualifying, Race, (Test?))
         self:sv_edit_session(tonumber(value))
     elseif cmd == "setSES" then -- Sets session to (open,closed)
         self:sv_set_session(tonumber(value))
-    elseif cmd == "setRAC" then -- Set Race to (Race setting)
+    elseif cmd == "setRAC" then -- Set Race status to (Race status (red,formation, yellow, green))
         self:sv_set_race(tonumber(value))
     elseif cmd == "resCAR" then -- RESETS driver (Driver ID)
         self:sv_reset_driver(tonumber(value))
+    elseif cmd == "sesLAP" then -- Sets session max laps
+        self:sv_set_session_laps(tonumber(value))
+    elseif cmd == "racLAP" then -- Sets race total laps
+        self:sv_set_race_laps(tonumber(value))
+    elseif cmd == "racDRA" then -- Sets race Draft
+        self:sv_edit_race_draft(tonumber(value))
+    elseif cmd == "racHAN" then -- Sets race handicap -- 0 to disable
+        self:sv_edit_race_handicap(tonumber(value))
+    elseif cmd == "setTIR" then -- enables/disables tire wear
+        self:sv_set_tire_wear(tonumber(value))
+    elseif cmd == "setFUE" then -- enables/disables fuel usage
+        self:sv_set_fuel_usage(tonumber(value))
+    elseif cmd == "edtTIR" then -- edits tire usage multiplier
+        self:sv_edit_tire_wear(tonumber(value))
+    elseif cmd == "edtFUE" then -- edits fuel usage multiplier
+        self:sv_edit_fuel_usage(tonumber(value))
+    elseif cmd == "resRAC" then -- Resets Race
+        self:sv_reset_race()
     end
+
 end
 
 function Control.sv_readAPI(self) -- Reads API instructions
@@ -3068,6 +3235,3 @@ function Control.client_onRaceMenuClose( self )
     --self.RaceMenu = sm.gui.createGuiFromLayout( "$CONTENT_"..MOD_UUID.."/Gui/Layouts/RaceMenu.layout",false )
 
 end
-
-
-
