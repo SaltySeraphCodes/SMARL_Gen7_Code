@@ -1910,7 +1910,12 @@ function Control.sv_exportRealTime(self) -- Returns all data necessary for realt
             place,
             timeSplit,
             isFocused,
-            speed
+            speed,
+            topSpeed
+            avgSpeed
+            s1,
+            s2,
+            s3,
         }
     ]]
     local realtimeOutput = {}
@@ -1934,7 +1939,8 @@ function Control.sv_exportRealTime(self) -- Returns all data necessary for realt
             else
                 data = {["id"]= (v.carData['metaData']["ID"] or v.id) , ["locX"]= v.location.x, [ "locY"]=v.location.y,
                 ["lastLap"]= v.lastLap, ["bestLap"]=v.bestLap, ["lapNum"]=v.currentLap, ["place"]=v.racePosition,
-                ["timeSplit"]= time_split, ["isFocused"]=isFocused, ["speed"]=v.speed}
+                ["timeSplit"]= time_split, ["isFocused"]=isFocused, ["speed"]=v.speed,["ts"]=v.topLapSpeed,["as"]=v.avgLapSpeed,
+                ["s1"]=v.sectorTimes[1], ["s2"]=v.sectorTimes[2], ["s3"]=v.sectorTimes[3]}
             end
 			table.insert(realtimeOutput,data)
 		end
@@ -2861,7 +2867,7 @@ function Control.exportSimplifyChain(self,nodeChain)
     local simpChain = {}
     --sm.log.info("simping node chain") -- TODO: make sure all seg IDs are consistance
     for k=1, #nodeChain do local v=nodeChain[k]
-        local newNode = {id = v.id, midX = v.mid.x, midY = v.mid.y, midZ = v.mid.z, width = v.width, }
+        local newNode = {id = v.id, midX = v.mid.x, midY = v.mid.y, midZ = v.mid.z, width = v.width, sid=v.sectorID}
         table.insert(simpChain,newNode)
     end
     return simpChain

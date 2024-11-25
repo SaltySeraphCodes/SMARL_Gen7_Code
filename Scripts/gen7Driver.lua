@@ -1487,20 +1487,23 @@ end
 function Driver.handleUpdateSector(self,newNode)
     if newNode and newNode.sectorID == nil then return end
     if newNode.sectorID ~= self.currentSector + 1 then
-        print(self.tagText,"bad secto changing",newNode.sectorID , self.currentSector )
+        --print(self.tagText,"bad secto changing",newNode.sectorID , self.currentSector )
         return
     end
-    if newNode.sectorID ~= self.currentSector and newNode.sectorID ~=1 then -- handle new sector but  only ssecctornodee +1
-        local time = CLOCK() - self.sectorStartTime 
+    local now = CLOCK()
+    if newNode.sectorID ~= self.currentSector and newNode.sectorID ~=1 then -- handle new sector but  only if not first sector
+        local time = now - self.sectorStartTime 
         self.sectorTimes[self.currentSector] = time
         if newNode.sectorID == 2 then
             self.sectorTimes[2] = 0 -- sep funct?
             self.sectorTimes[3] = 0
         end
-        self.sectorStartTime = CLOCK()
+        self.sectorStartTime = now
         self.currentSector = self.currentNode.sectorID
-    else
-
+        --if newNode.sectorID == 3 then
+            --print(self.tagText,"3startTime")
+            --self.sectorStartTime = now
+        --end
     end
 
 end
@@ -1654,19 +1657,23 @@ function Driver.updateCurrentNode(self) -- Finds nearest node to car and sets it
                     end
                 else
                     self:setCurrentNode(nextNode)
+                    self:handleUpdateSector(nextNode)
+
                 end
             else
                 --print(self.tagText,"car increment",closestNode.id,nextNode.id)
-                self:handleUpdateSector(nextNode)
                 self:setCurrentNode(closestNode) -- used to be next node
+                self:handleUpdateSector(nextNode)
+
             end
         end
         
     elseif nextNodeDist < curNodeDist then
         --print(self.tagText,"MoveForward?",self.currentNode.id,lastNode.id)
         self:setCurrentNode(nextNode) 
-        -- do sector check here
         self:handleUpdateSector(nextNode)
+
+        -- do sector check here
         if self.racing and self.speedControl ~= 0 and self.raceFinished == false then
             --print("speed back")
             self.speedControl = 0
@@ -1758,7 +1765,7 @@ function Driver.setCurrentNode(self,node)
         end
         -- crossCheck curSpeed and node Vmax
         self.currentSegment = node.segID
-        --print("Set new node",node.id)
+        --print(self.tagText,"Set new node",node.id)
         --print(self.totalNodes,#self.nodeChain)
     end
 end
@@ -3036,7 +3043,7 @@ function calculateCollisionMove(pointName,vhDif,opponent) -- move to global?
 end
 
 
-function Driver.newUpdateCollisionLayer(self)-- -- New updated collision layer
+function Driver.newUpdateCollisionLayer(self)-- -- New updated collision layer -- NOT DONE yet
     if self.carData == nil then return end -- not scanned
     --print(self.carData.carDimensions)
     if self.carData.carDimensions == nil then return end -- not scanned
@@ -3740,7 +3747,7 @@ end
 
 -- Updating methods (layers and awhat not) -- Server
 
-function Driver.updateCollisionLayer_deprecite(self) -- Collision avoidance layer (Local radar update and pass determination)
+function Driver.updateCollisionLayer(self) -- Collision avoidance layer (Local radar update and pass determination)
     if self.carData == nil then return end -- not scanned
     --print(self.carData.carDimensions)
     if self.carData.carDimensions == nil then return end -- not scanned
@@ -5930,8 +5937,9 @@ function Driver.checkLapCross(self) -- also sets racePOS -- will need to get upd
         self.lapStarted = now
         local split = 0
         -- finish sector
-        self.sectorTimes[3] = now - self.sectorStartTime
+        self.sectorTimes[3] =  now - self.sectorStartTime
         self.sectorStartTime = now
+        self.currentSector = 1 -- reset sector
 
         -- check if first car to cross
         if not self.raceControlError then -- TODO: crosscheck with race control by lap and crossover time
@@ -5988,6 +5996,7 @@ function Driver.checkLapCross(self) -- also sets racePOS -- will need to get upd
             local output = string.format("%26.26s",self.tagText) .. ": " .. "Pos: " .. string.format("%2.2s",self.racePosition).. " Lap: " .. self.currentLap .. " Split: " .. string.format("%6.3f",split) ..
                           " Last: " .. string.format("%.3f",lapTime) .. " Best: " .. string.format("%.3f",self.bestLap ) .. " Average: " .. string.format("%.3f",self.lapAverage) .. 
                           " | Tires: " .. string.format("%.2f",self.Tire_Health) .. " TDIF: " .. string.format("%.2f",tireDif) .. " Fuel: " .. string.format("%.2f",self.Fuel_Level) .. " FDIF: " .. string.format("%.2f",fuelDif)
+                          .. " | S1: " .. string.format("%.3f",self.sectorTimes[1]) .. " S2: " .. string.format("%.3f",self.sectorTimes[2]) .. " S3: " .. string.format("%.3f",self.sectorTimes[3])
             --print(self.id,self.racePosition,self.handicap,lapTime,split)
             sm.log.info(output)
 
@@ -6170,7 +6179,7 @@ function Driver.handleTireDegradation(self) -- decreases tire health based on an
     --print(self.tagText,aggressionMultiplier)
     --aggressionMultiplier = mathClamp(0.1,0.1,aggressionMultiplier)
     --print(self.tagText,aggressionMultiplier)
-    local decreaseRate = (self.speed * 1) * (angularSpeed * 1+aggressionMultiplier) / (10000-tireDecay)
+    local decreaseRate = (self.speed * 1) * (self.angularSpeed * 1+aggressionMultiplier) / (10000-tireDecay)
     self.Tire_Health = self.Tire_Health - decreaseRate
     if self.Tire_Health < 1 then
         if self.tireLimp == false then
@@ -6417,7 +6426,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     self:updateLocation()
     self:handleTireDegradation()
     self:handleFuelUsage()
-    
+    self:updateTelemetry()
     self.futureLook = self:calculateFutureTurn()
     self.trackPosition = self:calculateTrackPos()
     self.goalDirection = self:calculateGoalDirection()

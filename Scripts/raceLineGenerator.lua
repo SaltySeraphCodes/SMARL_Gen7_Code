@@ -78,7 +78,8 @@ function Generator.client_init( self )  -- Only do if server side???
     -- Other key bindings: NextCreateRotation  LiftUp  LiftDown ForceBuild Use
     self.onHover = false
     self.showSpeeds = false
-    self.showSegments = true
+    self.showSegments = false
+    self.showSectors = true
     self.started = 0
     self.globalTimer = 0
 	self.gotTick = false
@@ -120,7 +121,7 @@ function Generator.client_init( self )  -- Only do if server side???
     -- USER CONTROLABLE VARS:
     self.wallThreshold = 0.40
     self.wallPadding = WALL_PADDING -- = 5 US
-    self.debug =false  -- Debug flag -- REMEMBER TO TURN THIS OFF
+    self.debug =true  -- Debug flag -- REMEMBER TO TURN THIS OFF
     self.saveTrack = true -- whether to save the track to world -- remembet to turn on
     self.instantScan = true
     self.instantOptimize = false -- Scans and optimizes in one loop
@@ -369,6 +370,15 @@ function Generator.updateVisualization(self) -- moves/updates effects according 
                     end
                 end
 
+                if self.showSectors then
+                    if v.sectorID and v.sectorID ~= 0 then
+                        local colors = {sm.color.new("AAFF06FF"),sm.color.new("FF6622FF"),sm.color.new("5522FFFF")}
+                        local color = colors[v.sectorID]
+                        v.effect:setParameter( "Color", color )
+                    end
+                end
+
+
                 if v.id == self.nodeHovered then -- turn hovered node white (until changed??)
                     if v.hovered == false then  -- only run once
                         v.hovered = true
@@ -495,7 +505,7 @@ function Generator.generateEffect(self,location,color) -- Creates new effect at 
 end
 -----
 
-function Generator.generateMidNode(self,index,previousNode,location,inVector,distance,width,leftWall,rightWall,bank)
+function Generator.generateMidNode(self,index,previousNode,location,inVector,distance,width,leftWall,rightWall,bank,sector)
    -- print("making node",dirVector)
    -- TODO: upgrade to perpvector2
    -- TODO: remove righwallTop
@@ -506,7 +516,8 @@ function Generator.generateMidNode(self,index,previousNode,location,inVector,dis
     return {id = index, pos = location, outVector = nil, last = previousNode, inVector = inVector, force = nil, distance = distance, 
             perpVector = generatePerpVector(inVector), midPos = location, pitPos = nil, width = width, next = nil, effect = nil, 
             segType = nil, segID = nil, pinned = false, weight = 1, incline = 0, apex = 0, areaTrigger = nil, hovered = false,
-            leftWall = leftWall,rightWall = rightWall,leftWallTop = leftWallTop, rightWallTop = rightWallTop ,bank = bank} -- move effect?
+            leftWall = leftWall,rightWall = rightWall,leftWallTop = leftWallTop, rightWallTop = rightWallTop ,bank = bank,
+            sectorID = sector} -- move effect?
 end
 
 
@@ -1801,6 +1812,21 @@ function Generator.generateSegments(self) -- starts loading track segments, bett
     self:hardUpdateVisual()
 end
 
+
+
+function Generator.setSectorIDs(self)
+    print("setting sector IDs")
+    local totalNodes = #self.nodeChain
+    local sectorSplit = totalNodes / 3
+    --print(totalNodes,sectorSplit)
+    for i=1, totalNodes do 
+        local v = self.nodeChain[i]
+        local sector = math.ceil(v.id/sectorSplit)
+        v.sectorID = sector
+    end
+end
+
+
 function Generator.simplifyNodeChain(self) 
     local simpChain = {}
     --sm.log.info("simping node chain") -- TODO: make sure all seg IDs are consistance
@@ -1809,7 +1835,7 @@ function Generator.simplifyNodeChain(self)
         --sm.log.info(output) Possibly export into json for track transport
         local newNode = {id = v.id, distance = v.distance, location = v.pos, segID =v.segID, segType = v.segType.TYPE,
                          segCurve = v.segCurve, mid = v.midPos, pit = v.pitPos, width = v.width, perp = v.perpVector, 
-                         outVector = v.outVector,incline = v.incline, bank = v.bank } -- add race instead of location?-- Radius? Would define vMax here but car should calculate it instead
+                         outVector = v.outVector,incline = v.incline, bank = v.bank, sectorID = v.sectorID } -- add race instead of location?-- Radius? Would define vMax here but car should calculate it instead
         table.insert(simpChain,newNode)
     end
     --print("simpchain = ",simpChain)
@@ -1818,12 +1844,13 @@ end
 
 -- Saving and loading?
 function Generator.saveRacingLine(self) -- client Saves nodeChain, may freeze game --TODO: have ways for people to send me their nodes to make track SMAR certified, (send client json? send file?)
+    self:setSectorIDs() -- set sector IDs
     self.simpNodeChain = self:simplifyNodeChain()
     local data = {channel = TRACK_DATA, raceLine = true} -- Eventually have metaData too?
     self.network:sendToServer("sv_saveData",data)
     sm.gui.displayAlertText("Scan Complete: Track Saved")
-    print("distance?",self.totalDistance)
-    sm.gui.chatMessage("Scan Completed, Distance (SM units): " .. string.format("%.2f",tostring(self.totalDistance)))
+    --print("distance?",self.totalDistance)
+    sm.gui.chatMessage("\n Scan Completed, Distance (SM units): " .. string.format("%.2f",tostring(self.totalDistance)))
 
 end
 
@@ -1949,10 +1976,10 @@ end
 
 -- Working algorithm that is much better at pinning apex/turn efficient points
 function Generator.racifyLine(self)
-    local straightThreshold = 13 -- Minimum length of nodes a straight has to be
+    local straightThreshold = 10 -- Minimum length of nodes a straight has to be
     local nodeOffset = 1 -- number of nodes forward/backwards to pin (cannot be > straightLen/2) TODO; change so it only affects turn exit/entry individually
-    local shiftAmmount = 0.1   -- Maximum node pin shiftiging amound (>2)
-    local lockWeight = 10
+    local shiftAmmount = 0.05   -- Maximum node pin shiftiging amound (>2)
+    local lockWeight = 11
     local lastSegID = 0 -- start with segId
     local lastSegType = nil
     -- TODO: only racify when there curve is a medium or more
@@ -2380,7 +2407,7 @@ function Generator.optimizeRaceLine(self) -- {BETA} Will try to find fastest ave
 		self.totalDistance = 0
 		local startScanDir = (self.nodeSpline[2] - self.nodeSpline[1]):normalize()
 		local startMid, width,leftWall,rightWall,bank = self:getWallMidpoint(self.nodeSpline[1],startScanDir,1)
-		local startingNode = self:generateMidNode(self.p4ScanIndex,nil,startMid,startScanDir,0,width,leftWall,rightWall,bank)
+		local startingNode = self:generateMidNode(self.p4ScanIndex,nil,startMid,startScanDir,0,width,leftWall,rightWall,bank,1) -- first node is sector 1
 		startingNode.pos = self.nodeSpline[1] -- manually set point
         startingNode.pos.z = startMid.z -- adjust z value
         --print("put in starting node",startingNode.midPos,startingNode.pos)
@@ -2826,7 +2853,6 @@ function Generator.customQuickSmooth(self,ammount,startID,endID) -- only smooths
 end 
 
 
-
 function Generator.iterateScan(self)
 
     self.nodeIndex = self.nodeIndex + 1
@@ -2860,7 +2886,8 @@ function Generator.iterateScan(self)
     end
     --print(self.nodeIndex,"lastNode",lastNode.id)
     self.totalDistance = self.totalDistance + getDistance(lastNode.pos,nextLocation2)
-    local newNode = self:generateMidNode(self.nodeIndex,lastNode,nextLocation2,nextVector,self.totalDistance,width,leftWall,rightWall,bank)
+   
+    local newNode = self:generateMidNode(self.nodeIndex,lastNode,nextLocation2,nextVector,self.totalDistance,width,leftWall,rightWall,bank,0)
     --print("Incline vector",nextVector.z)
 
     if math.abs(nextVector.z) >0.05 then
