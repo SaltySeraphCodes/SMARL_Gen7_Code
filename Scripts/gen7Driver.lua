@@ -6129,7 +6129,7 @@ function Driver.checkFormationPos(self)
         local curPos = self.formationPos
         if v.id ~= self.id then -- not same
             if v.formationPos == curPos then
-                print("Formation collision")
+                --print("Formation collision")
                 self:sv_sendCommand({car = {self.id}, type = "set_formation_pos", value = 1})
             end
         end
@@ -6138,16 +6138,22 @@ end
 
 
 function Driver.handleFuelUsage(self) -- decreases fuel ammount based on RPM and spoiler angle? some ratio since increased angle creates more drag, requires more usage with lower gears
-    if getRaceControl() and getRaceControl().fuelUsageOn == false then return end
+    if getRaceControl() and getRaceControl().fuelUsageEnabled == false then return end
     if self.engine == nil then return end
     local usageRate = getRaceControl().fuelUsageMultiplier
     -- Steeper spoiler angle = increased drag = more fuel used
-    local dragCoeficient = 31 -- speed at which drag starts
+    local dragCoeficient = 30 -- speed at which drag starts
     local dragMultiplier = 1
     if self.speed > dragCoeficient then 
-        dragMultiplier = 1 + (self.speed - dragCoeficient)/1000
+        if self.drafting then -- decrease drag
+            dragMultiplier = 1 + (self.speed - dragCoeficient)/10000 -- reduce to nothing lol
+        else
+            dragMultiplier = 1 + (self.speed - dragCoeficient)/1000
+        end
     end
     local decreaseRate = (self.engine.curRPM/90000) + (self.speed * (ratioConversion(10,1,0.000001,0.0000013,self.Spoiler_Angle)* dragMultiplier)) * usageRate
+   
+
     self.Fuel_Level = self.Fuel_Level - (decreaseRate * usageRate)
     --print(self.tagText,self.engine.curRPM,self.speed,dragMultiplier,decreaseRate)
 
@@ -6168,13 +6174,13 @@ function Driver.handleFuelUsage(self) -- decreases fuel ammount based on RPM and
 end
 
 
-function Driver.handleTireDegradation(self) -- decreases tire health based on angular velocity and spoiler angle
-    if getRaceControl() and getRaceControl().tireDegradeOn == false then return end
+function Driver.handleTireWear(self) -- decreases tire health based on angular velocity and spoiler angle
+    if getRaceControl() and getRaceControl().tireWearEnabled == false then return end
     if self.Tire_Type then
     else
         return 
     end
-    local tireDecay = TIRE_TYPES[self.Tire_Type].DECAY * getRaceControl().tireDegradeMultiplier
+    local tireDecay = TIRE_TYPES[self.Tire_Type].DECAY * getRaceControl().tireWearMultiplier
     local aggressionMultiplier = ratioConversion(10,1,0.1,0.13,self.Spoiler_Angle)
     --print(self.tagText,aggressionMultiplier)
     --aggressionMultiplier = mathClamp(0.1,0.1,aggressionMultiplier)
@@ -6424,7 +6430,7 @@ function Driver.updateCarData(self) -- Updates all metadata car may need (server
     self:handleDownforceDetection()
 
     self:updateLocation()
-    self:handleTireDegradation()
+    self:handleTireWear()
     self:handleFuelUsage()
     self:updateTelemetry()
     self.futureLook = self:calculateFutureTurn()

@@ -332,9 +332,9 @@ function Control.server_init(self)
 
     -- Realism settings
     self.useTune = true -- whether to use tuning data or not?
-    self.tireWearEnabled = true -- whether to degrade tires
+    self.tireWearEnabled = false -- whether to degrade tires
     self.tireWearMultiplier = 1 
-    self.fuelUsageEnabled = true -- whether to use fuel
+    self.fuelUsageEnabled = false -- whether to use fuel
     self.fuelUsageMultiplier = 1
 
     RACE_CONTROL = self 
@@ -588,6 +588,7 @@ function Control.sv_racer_import_loop(self) -- Keeps tracks and imports racers w
         if result == true then
             table.remove(self.racerImportQue,1) -- pulls first in queue
         else
+            --print("waiting")
             -- waiting, possibly shift spawn points?
             -- Table insert alternative: t[#t+1] = i
         end
@@ -866,9 +867,9 @@ end
 
 function Control.sv_set_tire_wear(self,enabled)
     if enabled == 1 then
-        self.tireDegradeEnabled = true
+        self.tireWearEnabled = true
     else
-        self.tireDegradeEnabled = false
+        self.tireWearEnabled = false
     end
 end
 
@@ -1060,7 +1061,7 @@ function Control.setFormationPositions(self) -- sv sets all driver caution posit
             if driver ~= nil then
                 driver.formationPos = v.position
             else
-                print("missing",v.racer_name)
+                --print("missing",v.racer_name)
             end
         end 
     else
@@ -1078,7 +1079,7 @@ function Control.cl_resetRace(self) -- sends commands to all cars and then reset
     self.wPressed = false
     self.zoomIn = false
     self.zoomOut = false
-
+    self.currentLap = 0
     self.network:sendToServer("sv_resetRace")
     --self:client_onRefresh()
 end
@@ -2090,7 +2091,7 @@ function Control.sv_exportRealTime(self) -- Returns all data necessary for realt
                 data = {["id"]= (v.carData['metaData']["ID"] or v.id) , ["locX"]= v.location.x, [ "locY"]=v.location.y,
                 ["lastLap"]= v.lastLap, ["bestLap"]=v.bestLap, ["lapNum"]=v.currentLap, ["place"]=v.racePosition,
                 ["timeSplit"]= time_split, ["isFocused"]=isFocused, ["speed"]=v.speed,["ts"]=v.topLapSpeed,["as"]=v.avgLapSpeed,
-                ["s1"]=v.sectorTimes[1], ["s2"]=v.sectorTimes[2], ["s3"]=v.sectorTimes[3]}
+                ["st"]=v.sectorTimes, ['th']=v.Tire_Health, ['fl']=v.Fuel_Level}
             end
 			table.insert(realtimeOutput,data)
 		end
@@ -3092,8 +3093,8 @@ function Control.client_onTinker( self, character, state ) -- For manual exporti
             local a_league = {1 ,2 ,3 ,5 ,6 ,7 ,8 ,9 ,10,11,12,13,15,16,17,18}
             local b_league = {14,19,20,21,22,23,24,25,26,27,28,30,31,33,34,35}
             --self.network:sendToServer("sv_import_racers",b_league)
-            for i=0, #test_racers do 
-                local racerID = test_racers[i]
+            for i=1, #b_league do 
+                local racerID = b_league[i]
                 self.network:sendToServer("sv_add_racer_to_import_queue",racerID)
             end
         end
