@@ -9,7 +9,7 @@ import datetime
 # RACE SPECIFIC DATA
 RaceTitle = "Race 4"
 RaceLocation = "Road Scrapton"
-RaceFormat = " Qualifying" # TODO: Pull booliean from ['meta_data']['qualifying'] as ' Qualifying' or ''
+RaceFormat = "" # TODO: Pull booliean from ['meta_data']['qualifying'] as ' Qualifying' or ''
 SeasonID = "2" # which season it is to pull sheet data from Make Dynamic?
 RaceID = "8" # Make Dynamic?
 LeagueTitles = ["A League", "B League"] #TODO: maeke array that displays title based on it

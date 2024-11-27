@@ -287,7 +287,7 @@ function Control.server_init(self)
 
 
     -------------------- QUALIFYING SETUP -----------------
-    self.qualifying = true -- whether we are qualifying or not -- dynamic
+    self.qualifying = false -- whether we are qualifying or not -- dynamic
     self.qualifyingFlight = 1 -- which flight to store data as
     self.totalFlights = 1 -- choose how many flights there are (can automate but eh)
     -----------------------------------------------------
@@ -497,7 +497,7 @@ function Control.checkForClearTrack(self,nodeID) -- Checks for any cars within 5
     local clearFlag = true
     local clearThreshold = distance -- make dynamic?
     --local minNode = getNextItem(self.nodeChain,nodeID,-50)
-    local maxNode = getNextItem(self.nodeChain,nodeID,5)
+    local maxNode = getNextItem(self.nodeChain,nodeID,7)
     --print("MinNode",minNode.id)
     for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
         if not (v.stuck or v.rejoining) then -- If its not stuck
@@ -620,7 +620,7 @@ function Control.sv_import_racer(self,racer_id) -- uses reacer META ID
     -- Set location to first point after finish line
     local spawnLocation = sm.vec3.new(0,0,10)
     local spawnRotation = nil
-    local spawnNodeID = 5
+    local spawnNodeID = 4
     if self.nodeChain then
         local targetNode = self.nodeChain[spawnNodeID]
         if targetNode then

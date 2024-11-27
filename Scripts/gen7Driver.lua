@@ -353,7 +353,7 @@ function Driver.server_init( self )
     self.onLift = false -- not sure where to start this
     self.resetNode = nil
     self.carResetsEnabled = true -- whether to teleport car or not
-    self.debug = true
+    self.debug = false
 
     -- TUNING States
     self.allowTuning = true -- remember to turn off in production
@@ -504,6 +504,8 @@ function Driver.client_init(self)
 
     self.onHover = false
 
+    self.runEffects = false
+
     if self.carData['metaData'] ~= nil then
         local text = (self.carData['metaData'].Car_Name or '')
         self.tagText = (text or self.id)
@@ -535,6 +537,26 @@ function Driver.client_init(self)
     --print(#ALL_DRIVERS) -- dont give whole engine
 end
 
+
+function Driver.generateEffect(self,location,color) -- Creates new effect at param location
+    
+    local effect = sm.effect.createEffect("Loot - GlowItem")
+    effect:setParameter("uuid", sm.uuid.new("4a1b886b-913e-4aad-b5b6-6e41b0db23a6"))
+    effect:setScale(sm.vec3.new(0,0,0))
+    local color = (color or sm.color.new("AFAFAFFF"))
+    
+   -- local testUUID = sm.uuid.new("42c8e4fc-0c38-4aa8-80ea-1835dd982d7c")
+    --effect:setParameter( "uuid", testUUID) -- Eventually trade out to calculate from force
+    --effect:setParameter( "Color", color )
+    if location == nil then
+        effect:setPosition(sm.vec3.new(0,0,0)) -- remove too
+        effect:setParameter( "Color", sm.color.new("ff3333FF") )
+        return effect
+    end
+    effect:setPosition(location) -- remove too
+    effect:setParameter( "Color", color )
+    return effect
+end
 
 -- Soft reset, resets most values except those important for the middle of a race
 function Driver.sv_softReset(self)
@@ -3255,7 +3277,8 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         if self.caution or self.formation then 
             colThrottle = rampToGoal(-0.6,colThrottle,0.08)
         else
-            colThrottle = rampToGoal(-2,colThrottle,0.02)
+            --print("front emer while no pass")
+            colThrottle = rampToGoal(-1,colThrottle,0.002)
         end
         --print(self.tagText,"Close  Emergency Brake!!!",opponent.tagText,colThrottle,self.strategicThrottle)
     elseif oppFlags.pass and oppFlags.frontEmergency then-- If passing 
@@ -3263,6 +3286,7 @@ function Driver.processOppFlags(self,opponent,oppDict,colDict,colSteer,colThrott
         if self.caution or self.formation then 
             colThrottle = rampToGoal(1,colThrottle,0.001) 
         else
+            --print('front emr while pass')
             colThrottle = rampToGoal(-1,colThrottle,0.005) 
         end
         -- OR TODO: Maybe determine aggressive ness to decide what to do?
@@ -3484,7 +3508,7 @@ function Driver.processPassingDetection(self,opponent,oppDict)
                     self.passing.carID = opponent.id
                     oppFlags.pass = true
                 else -- If nowhere to go
-                    print(self.tagText," warning Uncertainty???")
+                    --print(self.tagText," warning Uncertainty???")
                 end
             end 
         end
@@ -3571,12 +3595,19 @@ function Driver.setOppFlags(self,opponent,oppDict,colDict)
     end
 
     if rearCol then
+        local center = self.shape.worldPosition 
+        local scanStartPos = center -  self.shape.at*self.carDimensions['rear']:length()
+        local behindDist = self.rearColDist
         if (rightCol and rightCol <0.5) or (leftCol and leftCol > -0.5) then
-            if rearCol > -0.5 then
-                if self.strategicThrottle < 1 and not self.raceFinished and self.racing then
-                    --print(self.tagText,"car behind Ram prevention",rearCol)
-                    self.strategicThrottle = 1
-                end
+            if rearCol > -0.5 then -- Double checks for cars close behind -- TODO: turn this into a flag
+                local backCastTable = sm.physics.multicast(self:generateBackCastTable())
+                if fullTableMatch(backCastTable,1,false) then
+                else
+                    if self.strategicThrottle < 0.9 then
+                        self.strategicThrottle = 0.9
+                        --print(self.tagText,"carbackCloseAdj")
+                    end
+                end            
             end
         end
         if rearCol < -2 then
@@ -6761,8 +6792,55 @@ function Driver.client_onClientDataUpdate(self,data)
     --self:sv_sendUserControl
 end
 
+function generateRayCast(startPoint,endPoint,mask)
+    return {['type']="ray",['startPoint']=startPoint,['endPoint']=endPoint,['radius']=1,['mask']=mask}
+end
+
+function Driver.generateBackCastTable(self) -- long way to do this but eh
+    local backCastTable = {}
+    local centerLocation = getCarCenter(self)
+    local center = self.shape.worldPosition -- off center really
+
+    local centerStart = centerLocation -  self.shape.at * (self.carDimensions['rear']:length()*1.1)
+    local centerEnd = centerStart -  self.shape.at * (self.carDimensions['rear']:length()*0.4)
+    
+
+    local leftStart = center -  self.shape.right*self.carDimensions['left']:length()  -  self.shape.at * (self.carDimensions['rear']:length()*1.1)
+    local leftEnd = leftStart - self.shape.at * (self.carDimensions['rear']:length()*0.4)
+    
+    local rightStart = center + self.shape.right*self.carDimensions['right']:length()  -  self.shape.at * (self.carDimensions['rear']:length()*1.1)
+    local rightEnd = rightStart - self.shape.at * (self.carDimensions['rear']:length()*0.4)
+
+    -- Only if testing clientside
+    --[[if self.runEffects == false then
+        self.runEffects = true
+        local effect = self:generateEffect(centerStart)
+        local effect2 =self:generateEffect(centerEnd ,sm.color.new("22ee44"))
+
+        local effect3 = self:generateEffect(leftStart)
+        local effect4 =self:generateEffect(leftEnd ,sm.color.new("22ee44"))
+
+        local effect5 = self:generateEffect(rightStart)
+        local effect6 =self:generateEffect(rightEnd ,sm.color.new("22ee44"))
+
+
+        effect:start()
+        effect2:start()
+        effect3:start()
+        effect4:start()
+        effect5:start()
+        effect6:start()
+    end]]
+    table.insert(backCastTable, generateRayCast(centerStart,centerEnd,sm.physics.filter.dynamicBody))
+    table.insert(backCastTable, generateRayCast(leftStart,leftEnd,sm.physics.filter.dynamicBody))
+    table.insert(backCastTable, generateRayCast(rightStart,rightEnd,sm.physics.filter.dynamicBody))
+    return backCastTable
+end
+
 function Driver.client_onFixedUpdate(self,timeStep)
 
+    -- debug testing
+   
     if self.showingVisuals then
         self:updateVisuals()
     end
