@@ -501,19 +501,19 @@ function Control.checkForClearTrack(self,nodeID) -- Checks for any cars within 5
     --print("MinNode",minNode.id)
     for k=1, #ALL_DRIVERS do local v=ALL_DRIVERS[k]
         if not (v.stuck or v.rejoining) then -- If its not stuck
-            --print('checking',v.speed,v.currentNode ~= nil)
+            print('checking',v.speed,v.currentNode ~= nil)
             if v.currentNode ~= nil and v.speed > 0 then 
                 local node = v.currentNode.id
                 local nodeDist = getNodeDistBackward(#self.nodeChain,maxNode.id,node)
                 if nodeDist < 35 then
-                    --print("not clear")
+                    print("not clear")
                     clearFlag = false
                 end
             else -- if ~= nil
                 if v.currentNode ~= nil and self.raceStatus == 0 then -- if all cars are stopped, dont spawn on top
                     local node = v.currentNode.id
                     local nodeDist = getNodeDistBackward(#self.nodeChain,maxNode.id,node)
-                    --print('checking2',nodeDist,self.raceStatus)
+                    print('checking2',nodeDist,self.raceStatus)
                     if nodeDist < 8 then
                         clearFlag = false
                     end
@@ -631,7 +631,7 @@ function Control.sv_import_racer(self,racer_id) -- uses reacer META ID
                 --print("waiting for clear track before spawn")
                 return false
             else
-                --print('Cledared for spawm',isClear)
+                print('Cledared for spawm',isClear)
             end
 
             spawnRotation = sm.vec3.getRotation(sm.vec3.new(-1,0,0),sm.vec3.new(targetNode.outVector.x,targetNode.outVector.y,0))
